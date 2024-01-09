@@ -29,14 +29,12 @@ int filter(const std::string input, const std::string &output){
 
     //After setting up the board, our next task is to extract the evaluation and game result of the position.
     int eval_delimiter = line.find(" | ") + 3;
-    int game_result_delimiter = line.find(" | ", eval_delimiter) + 3;
 
     int eval = atoi(line.substr(eval_delimiter, line.find(" | ", eval_delimiter) - eval_delimiter).c_str());
-    float game_result = atof(line.substr(game_result_delimiter).c_str());
 
     int multiplier = color == Colors::White ? 1 : -1;
 
-    if (eval * multiplier > -20 && (color == Colors::White ? game_result >= 0.5 : game_result <= 0.5) && mat(&board) * multiplier < -100){
+    if (eval * multiplier > -50 && mat(&board) * multiplier < -100){
       filtered_lines++;
       buffer_key += sprintf(buffer + buffer_key, "%s\n", line.c_str());
       if (buffer_key > 32668){
