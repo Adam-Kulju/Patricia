@@ -17,6 +17,11 @@ namespace Directions {
     constexpr int South = -16;
     constexpr int East = 1;
     constexpr int West = -1;
+    constexpr int Northeast = 17;
+    constexpr int Southeast = -15;
+    constexpr int Northwest = 15;
+    constexpr int Southwest = -17;
+    
 }
 struct board_info {
   unsigned char board[0x80];      // Stores the board itself
@@ -26,6 +31,8 @@ struct board_info {
   unsigned char kingpos[2]; // Stores King positions
   unsigned char epsquare;   // stores ep square
 };
+
+#define out_of_board(x) (x & 0x88)
 
 bool setfromfen(
     board_info *board,

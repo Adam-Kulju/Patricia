@@ -4,14 +4,77 @@
 
 #include "base.h"
 
-int mat(board_info *board){
-  int mat = 0, total_mat = 0;
-  int piece_values[5] = {100, 300, 300, 500, 900};
-  for (int i = 0; i < 5; i++){
-    mat += (board->material_count[Colors::White][i] - board->material_count[Colors::Black][i]) * piece_values[i];
-    total_mat += (board->material_count[Colors::White][i] + board->material_count[Colors::Black][i]) * piece_values[i];
-  }
-  return total_mat < 2500 ? 0 : mat;
+float danger_values[5] = {0.8, 2.2, 2, 3, 6};
+float defense_values[5] = {1, 1.1, 1.1, 1, 1.7};
+
+bool in_danger_white(board_info *board){
+
+    /*
+    --------
+    --------
+    --------
+    --------
+    --***---
+    --***---
+    -*****--
+    --*K*---  
+    */
+    int white_king = board->kingpos[Colors::White];
+    float danger_level = 0, attacks = 0;
+    int kingzones[16] = {white_king + Directions::Southwest, white_king + Directions::South, white_king + Directions::Southeast,
+                         white_king + Directions::West, white_king + Directions::East,
+
+                         white_king + Directions::Northwest + Directions::West, white_king + Directions::Northwest, white_king + Directions::North,
+                         white_king + Directions::Northeast, white_king + Directions::Northeast + Directions::East,
+
+                         white_king + Directions::North + Directions::Northwest, white_king + Directions::North + Directions::North, white_king + Directions::North + Directions::Northeast,
+                         white_king + Directions::North + Directions::North + Directions::Northwest, white_king + Directions::North + Directions::North + Directions::North,
+                         white_king + Directions::North + Directions::North + Directions::Northeast,
+                         };
+    for (int pos : kingzones){
+        if (out_of_board(pos)){
+            continue;
+        }
+        if (board->board[pos] % 2 == Colors::Black){                    //if we have a board index of 3, 5, etc. it's a black(enemy) piece
+            danger_level += danger_values[board->board[pos] / 2 - 1];
+            attacks += danger_values[board->board[pos] / 2 - 1];
+        }
+        else if (board->board[pos]){                                    //otherwise verify it's not blank (friendly piece)
+            danger_level -= defense_values[board->board[pos] / 2 - 1];
+        }
+    }
+    return (danger_level > 4 && attacks > 7);
+}
+
+bool in_danger_black(board_info *board){
+    int black_king = board->kingpos[Colors::Black];
+    float danger_level = 0, attacks = 0;
+    int kingzones[16] = {black_king + Directions::Northwest, black_king + Directions::North, black_king + Directions::Northeast,
+                         black_king + Directions::West, black_king + Directions::East,
+
+                         black_king + Directions::Southwest + Directions::West, black_king + Directions::Southwest, black_king + Directions::South,
+                         black_king + Directions::Southeast, black_king + Directions::Southeast + Directions::East,
+
+                         black_king + Directions::South + Directions::Southwest, black_king + Directions::South + Directions::South, black_king + Directions::South + Directions::Southeast,
+                         black_king + Directions::South + Directions::South + Directions::Southwest, black_king + Directions::South + Directions::South + Directions::South,
+                         black_king + Directions::South + Directions::South + Directions::Southeast,
+                         };
+    for (int pos : kingzones){
+        if (out_of_board(pos)){
+            continue;
+        }
+        if (board->board[pos]){
+            if (board->board[pos] % 2 == Colors::White){       //if we have a board index of 2, 4, etc and is not blank it's white(enemy)
+                danger_level += danger_values[board->board[pos] / 2 - 1];
+                attacks += danger_values[board->board[pos] / 2 - 1];
+            }
+            else{                                                           //else it's a friendly piece
+                danger_level -= defense_values[board->board[pos] / 2 - 1];
+            }
+        }
+ 
+    }
+    return (danger_level > 4 && attacks > 7);
 }
 
 
@@ -25,16 +88,7 @@ int filter(const std::string input, const std::string &output){
     board_info board;
     bool color = setfromfen(&board, line.c_str());
 
-    //After setting up the board, our next task is to extract the evaluation and game result of the position.
-    int eval_delimiter = line.find(" | ") + 3;
-    int game_result_delimiter = line.find(" | ", eval_delimiter) + 3;
-
-    int eval = atoi(line.substr(eval_delimiter, line.find(" | ", eval_delimiter) - eval_delimiter).c_str());
-    float game_result = atof(line.substr(game_result_delimiter).c_str());
-
-    int multiplier = color == Colors::White ? 1 : -1;
-
-    if (mat(&board) * multiplier < -100 && eval * multiplier > -20 && (color == Colors::White ? game_result >= 0.5 : game_result <= 0.5)){
+    if (in_danger_white(&board) || in_danger_black(&board)){
       filtered_lines++;
       fout << line << "\n";
     }
