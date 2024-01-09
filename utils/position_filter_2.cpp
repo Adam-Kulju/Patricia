@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <iostream>
 #include <fstream>
-#include "base.h"
 
+#include "base.h"
 
 int mat(board_info *board){
   int mat = 0, total_mat = 0;
@@ -52,4 +52,3 @@ int main(int argc, char *argv[]){
   filter(argv[1], argv[2]);
   return 0;
 }
-
