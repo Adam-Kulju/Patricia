@@ -2,6 +2,7 @@
 #define __base__
 #include <ctype.h>
 #include <stdlib.h>
+#include <string.h>
 namespace Colors{
     constexpr int White = 0;
     constexpr int Black = 1;
@@ -33,21 +34,17 @@ struct board_info {
 };
 
 #define out_of_board(x) (x & 0x88)
+#define get_rank(x) (x / 16)
+#define get_file(x) (x % 16)
 
 bool setfromfen(
     board_info *board,
     const char *fenstring) // Given an FEN, sets up the board to it.
 {
+  memset(board, 0, sizeof(board_info));
   int i = 7, n = 0;
   int fenkey = 0;
-  // Set default board parameters, edit them later on as we add pieces to the
-  // board/read more info from the FEN.
-  board->castling[Colors::White][0] = false, board->castling[Colors::Black][0] = false,
-  board->castling[Colors::White][1] = false, board->castling[Colors::Black][1] = false;
-  for (int i = 0; i < 5; i++) {
-    board->material_count[Colors::White][i] = 0;
-    board->material_count[Colors::Black][i] = 0;
-  }
+
   while (!isblank(fenstring[fenkey])) {
     if (fenstring[fenkey] == '/') // Go to the next rank down.
     {
@@ -57,10 +54,8 @@ bool setfromfen(
                                            // means there's three empty squares,
                                            // so we go past them
     {
-      for (int b = 0; b < atoi(&fenstring[fenkey]); b++) {
-        board->board[n + (i * 16)] = Pieces::Blank;
-        n++;
-      }
+      //printf("%c %i\n", fenstring[fenkey], fenstring[fenkey]);
+      n += fenstring[fenkey] - '0';
     } else // For each piece, add it to the board and add it to the material
            // count. If it's a king, update king position.
     {
@@ -122,11 +117,6 @@ bool setfromfen(
   board->rookstartpos[1][0] = 0x70,
   board->rookstartpos[1][1] = 0x77; // someday, I may supprt DFRC fen parsing,
                                     // but that day is not today.
-  for (int i = 0; i < 8; i++) {
-    for (int n = 8; n < 16; n++) {
-      board->board[i * 16 + n] = Pieces::Blank;
-    }
-  }
 
   while (isblank(fenstring[fenkey])) {
     fenkey++;

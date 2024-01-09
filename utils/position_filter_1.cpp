@@ -16,6 +16,8 @@ int mat(board_info *board){
 
 
 int filter(const std::string input, const std::string &output){
+  char buffer[32768];
+  int buffer_key = 0;
   std::ofstream fout(output);
   std::ifstream fin(input);
   std::string line;
@@ -34,9 +36,13 @@ int filter(const std::string input, const std::string &output){
 
     int multiplier = color == Colors::White ? 1 : -1;
 
-    if (mat(&board) * multiplier < -100 && eval * multiplier > -20 && (color == Colors::White ? game_result >= 0.5 : game_result <= 0.5)){
+    if (eval * multiplier > -20 && (color == Colors::White ? game_result >= 0.5 : game_result <= 0.5) && mat(&board) * multiplier < -100){
       filtered_lines++;
-      fout << line << "\n";
+      buffer_key += sprintf(buffer + buffer_key, "%s\n", line.c_str());
+      if (buffer_key > 32668){
+        fout << buffer;
+        buffer_key = 0;
+      }
     }
     
   }
@@ -49,7 +55,9 @@ int filter(const std::string input, const std::string &output){
 
 
 int main(int argc, char *argv[]){
+  clock_t a = clock();
   filter(argv[1], argv[2]);
+  printf("%f seconds\n", (float)(clock() - a) / CLOCKS_PER_SEC);
   return 0;
 }
 
