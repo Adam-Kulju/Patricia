@@ -4,24 +4,24 @@
 #include <stdlib.h>
 #include <string.h>
 namespace Colors{
-    constexpr int White = 0;
-    constexpr int Black = 1;
+    constexpr uint8_t White = 0;
+    constexpr uint8_t Black = 1;
 };
 namespace Pieces{
-    constexpr int Blank = 0; constexpr int WPawn = 2; constexpr int BPawn = 3;
-    constexpr int WKnight = 4; constexpr int BKnight = 5; constexpr int WBishop = 6;
-    constexpr int BBishop = 7; constexpr int WRook = 8; constexpr int BRook = 9; 
-    constexpr int WQueen = 10; constexpr int BQueen = 11; constexpr int WKing = 12; constexpr int BKing = 13;
+    constexpr uint8_t Blank = 0; constexpr uint8_t WPawn = 2; constexpr uint8_t BPawn = 3;
+    constexpr uint8_t WKnight = 4; constexpr uint8_t BKnight = 5; constexpr uint8_t WBishop = 6;
+    constexpr uint8_t BBishop = 7; constexpr uint8_t WRook = 8; constexpr uint8_t BRook = 9; 
+    constexpr uint8_t WQueen = 10; constexpr uint8_t BQueen = 11; constexpr uint8_t WKing = 12; constexpr uint8_t BKing = 13;
 };
 namespace Directions {
-    constexpr int North = 16;
-    constexpr int South = -16;
-    constexpr int East = 1;
-    constexpr int West = -1;
-    constexpr int Northeast = 17;
-    constexpr int Southeast = -15;
-    constexpr int Northwest = 15;
-    constexpr int Southwest = -17;
+    constexpr uint8_t North = 16;
+    constexpr uint8_t South = -16;
+    constexpr uint8_t East = 1;
+    constexpr uint8_t West = -1;
+    constexpr uint8_t Northeast = 17;
+    constexpr uint8_t Southeast = -15;
+    constexpr uint8_t Northwest = 15;
+    constexpr uint8_t Southwest = -17;
     
 }
 struct board_info {
@@ -36,6 +36,7 @@ struct board_info {
 #define out_of_board(x) (x & 0x88)
 #define get_rank(x) (x / 16)
 #define get_file(x) (x % 16)
+#define flip(x) (x ^ 112)
 
 bool setfromfen(
     board_info *board,
@@ -54,7 +55,7 @@ bool setfromfen(
                                            // means there's three empty squares,
                                            // so we go past them
     {
-      //printf("%c %i\n", fenstring[fenkey], fenstring[fenkey]);
+      //pruint8_tf("%c %i\n", fenstring[fenkey], fenstring[fenkey]);
       n += fenstring[fenkey] - '0';
     } else // For each piece, add it to the board and add it to the material
            // count. If it's a king, update king position.
@@ -121,7 +122,7 @@ bool setfromfen(
   while (isblank(fenstring[fenkey])) {
     fenkey++;
   }
-  int color = fenstring[fenkey++] == 'w' ? Colors::White : Colors::Black;
+  uint8_t color = fenstring[fenkey++] == 'w' ? Colors::White : Colors::Black;
 
   while (isblank(fenstring[fenkey])) {
     fenkey++;
