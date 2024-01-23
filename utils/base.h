@@ -14,14 +14,14 @@ namespace Pieces{
     constexpr uint8_t WQueen = 10; constexpr uint8_t BQueen = 11; constexpr uint8_t WKing = 12; constexpr uint8_t BKing = 13;
 };
 namespace Directions {
-    constexpr uint8_t North = 16;
-    constexpr uint8_t South = -16;
-    constexpr uint8_t East = 1;
-    constexpr uint8_t West = -1;
-    constexpr uint8_t Northeast = 17;
-    constexpr uint8_t Southeast = -15;
-    constexpr uint8_t Northwest = 15;
-    constexpr uint8_t Southwest = -17;
+    constexpr int8_t North = 16;
+    constexpr int8_t South = -16;
+    constexpr int8_t East = 1;
+    constexpr int8_t West = -1;
+    constexpr int8_t Northeast = 17;
+    constexpr int8_t Southeast = -15;
+    constexpr int8_t Northwest = 15;
+    constexpr int8_t Southwest = -17;
     
 }
 struct board_info {
