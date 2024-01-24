@@ -1,5 +1,5 @@
-//Development
-//Pieces on the first two ranks count as poorly developed (be7 can be strong later but isn't really now)
+//King mobility
+//a bad thing in the middlegame!
 
 #include <stdio.h>
 #include <iostream>
@@ -15,16 +15,6 @@ bool enough_mat(board_info *board){
   return total_mat > 4000 && board->material_count[Colors::White][4] && board->material_count[Colors::Black][4];
 }
 
-/*
-    --------
-    --------
-    --------
-    ------1-
-    -----121
-    -----222
-    -----1K1
-    --------
-*/
 int no_shelter(board_info *board, bool color){
     if (board->castling[color][0] || board->castling[color][1]){
         return 0;
