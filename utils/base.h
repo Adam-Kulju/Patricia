@@ -3,6 +3,7 @@
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 namespace Colors{
     constexpr uint8_t White = 0;
     constexpr uint8_t Black = 1;

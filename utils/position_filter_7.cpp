@@ -32,18 +32,18 @@ constexpr void set(){
     for (int i : STANDARD_TO_MAILBOX){
         for (int n : {i + Directions::Southwest, i + Directions::South, i + Directions::Southeast,
                         i + Directions::West, i + Directions::East,
-                        i + Directions::Northwest, i + Directions::North, i  }) {
+                        i + Directions::Northwest, i + Directions::North, i + Directions::Northeast}) {
                 KINGZONES[0][i][n] = 1;
                 KINGZONES[1][i][n] = 1;
         }
         if (i + 33 < 0x80) {
-        KINGZONES[0][i][i + 31] = 1, KINGZONES[0][i][i + 32] = 1,
-                          KINGZONES[0][i][i + 33] =
+        KINGZONES[0][i][i + Directions::North + Directions::Northwest] = 1, KINGZONES[0][i][i + Directions::North*2] = 1,
+                          KINGZONES[0][i][i + Directions::North + Directions::Northeast] =
                               1; // and 3 for advanced squares
         }
         if (i - 33 > 0x0) {
-        KINGZONES[1][i][i - 31] = 1, KINGZONES[1][i][i - 32] = 1,
-                          KINGZONES[1][i][i - 33] = 1;
+        KINGZONES[1][i][i + Directions::South + Directions::Southwest] = 1, KINGZONES[1][i][i + Directions::South * 2] = 1,
+                          KINGZONES[1][i][i + Directions::South + Directions::Southeast] = 1;
         }
     }
 }
