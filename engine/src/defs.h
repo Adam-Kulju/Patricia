@@ -35,11 +35,20 @@ constexpr int8_t Kingside = 1;
 constexpr int8_t Queenside = 0;
 } // namespace Sides
 
-typedef uint16_t Move;
+typedef uint32_t Move;
+/*The format of a move structure is:      from     to   promo
+                                         (<< 10)  (<< 2)
+                                        xxxxxxxx xxxxxxxx  xx
+                                        */
+
+struct MoveInfo {
+  Move move;
+  int score;
+};
 
 struct Position {
   uint8_t board[0x80];          // Stores the board itself
-  uint8_t material_count[2][5]; // Stores material
+  uint8_t material_count[10]; // Stores material
   bool castling_rights[2][2];
   uint8_t kingpos[2]; // Stores King positions
   uint8_t ep_square;  // stores ep square
@@ -60,12 +69,6 @@ struct ThreadInfo {
   GameHistory game_hist[1000];
 };
 
-#define out_of_board(x) (x & 0x88)
-#define get_rank(x) (x / 16)
-#define get_file(x) (x % 16)
-#define flip(x) (x ^ 112)
-#define get_color(x) (x & 1)
-
 constexpr int StandardToMailbox[64] = {
     0x0,  0x1,  0x2,  0x3,  0x4,  0x5,  0x6,  0x7,  0x10, 0x11, 0x12,
     0x13, 0x14, 0x15, 0x16, 0x17, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25,
@@ -74,16 +77,61 @@ constexpr int StandardToMailbox[64] = {
     0x54, 0x55, 0x56, 0x57, 0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66,
     0x67, 0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x76, 0x77};
 
-constexpr int8_t AttackRays[8] = {
-    Directions::East,      Directions::West,      Directions::South,
-    Directions::North,     Directions::Southeast, Directions::Southwest,
-    Directions::Northeast, Directions::Northwest};
+constexpr int MailboxToStandard_NNUE[0x80] = {
+    56, 57, 58, 59, 60, 61, 62, 63, 99, 99, 99, 99, 99, 99, 99, 99, 48, 49, 50,
+    51, 52, 53, 54, 55, 99, 99, 99, 99, 99, 99, 99, 99, 40, 41, 42, 43, 44, 45,
+    46, 47, 99, 99, 99, 99, 99, 99, 99, 99, 32, 33, 34, 35, 36, 37, 38, 39, 99,
+    99, 99, 99, 99, 99, 99, 99, 24, 25, 26, 27, 28, 29, 30, 31, 99, 99, 99, 99,
+    99, 99, 99, 99, 16, 17, 18, 19, 20, 21, 22, 23, 99, 99, 99, 99, 99, 99, 99,
+    99, 8,  9,  10, 11, 12, 13, 14, 15, 99, 99, 99, 99, 99, 99, 99, 99, 0,  1,
+    2,  3,  4,  5,  6,  7,  99, 99, 99, 99, 99, 99, 99, 99,
+};
+
+constexpr int MailboxToStandard[0x80] = {
+    0, 1, 2, 3, 4, 5, 6, 7, 99, 99, 99, 99, 99, 99, 99, 99,
+    8,  9,  10, 11, 12, 13, 14, 15, 99, 99, 99, 99, 99, 99, 99, 99,
+    16, 17, 18, 19, 20, 21, 22, 23, 99, 99, 99, 99, 99, 99, 99, 99, 
+    24, 25, 26, 27, 28, 29, 30, 31, 99, 99, 99, 99, 99, 99, 99, 99, 
+    32, 33, 34, 35, 36, 37, 38, 39, 99, 99, 99, 99, 99, 99, 99, 99,
+    40, 41, 42, 43, 44, 45, 46, 47, 99, 99, 99, 99, 99, 99, 99, 99, 
+    48, 49, 50, 51, 52, 53, 54, 55, 99, 99, 99, 99, 99, 99, 99, 99, 
+    56, 57, 58, 59, 60, 61, 62, 63, 99, 99, 99, 99, 99, 99, 99, 99,
+};
+
+constexpr int8_t AttackRays[8] = {Directions::East,      Directions::West,
+                                  Directions::South,     Directions::North,
+                                  Directions::Southeast, Directions::Southwest,
+                                  Directions::Northeast, Directions::Northwest};
 
 constexpr int8_t KnightAttacks[8] = {Directions::East * 2 + Directions::North,
-                                      Directions::East * 2 + Directions::South,
-                                      Directions::South * 2 + Directions::East,
-                                      Directions::South * 2 + Directions::West,
-                                      Directions::West * 2 + Directions::South,
-                                      Directions::West * 2 + Directions::North,
-                                      Directions::North * 2 + Directions::West,
-                                      Directions::North * 2 + Directions::East};
+                                     Directions::East * 2 + Directions::South,
+                                     Directions::South * 2 + Directions::East,
+                                     Directions::South * 2 + Directions::West,
+                                     Directions::West * 2 + Directions::South,
+                                     Directions::West * 2 + Directions::North,
+                                     Directions::North * 2 + Directions::West,
+                                     Directions::North * 2 + Directions::East};
+
+constexpr int8_t SliderAttacks[4][8] = {
+    {Directions::Southeast, Directions::Southwest, Directions::Northeast,
+     Directions::Northwest},
+    {Directions::East, Directions::West, Directions::South, Directions::North},
+    {Directions::East, Directions::West, Directions::South, Directions::North,
+     Directions::Southeast, Directions::Southwest, Directions::Northeast,
+     Directions::Northwest},
+    {Directions::East, Directions::West, Directions::South, Directions::North,
+     Directions::Southeast, Directions::Southwest, Directions::Northeast,
+     Directions::Northwest}};
+
+
+#define out_of_board(x) (x & 0x88)
+#define get_rank(x) (x / 16)
+#define get_file(x) (x % 16)
+#define flip(x) (x ^ 112)
+#define get_color(x) (x & 1)
+#define pack_move(from, to, promo) ((from << 10) + (to << 2) + promo)
+#define extract_from(move) (move >> 10)
+#define extract_to(move) ((move >> 2) & 127)
+#define extract_promo(move) (move & 3)
+#define friendly_square(color, piece) (piece && (piece & 1) == color)
+#define enemy_square(color, piece) (piece && (piece & 1) != color)
