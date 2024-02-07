@@ -151,7 +151,7 @@ void iterative_deepen(Position &position, ThreadInfo &thread_info) {
   uint64_t hash_key = calculate(position);
   thread_info.nodes = 0;
   thread_info.search_ply = 0;
-  for (int depth = 1; depth <= MaxSearchDepth; depth++) {
+  for (int depth = 1; depth <= 20; depth++) {
     int score = search(INT32_MIN, INT32_MAX, depth, position, thread_info);
 
     Move best_move = TT[hash_key & TT_mask].best_move;

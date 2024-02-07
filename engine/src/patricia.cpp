@@ -54,5 +54,7 @@ int main(void) {
             "8/5k2/8/8/3K4/4R3/8/8 w - - 0 1");
   print_board(position);
   iterative_deepen(position, *thread_info);
+
+  printf("Program is done now, this is in main function right before return statement, if it segfaults now it's not my fault :crabgrab:\n");
   return 0;
 }
