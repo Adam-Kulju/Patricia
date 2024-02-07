@@ -22,8 +22,9 @@ void ss_push(Position &position, ThreadInfo &thread_info, Move move,
       hash, move, position.board[extract_from(move)]};
 }
 
-void ss_pop(ThreadInfo &thread_info) {
+void ss_pop(ThreadInfo &thread_info, uint64_t hash) {
   thread_info.search_ply--, thread_info.game_ply--;
+  thread_info.zobrist_key = hash;
 }
 
 bool material_draw(Position &position) {
@@ -78,10 +79,10 @@ int search(int alpha, int beta, int depth, Position &position,
   if (depth <= 0) {
     return eval(position);
   }
-  bool root = !thread_info.search_ply, color = position.color,
-       raised_alpha = false;
+  int ply = thread_info.search_ply;
+  bool root = !ply, color = position.color, raised_alpha = false;
 
-  uint64_t hash = calculate(position);
+  uint64_t hash = thread_info.zobrist_key;
 
   if (!root && is_draw(position, thread_info, hash)) {
     return 2 - (thread_info.nodes & 3);
@@ -91,12 +92,12 @@ int search(int alpha, int beta, int depth, Position &position,
   int entry_type = EntryTypes::None, tt_score = ScoreNone;
 
   if (entry.position_key == get_hash_upper_bits(hash)) {
+   
     entry_type = entry.type, tt_score = entry.score;
-    if (tt_score > MateScore){
-        tt_score -= thread_info.search_ply;
-    }
-    else if (tt_score < -MateScore){
-        tt_score += thread_info.search_ply;
+    if (tt_score > MateScore) {
+      tt_score -= ply;
+    } else if (tt_score < -MateScore) {
+      tt_score += ply;
     }
     if (!root && entry.depth >= depth) {
       if ((entry_type == EntryTypes::Exact) ||
@@ -114,12 +115,12 @@ int search(int alpha, int beta, int depth, Position &position,
   for (int indx = 0; indx < num_moves; indx++) {
     Move move = moves[indx];
     Position moved_position = position;
-    if (make_move(moved_position, move)) {
+    if (make_move(moved_position, move, thread_info.zobrist_key)) {
       continue;
     }
     ss_push(position, thread_info, move, hash);
     int score = -search(-beta, -alpha, depth - 1, moved_position, thread_info);
-    ss_pop(thread_info);
+    ss_pop(thread_info, hash);
 
     if (score > best_score) {
       best_score = score;
@@ -136,25 +137,30 @@ int search(int alpha, int beta, int depth, Position &position,
 
   if (best_score == ScoreNone) {
     return attacks_square(position, position.kingpos[color], color ^ 1)
-               ? Mate + thread_info.search_ply
+               ? (Mate + ply)
                : 0;
   }
   entry_type = best_score >= beta ? EntryTypes::LBound
                : raised_alpha     ? EntryTypes::Exact
                                   : EntryTypes::UBound;
-  insert_entry(hash, depth, best_move, best_score, entry_type);
+
+  insert_entry(hash, depth, best_move,
+               best_score > MateScore    ? best_score + ply
+               : best_score < -MateScore ? best_score - ply
+                                         : best_score,
+               entry_type);
   return best_score;
 }
 
 void iterative_deepen(Position &position, ThreadInfo &thread_info) {
   thread_info.start_time = std::chrono::steady_clock::now();
-  uint64_t hash_key = calculate(position);
+  thread_info.zobrist_key = calculate(position);
   thread_info.nodes = 0;
   thread_info.search_ply = 0;
-  for (int depth = 1; depth <= 20; depth++) {
-    int score = search(INT32_MIN, INT32_MAX, depth, position, thread_info);
+  for (int depth = 1; depth <= 9; depth++) {
+    int score = search(Mate, -Mate, depth, position, thread_info);
 
-    Move best_move = TT[hash_key & TT_mask].best_move;
+    Move best_move = TT[thread_info.zobrist_key & TT_mask].best_move;
     auto now = std::chrono::steady_clock::now();
     auto time_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
                             now - thread_info.start_time)

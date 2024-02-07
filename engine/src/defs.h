@@ -163,7 +163,7 @@ constexpr int8_t SliderAttacks[4][8] = {
 #define enemy_square(color, piece) (piece && (piece & 1) != color)
 #define get_zobrist_key(piece, sq) (((piece - 2) * 64) + sq)
 #define get_hash_upper_bits(hash) (hash >> 32)
-#define get_hash_lower_bits(hash) (hash << 32)
+#define standard(mailbox) (MailboxToStandard[mailbox])
 
 constexpr int32_t side_index = 772;
 constexpr int32_t ep_index = 773;

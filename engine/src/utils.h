@@ -27,7 +27,7 @@ uint64_t calculate(Position position) {
   for (int indx : StandardToMailbox) {
     int piece = position.board[indx];
     if (piece) {
-      hash ^= zobrist_keys[get_zobrist_key(piece, MailboxToStandard[indx])];
+      hash ^= zobrist_keys[get_zobrist_key(piece, standard(indx))];
     }
   }
   if (position.color) {
@@ -37,7 +37,7 @@ uint64_t calculate(Position position) {
     hash ^= zobrist_keys[ep_index];
   }
   for (int indx = castling_index; indx < 778; indx++) {
-    if (position.castling_rights[indx < 776][indx & 1]) {
+    if (position.castling_rights[indx > 775][(indx & 1)]) {
       hash ^= zobrist_keys[indx];
     }
   }

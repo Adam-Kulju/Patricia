@@ -224,7 +224,8 @@ bool is_en_passant(Position &position, int from, int to) {
           to == position.ep_square);
 }
 
-int make_move(Position &position, Move move) {
+int make_move(Position &position, Move move, uint64_t &hash) {
+  uint64_t temp_hash = hash;
 
   position.halfmoves++;
   int from = extract_from(move), to = extract_to(move), color = position.color,
@@ -234,6 +235,8 @@ int make_move(Position &position, Move move) {
 
   // update material counts and 50 move rules for a capture
   if (position.board[to]) {
+    temp_hash ^=
+        zobrist_keys[get_zobrist_key(position.board[to], standard(to))];
     position.halfmoves = 0;
     position.material_count[position.board[to] - 2]--;
   }
@@ -242,18 +245,19 @@ int make_move(Position &position, Move move) {
   position.board[to] = position.board[from];
   position.board[from] = Pieces::Blank;
 
-  int piece = position.board[to] - color;
+  int piece_from = position.board[to] - color;
+  int piece_to = piece_from + color;
 
   // handle pawn moves; en passant, promotions, and double pawn pushes
 
-  if (piece == Pieces::WPawn) {
+  if (piece_from == Pieces::WPawn) {
     position.halfmoves = 0;
 
     // promotions
     if (get_rank(to) == (color ? 0 : 7)) {
-      int promo = extract_promo(move) * 2 + 4 + color;
-      position.board[to] = promo;
-      position.material_count[color]--, position.material_count[promo - 2]++;
+      piece_to = extract_promo(move) * 2 + 4 + color;
+      position.board[to] = piece_to;
+      position.material_count[color]--, position.material_count[piece_to - 2]++;
     }
 
     // double pawn push
@@ -265,27 +269,45 @@ int make_move(Position &position, Move move) {
     // en passant
     else if (to == position.ep_square) {
       position.material_count[opp_color]--;
-      position.board[to + (color ? Directions::North : Directions::South)] =
-          Pieces::Blank;
+      int captured = to + (color ? Directions::North : Directions::South);
+      temp_hash ^= zobrist_keys[get_zobrist_key(position.board[captured],
+                                                standard(captured))];
+      position.board[captured] = Pieces::Blank;
     }
   }
   // handle king moves and castling
 
-  else if (piece == Pieces::WKing) {
-    position.castling_rights[color][Sides::Queenside] = false,
-    position.castling_rights[color][Sides::Kingside] = false;
+  else if (piece_from == Pieces::WKing) {
+    if (position.castling_rights[color][Sides::Queenside]) {
+      temp_hash ^= zobrist_keys[castling_index + color * 2 + Sides::Queenside];
+      position.castling_rights[color][Sides::Queenside] = false;
+    }
+
+    if (position.castling_rights[color][Sides::Kingside]) {
+      temp_hash ^= zobrist_keys[castling_index + color * 2 + Sides::Kingside];
+      position.castling_rights[color][Sides::Kingside] = false;
+    }
+
     position.kingpos[color] = to;
+
+    int converted_rank = standard(base_rank);
 
     // kingside castle
     if (to == from + Directions::East + Directions::East) {
       position.board[base_rank + 5] = position.board[base_rank + 7];
       position.board[base_rank + 7] = Pieces::Blank;
+      temp_hash ^=
+          zobrist_keys[get_zobrist_key(Pieces::WRook + color, converted_rank + 5)] ^
+          zobrist_keys[get_zobrist_key(Pieces::WRook + color, converted_rank + 7)];
     }
 
     // queenside castle
     else if (to == from + Directions::West + Directions::West) {
       position.board[base_rank + 3] = position.board[base_rank];
       position.board[base_rank] = Pieces::Blank;
+      temp_hash ^=
+          zobrist_keys[get_zobrist_key(Pieces::WRook + color, converted_rank + 3)] ^
+          zobrist_keys[get_zobrist_key(Pieces::WRook + color, converted_rank)];
     }
   }
 
@@ -293,20 +315,40 @@ int make_move(Position &position, Move move) {
   // side to false, because if it's not a rook it means either the rook left
   // that square or the king left its original square.
   if (from == base_rank || from == base_rank + 7) {
-    position.castling_rights[color][get_file(from) < 4 ? Sides::Queenside
-                                                       : Sides::Kingside] =
-        false;
+    int side = get_file(from) < 4 ? Sides::Queenside : Sides::Kingside;
+    if (position.castling_rights[color][side]) {
+      position.castling_rights[color][side] = false;
+      temp_hash ^= zobrist_keys[castling_index + color * 2 + side];
+    }
   }
   // If we've moved a piece onto one of the opponent's starting rook square, set
   // their castling to false, because either we just captured it, the rook
   // already moved, or the opposing king moved.
   else if (to == flip_sq(base_rank) || to == flip_sq(base_rank + 7)) {
-
-    position.castling_rights[opp_color][get_file(to) < 4 ? Sides::Queenside
-                                                         : Sides::Kingside] =
-        false;
+    int side = get_file(to) < 4 ? Sides::Queenside : Sides::Kingside;
+    if (position.castling_rights[opp_color][side]) {
+      position.castling_rights[opp_color][side] = false;
+      temp_hash ^= zobrist_keys[castling_index + opp_color * 2 + side];
+    }
   }
+
+  temp_hash ^=
+      zobrist_keys[get_zobrist_key(piece_from + color, standard(from))];
+  temp_hash ^= zobrist_keys[get_zobrist_key(piece_to, standard(to))];
+  temp_hash ^= zobrist_keys[side_index];
+
   position.color ^= 1;
+
+  if ((position.ep_square == 255) ^
+      (ep_square ==
+       255)) { // has the position's ability to perform en passant been changed?
+    temp_hash ^= zobrist_keys[ep_index];
+  }
   position.ep_square = ep_square;
-  return attacks_square(position, position.kingpos[color], opp_color);
+  if (attacks_square(position, position.kingpos[color], opp_color)) {
+    return 1;
+  } else {
+    hash = temp_hash;
+    return 0;
+  }
 }

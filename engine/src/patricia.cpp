@@ -20,7 +20,8 @@ uint64_t perft(int depth, Position position,
        i++) // Loop through all of the moves, skipping illegal ones.
   {
     Position new_position = position;
-    if (make_move(new_position, list[i])) {
+    uint64_t temp = 0;
+    if (make_move(new_position, list[i], temp)) {
       continue;
     }
 
@@ -51,10 +52,8 @@ int main(void) {
   Position position;
   std::unique_ptr<ThreadInfo> thread_info(new ThreadInfo);
   set_board(position, *thread_info,
-            "8/5k2/8/8/3K4/4R3/8/8 w - - 0 1");
+            "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
   print_board(position);
   iterative_deepen(position, *thread_info);
-
-  printf("Program is done now, this is in main function right before return statement, if it segfaults now it's not my fault :crabgrab:\n");
   return 0;
 }
