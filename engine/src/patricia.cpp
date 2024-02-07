@@ -1,5 +1,9 @@
-#include "board.h"
+#include "position.h"
+#include "search.h"
+#include "movegen.h"
+#include "utils.h"
 #include <stdio.h>
+#include <memory>
 
 uint64_t perft(int depth, Position position,
                bool first) // Performs a perft search to the desired depth,
@@ -7,6 +11,7 @@ uint64_t perft(int depth, Position position,
 {
   if (!depth) {
     return 1; // a terminal node
+  } else if (first) {
   }
   Move list[216];
   uint64_t l = 0;
@@ -15,7 +20,7 @@ uint64_t perft(int depth, Position position,
        i++) // Loop through all of the moves, skipping illegal ones.
   {
     Position new_position = position;
-    if (move(new_position, list[i])) {
+    if (make_move(new_position, list[i])) {
       continue;
     }
 
@@ -30,13 +35,24 @@ uint64_t perft(int depth, Position position,
 }
 
 int main(void) {
+  if (0) {
+    Position position;
+    std::unique_ptr<ThreadInfo> thread_info(new ThreadInfo);
+    set_board(position, *thread_info,
+              "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+    print_board(position);
+    clock_t start = clock();
+    uint64_t p = perft(6, position, true);
+    printf("%lu nodes %lu nps\n", p,
+           (uint64_t)(p / ((clock() - start) / (float)CLOCKS_PER_SEC)));
+    exit(0);
+  }
+  clear_TT();
   Position position;
-  ThreadInfo thread_info;
-  set_board(position, thread_info,
-            "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+  std::unique_ptr<ThreadInfo> thread_info(new ThreadInfo);
+  set_board(position, *thread_info,
+            "8/5k2/8/8/3K4/4R3/8/8 w - - 0 1");
   print_board(position);
-  clock_t start = clock();
-  uint64_t p = perft(6, position, true);
-  printf("%lu nodes %lu nps\n", p, (uint64_t)(p / ((clock() - start) / (float)CLOCKS_PER_SEC)) );
+  iterative_deepen(position, *thread_info);
   return 0;
 }
