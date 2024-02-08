@@ -4,7 +4,9 @@
 #include <ctype.h>
 #include <sstream>
 
-std::string internal_to_uci(Position position, Move move) {
+std::string
+internal_to_uci(Position position,
+                Move move) { // Converts an internal move into a uci move.
   int from = extract_from(move), to = extract_to(move),
       promo = extract_promo(move);
   std::string uci = "     ";
@@ -18,7 +20,8 @@ std::string internal_to_uci(Position position, Move move) {
   return uci;
 }
 
-void print_board(Position position) {
+void print_board(
+    Position position) { // Prints the board. Very helpful for debugging.
   for (int i = 0x70; i >= 0;) {
     printf("+---+---+---+---+---+---+---+---+\n");
     for (int n = i; n != i + 8; n++) {
@@ -75,7 +78,8 @@ void print_board(Position position) {
   printf("+---+---+---+---+---+---+---+---+\n\n");
 }
 
-void set_board(Position &position, ThreadInfo &thread_info, std::string f) {
+void set_board(Position &position, ThreadInfo &thread_info,
+               std::string f) { // Sets the board to a given fen.
   memset(&position, 0, sizeof(Position));
   std::istringstream fen(f);
   std::string fen_pos;
@@ -83,8 +87,11 @@ void set_board(Position &position, ThreadInfo &thread_info, std::string f) {
   int indx = 0;
   for (int i = 0x70; i >= 0 && fen_pos[indx] != '\0'; i++, indx++) {
     if (fen_pos[indx] == '/') {
-      i -= 0x19; // this means we've hit 0x18 and need to subtract 0x19 so that
-                 // the next iteration of the loop will land on 0x0
+      i -= 0x19; // the '/' denotes that we've reached the end of the file. If
+                 // we're on the second file, our index is going to be 0x18.
+                 // This needs to be at 0 next iteration for the first rank to
+                 // be set up,
+                 // so we subtract 0x19 and then the loop adds 1.
     } else if (isdigit(fen_pos[indx])) {
       i += fen_pos[indx] - '1';
     } else {
@@ -146,7 +153,7 @@ void set_board(Position &position, ThreadInfo &thread_info, std::string f) {
 
   std::string color;
   fen >> color;
-  if (color[0] == 'w') {
+  if (color[0] == 'w') { // Set color
     position.color = Colors::White;
   } else {
     position.color = Colors::Black;
@@ -156,14 +163,14 @@ void set_board(Position &position, ThreadInfo &thread_info, std::string f) {
   fen >> castling_rights;
 
   indx = 0;
-  for (char rights : "KQkq") {
+  for (char rights : "KQkq") { // Set castling rights
     if (castling_rights.find(rights) != std::string::npos) {
       position.castling_rights[indx > 1][!(indx % 2)] = true;
     }
     indx++;
   }
 
-  std::string ep_square;
+  std::string ep_square; // Set en passant square
   fen >> ep_square;
   if (ep_square[0] == '-') {
     position.ep_square = 255;
@@ -178,8 +185,10 @@ void set_board(Position &position, ThreadInfo &thread_info, std::string f) {
   thread_info.game_ply = 0;
 }
 
-bool attacks_square(Position position, int sq, int color) {
+bool attacks_square(Position position, int sq,
+                    int color) { // Do we attack the square at position "sq"?
   int opp_color = color ^ 1, indx = -1;
+
   for (int dirs : AttackRays) {
     indx++;
     int temp_pos = sq + dirs;
@@ -197,9 +206,14 @@ bool attacks_square(Position position, int sq, int color) {
                       // needing to account for color.
 
       if (piece == Pieces::WQueen || (piece == Pieces::WRook && indx < 4) ||
-          (piece == Pieces::WBishop && indx > 3)) {
+          (piece == Pieces::WBishop &&
+           indx > 3)) { // A queen attack is a check from every direction, rooks
+                        // and bishops only from orthogonal/diagonal directions
+                        // respectively.
         return true;
       } else if (piece == Pieces::WPawn) {
+        // Pawns and kings are only attackers if they're right next to the
+        // square. Pawns additionally have to be on the right vector.
         if (temp_pos == sq + dirs &&
             (color ? (indx > 5) : (indx == 4 || indx == 5))) {
           return true;
@@ -210,7 +224,7 @@ bool attacks_square(Position position, int sq, int color) {
       break;
     }
 
-    temp_pos = sq + KnightAttacks[indx];
+    temp_pos = sq + KnightAttacks[indx]; // Check for knight attacks
     if (!out_of_board(temp_pos) &&
         position.board[temp_pos] - color == Pieces::WKnight) {
       return true;
@@ -219,12 +233,19 @@ bool attacks_square(Position position, int sq, int color) {
   return false;
 }
 
-bool is_en_passant(Position &position, int from, int to) {
-  return (position.board[from] - position.color == Pieces::WPawn &&
-          to == position.ep_square);
+bool is_cap(Position &position, Move move) {
+  int to = extract_to(move);
+  return (position.board[to] ||
+          (to == position.ep_square && position.board[extract_from(move)] ==
+                                           Pieces::WPawn + position.color));
 }
 
-int make_move(Position &position, Move move, uint64_t &hash) {
+bool is_queen_promo(Move move){
+  return extract_promo(move) == 3;
+}
+
+int make_move(Position &position, Move move,
+              uint64_t &hash) { // Perform a move on the board.
   uint64_t temp_hash = hash;
 
   position.halfmoves++;
@@ -235,8 +256,9 @@ int make_move(Position &position, Move move, uint64_t &hash) {
 
   // update material counts and 50 move rules for a capture
   if (position.board[to]) {
-    temp_hash ^=
-        zobrist_keys[get_zobrist_key(position.board[to], standard(to))];
+    temp_hash ^= zobrist_keys[get_zobrist_key(
+        position.board[to],
+        standard(to))]; // Update hash key for the piece that was taken
     position.halfmoves = 0;
     position.material_count[position.board[to] - 2]--;
   }
@@ -270,14 +292,17 @@ int make_move(Position &position, Move move, uint64_t &hash) {
     else if (to == position.ep_square) {
       position.material_count[opp_color]--;
       int captured = to + (color ? Directions::North : Directions::South);
-      temp_hash ^= zobrist_keys[get_zobrist_key(position.board[captured],
-                                                standard(captured))];
+      temp_hash ^= zobrist_keys[get_zobrist_key(
+          position.board[captured],
+          standard(captured))]; // Update hash key for the piece that was taken
+                                // (not covered above)
       position.board[captured] = Pieces::Blank;
     }
   }
   // handle king moves and castling
 
-  else if (piece_from == Pieces::WKing) {
+  else if (piece_from ==
+           Pieces::WKing) { // If the king moves, castling rights are gone.
     if (position.castling_rights[color][Sides::Queenside]) {
       temp_hash ^= zobrist_keys[castling_index + color * 2 + Sides::Queenside];
       position.castling_rights[color][Sides::Queenside] = false;
@@ -296,9 +321,10 @@ int make_move(Position &position, Move move, uint64_t &hash) {
     if (to == from + Directions::East + Directions::East) {
       position.board[base_rank + 5] = position.board[base_rank + 7];
       position.board[base_rank + 7] = Pieces::Blank;
-      temp_hash ^=
-          zobrist_keys[get_zobrist_key(Pieces::WRook + color, converted_rank + 5)] ^
-          zobrist_keys[get_zobrist_key(Pieces::WRook + color, converted_rank + 7)];
+      temp_hash ^= zobrist_keys[get_zobrist_key(Pieces::WRook + color,
+                                                converted_rank + 5)] ^
+                   zobrist_keys[get_zobrist_key(Pieces::WRook + color,
+                                                converted_rank + 7)];
     }
 
     // queenside castle
@@ -306,7 +332,8 @@ int make_move(Position &position, Move move, uint64_t &hash) {
       position.board[base_rank + 3] = position.board[base_rank];
       position.board[base_rank] = Pieces::Blank;
       temp_hash ^=
-          zobrist_keys[get_zobrist_key(Pieces::WRook + color, converted_rank + 3)] ^
+          zobrist_keys[get_zobrist_key(Pieces::WRook + color,
+                                       converted_rank + 3)] ^
           zobrist_keys[get_zobrist_key(Pieces::WRook + color, converted_rank)];
     }
   }
@@ -332,6 +359,7 @@ int make_move(Position &position, Move move, uint64_t &hash) {
     }
   }
 
+  // Update hash key for piece that was moved and color
   temp_hash ^=
       zobrist_keys[get_zobrist_key(piece_from + color, standard(from))];
   temp_hash ^= zobrist_keys[get_zobrist_key(piece_to, standard(to))];

@@ -80,7 +80,10 @@ int search(int alpha, int beta, int depth, Position &position,
     return eval(position);
   }
   int ply = thread_info.search_ply;
+
   bool root = !ply, color = position.color, raised_alpha = false;
+
+  Move best_move = MoveNone;
 
   uint64_t hash = thread_info.zobrist_key;
 
@@ -89,11 +92,11 @@ int search(int alpha, int beta, int depth, Position &position,
   }
 
   TTEntry entry = TT[hash & TT_mask];
-  int entry_type = EntryTypes::None, tt_score = ScoreNone;
+  int entry_type = EntryTypes::None, tt_score = ScoreNone, tt_move = MoveNone;
 
   if (entry.position_key == get_hash_upper_bits(hash)) {
-   
-    entry_type = entry.type, tt_score = entry.score;
+
+    entry_type = entry.type, tt_score = entry.score, tt_move = entry.best_move;
     if (tt_score > MateScore) {
       tt_score -= ply;
     } else if (tt_score < -MateScore) {
@@ -108,12 +111,14 @@ int search(int alpha, int beta, int depth, Position &position,
     }
   }
 
-  Move moves[ListSize];
-  int num_moves = movegen(position, moves), best_score = ScoreNone;
-  Move best_move = MoveNone;
+  MoveInfo moves;
+  int num_moves = movegen(position, moves.moves), best_score = ScoreNone;
+  score_moves(position, moves, tt_move, num_moves);
 
   for (int indx = 0; indx < num_moves; indx++) {
-    Move move = moves[indx];
+    Move move = get_next_move(moves.moves, moves.scores, indx, num_moves);
+    int move_score = moves.scores[indx];
+
     Position moved_position = position;
     if (make_move(moved_position, move, thread_info.zobrist_key)) {
       continue;
@@ -157,7 +162,7 @@ void iterative_deepen(Position &position, ThreadInfo &thread_info) {
   thread_info.zobrist_key = calculate(position);
   thread_info.nodes = 0;
   thread_info.search_ply = 0;
-  for (int depth = 1; depth <= 9; depth++) {
+  for (int depth = 1; depth <= 10; depth++) {
     int score = search(Mate, -Mate, depth, position, thread_info);
 
     Move best_move = TT[thread_info.zobrist_key & TT_mask].best_move;

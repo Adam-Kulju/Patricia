@@ -1,6 +1,6 @@
 #pragma once
-#include <stdint.h>
 #include <chrono>
+#include <stdint.h>
 
 namespace Colors {
 constexpr uint8_t White = 0;
@@ -43,13 +43,21 @@ constexpr uint8_t LBound = 2;
 constexpr uint8_t Exact = 3;
 } // namespace EntryTypes
 
+
+namespace Promos {
+  constexpr uint8_t Knight = 0;
+  constexpr uint8_t Bishop = 1;
+  constexpr uint8_t Rook = 2;
+  constexpr uint8_t Queen = 3;
+}
+
 constexpr int16_t ListSize = 216;
 constexpr int16_t GameSize = 2000;
 constexpr int32_t ScoreNone = INT32_MIN;
 constexpr int32_t Mate = -100000;
 constexpr int32_t MateScore = 80000;
 typedef uint32_t Move;
-/*The format of a move structure is:      from     to   promo
+/*The format of a move structure is:      from     to      promo
                                          (<< 10)  (<< 2)
                                         xxxxxxxx xxxxxxxx  xx
                                         */
@@ -57,55 +65,61 @@ typedef uint32_t Move;
 constexpr Move MoveNone = 0;
 
 struct MoveInfo {
-  Move move;
-  int score;
+  Move moves[ListSize];
+  int scores[ListSize];
 };
 
 struct Position {
   uint8_t board[0x80];        // Stores the board itself
   uint8_t material_count[10]; // Stores material
-  bool castling_rights[2][2];
-  uint8_t kingpos[2]; // Stores King positions
-  uint8_t ep_square;  // stores ep square
-  bool color;         // whose side to move
+  bool castling_rights[2][2]; // castling rights
+  uint8_t kingpos[2];         // Stores King positions
+  uint8_t ep_square;          // stores ep square
+  bool color;                 // whose side to move
   uint8_t halfmoves;
 };
 
-struct GameHistory {
-  uint64_t position_key;
-  Move played_move;
-  uint8_t piece_moved;
+struct GameHistory { // keeps the state of the board at a particular point in
+                     // the game
+  uint64_t position_key; // Hash key of the position at the time
+  Move played_move;      // The move that was played
+  uint8_t piece_moved; // The piece that was moved (will be useful for histories
+                       // later)
 };
 
 struct ThreadInfo {
-  uint64_t zobrist_key;
-  uint16_t thread_id;
-  GameHistory game_hist[GameSize];
-  uint16_t game_ply;
-  uint16_t search_ply;
-  uint64_t nodes;
-  std::chrono::_V2::steady_clock::time_point start_time;
+  uint64_t zobrist_key; // hash key of the position we're currently on
+  uint16_t thread_id;   // ID of the thread
+  GameHistory game_hist[GameSize]; // all positions from earlier in the game
+  uint16_t game_ply;               // how far we're into the game
+  uint16_t search_ply;             // depth that we are in the search tree
+  uint64_t nodes;                  // Total nodes searched so far this search
+  std::chrono::_V2::steady_clock::time_point
+      start_time; // Start time of the search
 };
 
 constexpr int MaxSearchDepth = 127;
 
 struct TTEntry {
   uint32_t position_key; // The upper 32 bits of the hash key are stored
-  uint8_t depth;
-  Move best_move;
-  int32_t score;
-  uint8_t type;
+  uint8_t depth;         // Depth that the entry was searched to
+  Move best_move;        // Best move in the position
+  int32_t score;         // Score of the position
+  uint8_t type;          // entry type
 };
 
-constexpr int StandardToMailbox[64] = {
-    0x0,  0x1,  0x2,  0x3,  0x4,  0x5,  0x6,  0x7,  0x10, 0x11, 0x12,
-    0x13, 0x14, 0x15, 0x16, 0x17, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25,
-    0x26, 0x27, 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x40,
-    0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x50, 0x51, 0x52, 0x53,
-    0x54, 0x55, 0x56, 0x57, 0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66,
-    0x67, 0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x76, 0x77};
+constexpr int StandardToMailbox[64] =
+    { // Used to convert standard board position into mailbox position
+        0x0,  0x1,  0x2,  0x3,  0x4,  0x5,  0x6,  0x7,  0x10, 0x11, 0x12,
+        0x13, 0x14, 0x15, 0x16, 0x17, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25,
+        0x26, 0x27, 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x40,
+        0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x50, 0x51, 0x52, 0x53,
+        0x54, 0x55, 0x56, 0x57, 0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66,
+        0x67, 0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x76, 0x77};
 
 constexpr int MailboxToStandard_NNUE[0x80] = {
+    // Needed for NNUE inference because trainers use 0 = a8, while my board has
+    // 0 = a1.
     56, 57, 58, 59, 60, 61, 62, 63, 99, 99, 99, 99, 99, 99, 99, 99, 48, 49, 50,
     51, 52, 53, 54, 55, 99, 99, 99, 99, 99, 99, 99, 99, 40, 41, 42, 43, 44, 45,
     46, 47, 99, 99, 99, 99, 99, 99, 99, 99, 32, 33, 34, 35, 36, 37, 38, 39, 99,
@@ -116,6 +130,8 @@ constexpr int MailboxToStandard_NNUE[0x80] = {
 };
 
 constexpr int MailboxToStandard[0x80] = {
+    // Used to convert mailbox position into standard position, useful for hash
+    // keys etc.
     0,  1,  2,  3,  4,  5,  6,  7,  99, 99, 99, 99, 99, 99, 99, 99, 8,  9,  10,
     11, 12, 13, 14, 15, 99, 99, 99, 99, 99, 99, 99, 99, 16, 17, 18, 19, 20, 21,
     22, 23, 99, 99, 99, 99, 99, 99, 99, 99, 24, 25, 26, 27, 28, 29, 30, 31, 99,
@@ -125,30 +141,38 @@ constexpr int MailboxToStandard[0x80] = {
     58, 59, 60, 61, 62, 63, 99, 99, 99, 99, 99, 99, 99, 99,
 };
 
-constexpr int8_t AttackRays[8] = {Directions::East,      Directions::West,
-                                  Directions::South,     Directions::North,
-                                  Directions::Southeast, Directions::Southwest,
-                                  Directions::Northeast, Directions::Northwest};
+constexpr int8_t AttackRays[8] = {
+    Directions::East,      Directions::West, // Directions sliders can move in
+    Directions::South,     Directions::North,     Directions::Southeast,
+    Directions::Southwest, Directions::Northeast, Directions::Northwest};
 
-constexpr int8_t KnightAttacks[8] = {Directions::East * 2 + Directions::North,
-                                     Directions::East * 2 + Directions::South,
-                                     Directions::South * 2 + Directions::East,
-                                     Directions::South * 2 + Directions::West,
-                                     Directions::West * 2 + Directions::South,
-                                     Directions::West * 2 + Directions::North,
-                                     Directions::North * 2 + Directions::West,
-                                     Directions::North * 2 + Directions::East};
+constexpr int8_t KnightAttacks[8] = {
+    Directions::East * 2 + Directions::North, // Directions Knights can move in
+    Directions::East * 2 + Directions::South,
+    Directions::South * 2 + Directions::East,
+    Directions::South * 2 + Directions::West,
+    Directions::West * 2 + Directions::South,
+    Directions::West * 2 + Directions::North,
+    Directions::North * 2 + Directions::West,
+    Directions::North * 2 + Directions::East};
 
-constexpr int8_t SliderAttacks[4][8] = {
-    {Directions::Southeast, Directions::Southwest, Directions::Northeast,
-     Directions::Northwest},
-    {Directions::East, Directions::West, Directions::South, Directions::North},
-    {Directions::East, Directions::West, Directions::South, Directions::North,
-     Directions::Southeast, Directions::Southwest, Directions::Northeast,
-     Directions::Northwest},
-    {Directions::East, Directions::West, Directions::South, Directions::North,
-     Directions::Southeast, Directions::Southwest, Directions::Northeast,
-     Directions::Northwest}};
+constexpr int8_t SliderAttacks[4][8] =
+    { // Attack vectors for bishops through kings
+        {Directions::Southeast, Directions::Southwest, Directions::Northeast,
+         Directions::Northwest},
+        {Directions::East, Directions::West, Directions::South,
+         Directions::North},
+        {Directions::East, Directions::West, Directions::South,
+         Directions::North, Directions::Southeast, Directions::Southwest,
+         Directions::Northeast, Directions::Northwest},
+        {Directions::East, Directions::West, Directions::South,
+         Directions::North, Directions::Southeast, Directions::Southwest,
+         Directions::Northeast, Directions::Northwest}};
+
+
+constexpr int SeeValues[14] = {
+  0, 0, 100, 100, 450, 450, 650, 650, 1250, 1250, 10000, 10000
+};
 
 #define out_of_board(x) (x & 0x88)
 #define get_rank(x) (x / 16)
