@@ -1,12 +1,14 @@
 #include "position.h"
 #include "search.h"
 #include "movegen.h"
+#include "defs.h"
+#include "nnue.h"
 #include "utils.h"
 #include <stdio.h>
 #include <memory>
 
 uint64_t perft(int depth, Position position,
-               bool first) // Performs a perft search to the desired depth,
+               bool first, ThreadInfo &thread_info) // Performs a perft search to the desired depth,
                            // displaying results for each move at the root.
 {
   if (!depth) {
@@ -20,12 +22,11 @@ uint64_t perft(int depth, Position position,
        i++) // Loop through all of the moves, skipping illegal ones.
   {
     Position new_position = position;
-    uint64_t temp = 0;
-    if (make_move(new_position, list[i], temp)) {
+    if (make_move(new_position, list[i], thread_info, false)) {
       continue;
     }
 
-    uint64_t b = perft(depth - 1, new_position, false);
+    uint64_t b = perft(depth - 1, new_position, false, thread_info);
     if (first) {
       char temp[6];
       printf("%s: %lu\n", internal_to_uci(position, list[i]).c_str(), b);
@@ -43,7 +44,7 @@ int main(void) {
               "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
     print_board(position);
     clock_t start = clock();
-    uint64_t p = perft(6, position, true);
+    uint64_t p = perft(6, position, true, *thread_info);
     printf("%lu nodes %lu nps\n", p,
            (uint64_t)(p / ((clock() - start) / (float)CLOCKS_PER_SEC)));
     exit(0);
@@ -51,9 +52,10 @@ int main(void) {
   clear_TT();
   Position position;
   std::unique_ptr<ThreadInfo> thread_info(new ThreadInfo);
+  thread_info->nnue_state.m_accumulator_stack.reserve(100);
   set_board(position, *thread_info,
             "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
-  print_board(position);
+
   iterative_deepen(position, *thread_info);
   return 0;
 }

@@ -53,9 +53,9 @@ namespace Promos {
 
 constexpr int16_t ListSize = 216;
 constexpr int16_t GameSize = 2000;
-constexpr int32_t ScoreNone = INT32_MIN;
 constexpr int32_t Mate = -100000;
 constexpr int32_t MateScore = 80000;
+constexpr int32_t ScoreNone = -200000;
 typedef uint32_t Move;
 /*The format of a move structure is:      from     to      promo
                                          (<< 10)  (<< 2)
@@ -85,17 +85,6 @@ struct GameHistory { // keeps the state of the board at a particular point in
   Move played_move;      // The move that was played
   uint8_t piece_moved; // The piece that was moved (will be useful for histories
                        // later)
-};
-
-struct ThreadInfo {
-  uint64_t zobrist_key; // hash key of the position we're currently on
-  uint16_t thread_id;   // ID of the thread
-  GameHistory game_hist[GameSize]; // all positions from earlier in the game
-  uint16_t game_ply;               // how far we're into the game
-  uint16_t search_ply;             // depth that we are in the search tree
-  uint64_t nodes;                  // Total nodes searched so far this search
-  std::chrono::_V2::steady_clock::time_point
-      start_time; // Start time of the search
 };
 
 constexpr int MaxSearchDepth = 127;

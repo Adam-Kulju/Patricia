@@ -1,5 +1,6 @@
 #pragma once
 #include "movegen.h"
+#include "nnue.h"
 #include "position.h"
 #include "utils.h"
 #include <algorithm>
@@ -25,6 +26,7 @@ void ss_push(Position &position, ThreadInfo &thread_info, Move move,
 void ss_pop(ThreadInfo &thread_info, uint64_t hash) {
   thread_info.search_ply--, thread_info.game_ply--;
   thread_info.zobrist_key = hash;
+  thread_info.nnue_state.pop();
 }
 
 bool material_draw(Position &position) {
@@ -73,12 +75,83 @@ bool is_draw(Position &position, ThreadInfo &thread_info, uint64_t hash) {
   return false;
 }
 
-int search(int alpha, int beta, int depth, Position &position,
-           ThreadInfo &thread_info) {
+int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info) {
   thread_info.nodes++;
-  if (depth <= 0) {
+  int ply = thread_info.search_ply;
+  if (ply > MaxSearchDepth) {
     return eval(position);
   }
+  uint64_t hash = thread_info.zobrist_key;
+
+  TTEntry entry = TT[hash & TT_mask];
+  int entry_type = EntryTypes::None, tt_score = ScoreNone;
+
+  if (entry.position_key == get_hash_upper_bits(hash)) {
+
+    entry_type = entry.type, tt_score = entry.score;
+    if (tt_score > MateScore) {
+      tt_score -= ply;
+    } else if (tt_score < -MateScore) {
+      tt_score += ply;
+    }
+    if ((entry_type == EntryTypes::Exact) ||
+        (entry_type == EntryTypes::LBound && tt_score >= beta) ||
+        (entry_type == EntryTypes::UBound && tt_score <= alpha)) {
+      return tt_score;
+    }
+  }
+
+  bool in_check = attacks_square(position, position.kingpos[position.color],
+                                 position.color ^ 1);
+  int best_score = ScoreNone;
+
+  if (!in_check) {
+    int static_eval =
+        thread_info.nnue_state.evaluate(position.color);
+    if (static_eval >= beta) {
+      return static_eval;
+    }
+    best_score = static_eval;
+  }
+
+  MoveInfo moves;
+  int num_moves = movegen(position, moves.moves);
+  score_moves(position, moves, MoveNone, num_moves);
+
+  for (int indx = 0; indx < num_moves; indx++) {
+    Move move = get_next_move(moves.moves, moves.scores, indx, num_moves);
+    int move_score = moves.scores[indx];
+    if (move_score < GoodCaptureBaseScore && !in_check) {
+      break;
+    }
+    Position moved_position = position;
+    if (make_move(moved_position, move, thread_info, true)) {
+      continue;
+    }
+    ss_push(position, thread_info, move, hash);
+    int score = -qsearch(-beta, -alpha, moved_position, thread_info);
+    ss_pop(thread_info, hash);
+
+    if (score > best_score) {
+      best_score = score;
+      if (score > alpha) {
+        alpha = score;
+      }
+      if (score >= beta) {
+        break;
+      }
+    }
+  }
+  return best_score;
+}
+
+int search(int alpha, int beta, int depth, Position &position,
+           ThreadInfo &thread_info) {
+  if (depth <= 0) {
+    // return evaluate(thread_info.nnue_state, position, position.color);
+    return qsearch(alpha, beta, position, thread_info);
+  }
+  thread_info.nodes++;
   int ply = thread_info.search_ply;
 
   bool root = !ply, color = position.color, raised_alpha = false;
@@ -120,7 +193,7 @@ int search(int alpha, int beta, int depth, Position &position,
     int move_score = moves.scores[indx];
 
     Position moved_position = position;
-    if (make_move(moved_position, move, thread_info.zobrist_key)) {
+    if (make_move(moved_position, move, thread_info, true)) {
       continue;
     }
     ss_push(position, thread_info, move, hash);
@@ -158,12 +231,13 @@ int search(int alpha, int beta, int depth, Position &position,
 }
 
 void iterative_deepen(Position &position, ThreadInfo &thread_info) {
+      thread_info.nnue_state.reset_nnue(position);
   thread_info.start_time = std::chrono::steady_clock::now();
   thread_info.zobrist_key = calculate(position);
   thread_info.nodes = 0;
   thread_info.search_ply = 0;
-  for (int depth = 1; depth <= 10; depth++) {
-    int score = search(Mate, -Mate, depth, position, thread_info);
+  for (int depth = 1; depth <= 8; depth++) {
+    int score = search(ScoreNone, -ScoreNone, depth, position, thread_info);
 
     Move best_move = TT[thread_info.zobrist_key & TT_mask].best_move;
     auto now = std::chrono::steady_clock::now();

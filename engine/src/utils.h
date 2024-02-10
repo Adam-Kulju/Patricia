@@ -1,9 +1,22 @@
 #pragma once
 #include "defs.h"
+#include "nnue.h"
 #include <vector>
 
-int32_t TT_size = (1 << 20);
-int32_t TT_mask = TT_size - 1;
+struct ThreadInfo {
+  uint64_t zobrist_key; // hash key of the position we're currently on
+  uint16_t thread_id;   // ID of the thread
+  GameHistory game_hist[GameSize]; // all positions from earlier in the game
+  uint16_t game_ply;               // how far we're into the game
+  uint16_t search_ply;             // depth that we are in the search tree
+  uint64_t nodes;                  // Total nodes searched so far this search
+  std::chrono::_V2::steady_clock::time_point
+      start_time; // Start time of the search
+  NNUE_State nnue_state;
+};
+
+uint64_t TT_size = (1 << 20);
+uint64_t TT_mask = TT_size - 1;
 std::vector<TTEntry> TT(TT_size);
 
 void clear_TT(){

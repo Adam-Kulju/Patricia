@@ -1,5 +1,5 @@
 #pragma once
-#include "defs.h"
+#include "utils.h"
 #include <cstring>
 #include <ctype.h>
 #include <sstream>
@@ -240,37 +240,104 @@ bool is_cap(Position &position, Move move) {
                                            Pieces::WPawn + position.color));
 }
 
-bool is_queen_promo(Move move){
-  return extract_promo(move) == 3;
+bool is_queen_promo(Move move) { return extract_promo(move) == 3; }
+
+void update_nnue_state(NNUE_State &nnue_state, Move move, int from_piece,
+                       int captured_piece, int captured_square,
+                       bool color) {
+
+  nnue_state.push();
+
+  int from = extract_from(move), to = extract_to(move);
+  int to_piece = from_piece;
+
+
+  if (from_piece - color == Pieces::WPawn && get_rank(to) == (color ? 0 : 7)){
+    
+    to_piece = extract_promo(move) * 2 + 4 + color;
+  }
+
+  int to_square = to;
+  from = MailboxToStandard_NNUE[from], to = MailboxToStandard_NNUE[to];
+
+  nnue_state.update_feature<true>(to_piece, to);
+  nnue_state.update_feature<false>(from_piece, from);
+
+
+  if (captured_piece) {
+    captured_square = MailboxToStandard_NNUE[captured_square];
+    nnue_state.update_feature<false>(captured_piece, captured_square);
+  }
+  if (from_piece - color == Pieces::WKing &&
+      abs(to - from) == Directions::East * 2) {
+
+    int indx = color ? 0x70 : 0;
+    if (get_file(to_square) > 4) {
+      nnue_state.update_feature<true>(Pieces::WRook + color,
+                                      MailboxToStandard_NNUE[indx + 5]);
+      nnue_state.update_feature<false>(Pieces::WRook + color,
+                                       MailboxToStandard_NNUE[indx + 7]);
+    } else {
+      nnue_state.update_feature<true>(Pieces::WRook + color,
+                                      MailboxToStandard_NNUE[indx + 3]);
+      nnue_state.update_feature<false>(Pieces::WRook + color,
+                                       MailboxToStandard_NNUE[indx]);
+    }
+  }
 }
 
 int make_move(Position &position, Move move,
-              uint64_t &hash) { // Perform a move on the board.
-  uint64_t temp_hash = hash;
+              ThreadInfo &thread_info, bool update_nnue) { // Perform a move on the board.
+
+  uint64_t temp_hash = thread_info.zobrist_key;
 
   position.halfmoves++;
   int from = extract_from(move), to = extract_to(move), color = position.color,
-      opp_color = color ^ 1;
+      opp_color = color ^ 1, captured_piece = Pieces::Blank, captured_square = 255;
   int base_rank = (color ? 0x70 : 0);
   int ep_square = 255;
 
+  int piece_from = position.board[from] - color;
+
   // update material counts and 50 move rules for a capture
   if (position.board[to]) {
-    temp_hash ^= zobrist_keys[get_zobrist_key(
-        position.board[to],
-        standard(to))]; // Update hash key for the piece that was taken
+    temp_hash ^=
+        zobrist_keys[get_zobrist_key(position.board[to], standard(to))];
+    // Update hash key for the piece that was taken
     position.halfmoves = 0;
     position.material_count[position.board[to] - 2]--;
+    captured_piece = position.board[to], captured_square = to;
+  }
+  // en passant
+  else if (piece_from == Pieces::WPawn && to == position.ep_square) {
+    position.material_count[opp_color]--;
+    captured_square = to + (color ? Directions::North : Directions::South);
+    captured_piece = position.board[captured_square];
+
+
+    temp_hash ^= zobrist_keys[get_zobrist_key(position.board[captured_square],
+                                              standard(captured_square))];
+    // Update hash key for the piece that was taken
+    // (not covered above)
+    position.board[captured_square] = Pieces::Blank;
+  }
+
+  if (piece_from == Pieces::WKing){
+    position.kingpos[color] = to;
   }
 
   // Move the piece
   position.board[to] = position.board[from];
   position.board[from] = Pieces::Blank;
+  
 
-  int piece_from = position.board[to] - color;
-  int piece_to = piece_from + color;
+  if (attacks_square(position, position.kingpos[color], opp_color)) {
+    return 1;
+  }
 
-  // handle pawn moves; en passant, promotions, and double pawn pushes
+  int piece_to = position.board[to];
+
+  // handle promotions and double pawn pushes
 
   if (piece_from == Pieces::WPawn) {
     position.halfmoves = 0;
@@ -287,23 +354,14 @@ int make_move(Position &position, Move move,
              to == from + Directions::South * 2) {
       ep_square = (to + from) / 2;
     }
-
-    // en passant
-    else if (to == position.ep_square) {
-      position.material_count[opp_color]--;
-      int captured = to + (color ? Directions::North : Directions::South);
-      temp_hash ^= zobrist_keys[get_zobrist_key(
-          position.board[captured],
-          standard(captured))]; // Update hash key for the piece that was taken
-                                // (not covered above)
-      position.board[captured] = Pieces::Blank;
-    }
   }
   // handle king moves and castling
 
-  else if (piece_from ==
-           Pieces::WKing) { // If the king moves, castling rights are gone.
+  else if (piece_from == Pieces::WKing) {
+
+    // If the king moves, castling rights are gone.
     if (position.castling_rights[color][Sides::Queenside]) {
+
       temp_hash ^= zobrist_keys[castling_index + color * 2 + Sides::Queenside];
       position.castling_rights[color][Sides::Queenside] = false;
     }
@@ -312,8 +370,6 @@ int make_move(Position &position, Move move,
       temp_hash ^= zobrist_keys[castling_index + color * 2 + Sides::Kingside];
       position.castling_rights[color][Sides::Kingside] = false;
     }
-
-    position.kingpos[color] = to;
 
     int converted_rank = standard(base_rank);
 
@@ -359,9 +415,11 @@ int make_move(Position &position, Move move,
     }
   }
 
+  piece_from += color;
+
   // Update hash key for piece that was moved and color
   temp_hash ^=
-      zobrist_keys[get_zobrist_key(piece_from + color, standard(from))];
+      zobrist_keys[get_zobrist_key(piece_from, standard(from))];
   temp_hash ^= zobrist_keys[get_zobrist_key(piece_to, standard(to))];
   temp_hash ^= zobrist_keys[side_index];
 
@@ -373,10 +431,11 @@ int make_move(Position &position, Move move,
     temp_hash ^= zobrist_keys[ep_index];
   }
   position.ep_square = ep_square;
-  if (attacks_square(position, position.kingpos[color], opp_color)) {
-    return 1;
-  } else {
-    hash = temp_hash;
-    return 0;
+  thread_info.zobrist_key = temp_hash;
+
+  if (update_nnue){
+    update_nnue_state(thread_info.nnue_state, move, piece_from, captured_piece, captured_square, color);
   }
+
+  return 0;
 }
