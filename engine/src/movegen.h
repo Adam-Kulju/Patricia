@@ -13,7 +13,7 @@ int movegen(Position position, Move *move_list) {
       promotion_rank = color ? 0 : 7, first_rank = color ? 6 : 1,
       opp_color = color ^ 1;
   int indx = 0;
-  for (u_int8_t from : StandardToMailbox) {
+  for (uint8_t from : StandardToMailbox) {
     int piece = position.board[from];
     if (!piece || get_color(piece) != color) {
       continue;

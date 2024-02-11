@@ -287,7 +287,7 @@ void iterative_deepen(
 
     int64_t search_time = time_elapsed(thread_info.start_time);
 
-    printf("info depth %i seldepth %i score cp %i nodes %lu time %li pv %s\n",
+    printf("info depth %i seldepth %i score cp %i nodes %" PRIu64 " time %li pv %s\n",
            depth, depth, score, thread_info.nodes, search_time,
            internal_to_uci(position, best_move).c_str());
 

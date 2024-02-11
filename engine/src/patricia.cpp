@@ -46,7 +46,7 @@ int main(void) {
     print_board(position);
     clock_t start = clock();
     uint64_t p = perft(6, position, true, *thread_info);
-    printf("%lu nodes %lu nps\n", p,
+    printf("%" PRIu64 " nodes %" PRIu64 " nps\n", p,
            (uint64_t)(p / ((clock() - start) / (float)CLOCKS_PER_SEC)));
     exit(0);
   }

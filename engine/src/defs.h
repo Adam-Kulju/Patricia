@@ -1,6 +1,7 @@
 #pragma once
 #include <chrono>
 #include <stdint.h>
+#include <cinttypes>
 
 namespace Colors {
 constexpr uint8_t White = 0;
