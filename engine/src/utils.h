@@ -10,7 +10,7 @@ struct ThreadInfo {
   uint16_t game_ply;               // how far we're into the game
   uint16_t search_ply;             // depth that we are in the search tree
   uint64_t nodes;                  // Total nodes searched so far this search
-  std::chrono::_V2::steady_clock::time_point
+  std::chrono::steady_clock::time_point
       start_time; // Start time of the search
 
   uint32_t max_time;
@@ -63,7 +63,7 @@ uint64_t calculate(
   return hash;
 }
 
-int64_t time_elapsed(std::chrono::_V2::steady_clock::time_point start_time) {
+int64_t time_elapsed(std::chrono::steady_clock::time_point start_time) {
   auto now = std::chrono::steady_clock::now();
     return std::chrono::duration_cast<std::chrono::milliseconds>(
                             now - start_time)
