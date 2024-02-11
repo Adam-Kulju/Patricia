@@ -32,13 +32,21 @@ void uci() {
     }
 
     else if (command == "uci") {
-      printf("id name Patricia 0.1\n id author Adam Kulju\noption name Hash "
+      printf("id name Patricia 0.1\nid author Adam Kulju\noption name Hash "
              "type spin default 32 min 32 max 32\noption name Threads type "
              "spin default 1 min 1 max 1\nuciok\n");
     }
 
     else if (command == "isready"){
         printf("readyok\n");
+    }
+
+    else if (command == "setoption"){
+
+    }
+
+    else if (command == "stop"){
+        
     }
 
     else if (command == "ucinewgame") {
