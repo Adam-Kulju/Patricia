@@ -37,6 +37,10 @@ void uci() {
              "spin default 1 min 1 max 1\nuciok\n");
     }
 
+    else if (command == "isready"){
+        printf("readyok\n");
+    }
+
     else if (command == "ucinewgame") {
       clear_TT();
       thread_info.game_ply = 0;
