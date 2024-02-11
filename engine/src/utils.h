@@ -12,6 +12,11 @@ struct ThreadInfo {
   uint64_t nodes;                  // Total nodes searched so far this search
   std::chrono::_V2::steady_clock::time_point
       start_time; // Start time of the search
+
+  uint32_t max_time;
+  uint32_t opt_time;
+  uint16_t time_checks;
+  bool stop;
   NNUE_State nnue_state;
 };
 
@@ -19,23 +24,24 @@ uint64_t TT_size = (1 << 20);
 uint64_t TT_mask = TT_size - 1;
 std::vector<TTEntry> TT(TT_size);
 
-void clear_TT(){
-   memset(&TT[0], 0, TT_size * sizeof(TT[0]));
-}
+void clear_TT() {
+  memset(&TT[0], 0, TT_size * sizeof(TT[0]));
+} // Clears the TT of all data.
 
-void insert_entry(uint64_t hash, int depth, Move best_move, int32_t score,
-                  uint8_t bound_type) {
+void insert_entry(
+    uint64_t hash, int depth, Move best_move, int32_t score,
+    uint8_t bound_type) { // Inserts an entry into the transposition table.
   int indx = hash & TT_mask;
   TT[indx].position_key = static_cast<uint32_t>(get_hash_upper_bits(hash)),
-  TT[indx].depth = static_cast<uint8_t>(depth),
-  TT[indx].type = bound_type,
+  TT[indx].depth = static_cast<uint8_t>(depth), TT[indx].type = bound_type,
   TT[indx].score = score;
-  if (bound_type > EntryTypes::UBound){
-    TT[indx].best_move = best_move;
-  }
+  TT[indx].best_move = best_move;
 }
 
-uint64_t calculate(Position position) {
+uint64_t calculate(
+    Position position) { // Calculates the zobrist key of a given position.
+                         // Useful when initializing positions, in search though
+                         // incremental updates are faster.
   uint64_t hash = 0;
   for (int indx : StandardToMailbox) {
     int piece = position.board[indx];
@@ -55,4 +61,11 @@ uint64_t calculate(Position position) {
     }
   }
   return hash;
+}
+
+int64_t time_elapsed(std::chrono::_V2::steady_clock::time_point start_time) {
+  auto now = std::chrono::steady_clock::now();
+    return std::chrono::duration_cast<std::chrono::milliseconds>(
+                            now - start_time)
+                            .count();
 }

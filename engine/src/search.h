@@ -4,7 +4,21 @@
 #include "position.h"
 #include "utils.h"
 #include <algorithm>
-#include <chrono>
+
+bool out_of_time(ThreadInfo &thread_info){
+  if (thread_info.stop){
+    return true;
+  }
+  thread_info.time_checks++;
+  if (thread_info.time_checks == 1024){
+    thread_info.time_checks = 0;
+    if (time_elapsed(thread_info.start_time) > thread_info.max_time){
+      thread_info.stop = true;
+      return true;
+    }
+  }
+  return false;
+}
 
 int eval(Position &position) {
   int m = (position.material_count[0] - position.material_count[1]) * 100 +
@@ -29,7 +43,7 @@ void ss_pop(ThreadInfo &thread_info, uint64_t hash) {
   thread_info.nnue_state.pop();
 }
 
-bool material_draw(Position &position) {
+bool material_draw(Position &position) {  //Is there not enough material on the board for one side to win?
   for (int i :
        {0, 1, 6, 7, 8, 9}) { // Do we have pawns, rooks, or queens on the board?
     if (position.material_count[i]) {
@@ -51,7 +65,8 @@ bool material_draw(Position &position) {
   return true;
 }
 
-bool is_draw(Position &position, ThreadInfo &thread_info, uint64_t hash) {
+bool is_draw(Position &position, ThreadInfo &thread_info, uint64_t hash) {  //Detects if the position is a draw.
+
   int halfmoves = position.halfmoves, game_ply = thread_info.game_ply;
   if (halfmoves >= 100) {
     return true;
@@ -75,16 +90,22 @@ bool is_draw(Position &position, ThreadInfo &thread_info, uint64_t hash) {
   return false;
 }
 
-int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info) {
+int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info) { //Performs a quiescence search on the given position.
+
+  int color = position.color;
+
   thread_info.nodes++;
+
   int ply = thread_info.search_ply;
   if (ply > MaxSearchDepth) {
-    return eval(position);
+    return thread_info.nnue_state.evaluate(
+        color); // if we're about to overflow stack return
   }
-  uint64_t hash = thread_info.zobrist_key;
 
+  uint64_t hash = thread_info.zobrist_key;
   TTEntry entry = TT[hash & TT_mask];
-  int entry_type = EntryTypes::None, tt_score = ScoreNone;
+  int entry_type = EntryTypes::None,
+      tt_score = ScoreNone; // Initialize TT variables and check for a hash hit
 
   if (entry.position_key == get_hash_upper_bits(hash)) {
 
@@ -94,20 +115,22 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info) {
     } else if (tt_score < -MateScore) {
       tt_score += ply;
     }
+
     if ((entry_type == EntryTypes::Exact) ||
         (entry_type == EntryTypes::LBound && tt_score >= beta) ||
-        (entry_type == EntryTypes::UBound && tt_score <= alpha)) {
+        (entry_type == EntryTypes::UBound &&
+         tt_score <= alpha)) { // if we get an "accurate" tt score then return
       return tt_score;
     }
   }
 
-  bool in_check = attacks_square(position, position.kingpos[position.color],
-                                 position.color ^ 1);
-  int best_score = ScoreNone;
+  bool in_check = attacks_square(position, position.kingpos[color], color ^ 1);
+  int best_score = ScoreNone, raised_alpha = false;
+  Move best_move = MoveNone;
 
-  if (!in_check) {
-    int static_eval =
-        thread_info.nnue_state.evaluate(position.color);
+  if (!in_check) { // If we're not in check and static eval beats beta, we can
+                   // immediately return
+    int static_eval = thread_info.nnue_state.evaluate(color);
     if (static_eval >= beta) {
       return static_eval;
     }
@@ -115,13 +138,14 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info) {
   }
 
   MoveInfo moves;
-  int num_moves = movegen(position, moves.moves);
+  int num_moves = movegen(position, moves.moves); // Generate and score moves
   score_moves(position, moves, MoveNone, num_moves);
 
   for (int indx = 0; indx < num_moves; indx++) {
     Move move = get_next_move(moves.moves, moves.scores, indx, num_moves);
     int move_score = moves.scores[indx];
-    if (move_score < GoodCaptureBaseScore && !in_check) {
+    if (move_score < GoodCaptureBaseScore &&
+        !in_check) { // If we're not in check only look at captures
       break;
     }
     Position moved_position = position;
@@ -134,22 +158,29 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info) {
 
     if (score > best_score) {
       best_score = score;
+      best_move = move;
       if (score > alpha) {
+        raised_alpha = true;
         alpha = score;
       }
-      if (score >= beta) {
+      if (score >= beta) { // failing high
         break;
       }
     }
   }
+
   return best_score;
 }
 
 int search(int alpha, int beta, int depth, Position &position,
-           ThreadInfo &thread_info) {
+           ThreadInfo &thread_info) { //Performs an alpha-beta search.
+
+  if (out_of_time(thread_info)){
+    return thread_info.nnue_state.evaluate(position.color);
+  }
   if (depth <= 0) {
-    // return evaluate(thread_info.nnue_state, position, position.color);
-    return qsearch(alpha, beta, position, thread_info);
+    return qsearch(alpha, beta, position,
+                   thread_info); // drop into qsearch if depth is too low.
   }
   thread_info.nodes++;
   int ply = thread_info.search_ply;
@@ -160,14 +191,14 @@ int search(int alpha, int beta, int depth, Position &position,
 
   uint64_t hash = thread_info.zobrist_key;
 
-  if (!root && is_draw(position, thread_info, hash)) {
+  if (!root && is_draw(position, thread_info, hash)) { // Draw detection
     return 2 - (thread_info.nodes & 3);
   }
 
   TTEntry entry = TT[hash & TT_mask];
   int entry_type = EntryTypes::None, tt_score = ScoreNone, tt_move = MoveNone;
 
-  if (entry.position_key == get_hash_upper_bits(hash)) {
+  if (entry.position_key == get_hash_upper_bits(hash)) { // TT probe
 
     entry_type = entry.type, tt_score = entry.score, tt_move = entry.best_move;
     if (tt_score > MateScore) {
@@ -175,7 +206,10 @@ int search(int alpha, int beta, int depth, Position &position,
     } else if (tt_score < -MateScore) {
       tt_score += ply;
     }
-    if (!root && entry.depth >= depth) {
+    if (!root &&
+        entry.depth >= depth) { // If we get a useful score from the TT and it's
+                                // searched to at least the same depth we would
+                                // have searched, then we can return
       if ((entry_type == EntryTypes::Exact) ||
           (entry_type == EntryTypes::LBound && tt_score >= beta) ||
           (entry_type == EntryTypes::UBound && tt_score <= alpha)) {
@@ -185,7 +219,8 @@ int search(int alpha, int beta, int depth, Position &position,
   }
 
   MoveInfo moves;
-  int num_moves = movegen(position, moves.moves), best_score = ScoreNone;
+  int num_moves = movegen(position, moves.moves),
+      best_score = ScoreNone; // Generate and score moves
   score_moves(position, moves, tt_move, num_moves);
 
   for (int indx = 0; indx < num_moves; indx++) {
@@ -213,7 +248,7 @@ int search(int alpha, int beta, int depth, Position &position,
     }
   }
 
-  if (best_score == ScoreNone) {
+  if (best_score == ScoreNone) { // handle no legal moves (stalemate/checkmate)
     return attacks_square(position, position.kingpos[color], color ^ 1)
                ? (Mate + ply)
                : 0;
@@ -221,6 +256,8 @@ int search(int alpha, int beta, int depth, Position &position,
   entry_type = best_score >= beta ? EntryTypes::LBound
                : raised_alpha     ? EntryTypes::Exact
                                   : EntryTypes::UBound;
+
+  // Add the search results to the TT, accounting for mate scores
 
   insert_entry(hash, depth, best_move,
                best_score > MateScore    ? best_score + ply
@@ -230,22 +267,34 @@ int search(int alpha, int beta, int depth, Position &position,
   return best_score;
 }
 
-void iterative_deepen(Position &position, ThreadInfo &thread_info) {
-      thread_info.nnue_state.reset_nnue(position);
-  thread_info.start_time = std::chrono::steady_clock::now();
+void iterative_deepen(
+    Position &position,
+    ThreadInfo &thread_info) { // Performs an iterative deepening search.
+
+  thread_info.nnue_state.reset_nnue(position);
   thread_info.zobrist_key = calculate(position);
   thread_info.nodes = 0;
-  thread_info.search_ply = 0;
-  for (int depth = 1; depth <= 8; depth++) {
+  thread_info.time_checks = 0;
+  thread_info.stop = false;
+  thread_info.search_ply = 0; // reset all relevant thread_info
+
+  Move best_move = MoveNone;
+
+  for (int depth = 1; ; depth++) {
     int score = search(ScoreNone, -ScoreNone, depth, position, thread_info);
 
-    Move best_move = TT[thread_info.zobrist_key & TT_mask].best_move;
-    auto now = std::chrono::steady_clock::now();
-    auto time_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-                            now - thread_info.start_time)
-                            .count();
+    best_move = TT[thread_info.zobrist_key & TT_mask].best_move;
+
+    int64_t search_time = time_elapsed(thread_info.start_time);
+
     printf("info depth %i seldepth %i score cp %i nodes %lu time %li pv %s\n",
-           depth, depth, score, thread_info.nodes, time_elapsed,
+           depth, depth, score, thread_info.nodes, search_time,
            internal_to_uci(position, best_move).c_str());
+
+    if (search_time > thread_info.opt_time){
+      break;
+    }
   }
+
+  printf("bestmove %s\n", internal_to_uci(position, best_move).c_str());
 }

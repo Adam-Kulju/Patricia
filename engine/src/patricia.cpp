@@ -5,6 +5,7 @@
 #include "nnue.h"
 #include "utils.h"
 #include <stdio.h>
+#include "uci.h"
 #include <memory>
 
 uint64_t perft(int depth, Position position,
@@ -49,13 +50,6 @@ int main(void) {
            (uint64_t)(p / ((clock() - start) / (float)CLOCKS_PER_SEC)));
     exit(0);
   }
-  clear_TT();
-  Position position;
-  std::unique_ptr<ThreadInfo> thread_info(new ThreadInfo);
-  thread_info->nnue_state.m_accumulator_stack.reserve(100);
-  set_board(position, *thread_info,
-            "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
-
-  iterative_deepen(position, *thread_info);
+  uci();
   return 0;
 }

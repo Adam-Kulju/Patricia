@@ -33,24 +33,6 @@ constexpr int QB = 64;
 
 constexpr int QAB = QA * QB;
 
-constexpr int STANDARD_TO_MAILBOX[64] = {
-    0x0,  0x1,  0x2,  0x3,  0x4,  0x5,  0x6,  0x7,  0x10, 0x11, 0x12,
-    0x13, 0x14, 0x15, 0x16, 0x17, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25,
-    0x26, 0x27, 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x40,
-    0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x50, 0x51, 0x52, 0x53,
-    0x54, 0x55, 0x56, 0x57, 0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66,
-    0x67, 0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x76, 0x77};
-
-constexpr int MAILBOX_TO_STANDARD[0x80] = {
-    56, 57, 58, 59, 60, 61, 62, 63, 99, 99, 99, 99, 99, 99, 99, 99, 48, 49, 50,
-    51, 52, 53, 54, 55, 99, 99, 99, 99, 99, 99, 99, 99, 40, 41, 42, 43, 44, 45,
-    46, 47, 99, 99, 99, 99, 99, 99, 99, 99, 32, 33, 34, 35, 36, 37, 38, 39, 99,
-    99, 99, 99, 99, 99, 99, 99, 24, 25, 26, 27, 28, 29, 30, 31, 99, 99, 99, 99,
-    99, 99, 99, 99, 16, 17, 18, 19, 20, 21, 22, 23, 99, 99, 99, 99, 99, 99, 99,
-    99, 8,  9,  10, 11, 12, 13, 14, 15, 99, 99, 99, 99, 99, 99, 99, 99, 0,  1,
-    2,  3,  4,  5,  6,  7,  99, 99, 99, 99, 99, 99, 99, 99,
-};
-
 struct alignas(64) NNUE_Params {
   std::array<int16_t, INPUT_SIZE * LAYER1_SIZE> feature_weights;
   std::array<int16_t, LAYER1_SIZE> feature_bias;
@@ -102,14 +84,11 @@ std::pair<size_t, size_t> feature_indices(int piece, int sq) {
   const auto base = static_cast<int>(piece / 2 - 1);
   const size_t color = piece & 1;
 
-  // std::cout << piece << " " << sq << " " << base << " " << color <<
-  // std::endl;
   const auto whiteIdx =
       color * color_stride + base * piece_stride + static_cast<size_t>(sq ^ 56);
   const auto blackIdx = (color ^ 1) * color_stride + base * piece_stride +
                         (static_cast<size_t>(sq));
 
-  // std::cout << whiteIdx << " " << blackIdx << std::endl;
   return {whiteIdx, blackIdx};
 }
 
@@ -150,8 +129,7 @@ void NNUE_State::push() {
 void NNUE_State::pop() {
   m_accumulator_stack.pop_back();
   m_curr = &m_accumulator_stack.back();
-  // printf("unmakemove - %i\n", nnue_state.evaluate(WHITE));
-  // exit(0);
+
 }
 
 int NNUE_State::evaluate(int color) {
@@ -183,10 +161,10 @@ void NNUE_State::reset_nnue(Position position) {
 
   m_curr->init(g_nnue.feature_bias);
 
-  for (int square : STANDARD_TO_MAILBOX) {
+  for (int square : StandardToMailbox) {
     if (position.board[square]) {
       // printf("%i\n", MAILBOX_TO_STANDARD[square]);
-      update_feature<true>(position.board[square], MAILBOX_TO_STANDARD[square]);
+      update_feature<true>(position.board[square], MailboxToStandard_NNUE[square]);
     }
   }
 }

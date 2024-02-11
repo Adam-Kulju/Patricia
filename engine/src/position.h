@@ -7,6 +7,7 @@
 std::string
 internal_to_uci(Position position,
                 Move move) { // Converts an internal move into a uci move.
+
   int from = extract_from(move), to = extract_to(move),
       promo = extract_promo(move);
   std::string uci = "     ";
@@ -18,6 +19,14 @@ internal_to_uci(Position position,
     uci[4] = promos[promo], uci[5] = '\0';
   }
   return uci;
+}
+
+Move uci_to_internal(std::string uci){
+  int from_file = uci[0] - 'a', from_rank = uci[1] - '1', to_file = uci[2] - 'a', to_rank = uci[3] - '1', promo = 0;
+  if (uci[4] != '\0'){
+    promo = std::string("NBRQ").find(uci[4]);
+  }
+  return pack_move((from_rank * 16 + from_file), (to_rank * 16 + to_file), promo);
 }
 
 void print_board(
@@ -244,32 +253,34 @@ bool is_queen_promo(Move move) { return extract_promo(move) == 3; }
 
 void update_nnue_state(NNUE_State &nnue_state, Move move, int from_piece,
                        int captured_piece, int captured_square,
-                       bool color) {
+                       bool color) { // Updates the nnue state
 
   nnue_state.push();
 
   int from = extract_from(move), to = extract_to(move);
   int to_piece = from_piece;
 
+  if (from_piece - color == Pieces::WPawn &&
+      get_rank(to) == (color ? 0 : 7)) { // Grab promos
 
-  if (from_piece - color == Pieces::WPawn && get_rank(to) == (color ? 0 : 7)){
-    
     to_piece = extract_promo(move) * 2 + 4 + color;
   }
 
   int to_square = to;
   from = MailboxToStandard_NNUE[from], to = MailboxToStandard_NNUE[to];
 
-  nnue_state.update_feature<true>(to_piece, to);
+  nnue_state.update_feature<true>(to_piece, to); // update the piece that mpved
   nnue_state.update_feature<false>(from_piece, from);
 
-
   if (captured_piece) {
-    captured_square = MailboxToStandard_NNUE[captured_square];
+    captured_square =
+        MailboxToStandard_NNUE[captured_square]; // update the piece that was
+                                                 // captured if applicable
     nnue_state.update_feature<false>(captured_piece, captured_square);
   }
   if (from_piece - color == Pieces::WKing &&
-      abs(to - from) == Directions::East * 2) {
+      abs(to - from) ==
+          Directions::East * 2) { // update the rook that moved if we castled
 
     int indx = color ? 0x70 : 0;
     if (get_file(to_square) > 4) {
@@ -286,14 +297,15 @@ void update_nnue_state(NNUE_State &nnue_state, Move move, int from_piece,
   }
 }
 
-int make_move(Position &position, Move move,
-              ThreadInfo &thread_info, bool update_nnue) { // Perform a move on the board.
+int make_move(Position &position, Move move, ThreadInfo &thread_info,
+              bool update_nnue) { // Perform a move on the board.
 
   uint64_t temp_hash = thread_info.zobrist_key;
 
   position.halfmoves++;
   int from = extract_from(move), to = extract_to(move), color = position.color,
-      opp_color = color ^ 1, captured_piece = Pieces::Blank, captured_square = 255;
+      opp_color = color ^ 1, captured_piece = Pieces::Blank,
+      captured_square = 255;
   int base_rank = (color ? 0x70 : 0);
   int ep_square = 255;
 
@@ -314,7 +326,6 @@ int make_move(Position &position, Move move,
     captured_square = to + (color ? Directions::North : Directions::South);
     captured_piece = position.board[captured_square];
 
-
     temp_hash ^= zobrist_keys[get_zobrist_key(position.board[captured_square],
                                               standard(captured_square))];
     // Update hash key for the piece that was taken
@@ -322,14 +333,13 @@ int make_move(Position &position, Move move,
     position.board[captured_square] = Pieces::Blank;
   }
 
-  if (piece_from == Pieces::WKing){
+  if (piece_from == Pieces::WKing) {
     position.kingpos[color] = to;
   }
 
   // Move the piece
   position.board[to] = position.board[from];
   position.board[from] = Pieces::Blank;
-  
 
   if (attacks_square(position, position.kingpos[color], opp_color)) {
     return 1;
@@ -371,7 +381,8 @@ int make_move(Position &position, Move move,
       position.castling_rights[color][Sides::Kingside] = false;
     }
 
-    int converted_rank = standard(base_rank);
+    int converted_rank =
+        standard(base_rank); // get the rank that castling's happening on
 
     // kingside castle
     if (to == from + Directions::East + Directions::East) {
@@ -418,8 +429,7 @@ int make_move(Position &position, Move move,
   piece_from += color;
 
   // Update hash key for piece that was moved and color
-  temp_hash ^=
-      zobrist_keys[get_zobrist_key(piece_from, standard(from))];
+  temp_hash ^= zobrist_keys[get_zobrist_key(piece_from, standard(from))];
   temp_hash ^= zobrist_keys[get_zobrist_key(piece_to, standard(to))];
   temp_hash ^= zobrist_keys[side_index];
 
@@ -433,8 +443,11 @@ int make_move(Position &position, Move move,
   position.ep_square = ep_square;
   thread_info.zobrist_key = temp_hash;
 
-  if (update_nnue){
-    update_nnue_state(thread_info.nnue_state, move, piece_from, captured_piece, captured_square, color);
+  __builtin_prefetch(&TT[temp_hash & TT_mask]);
+
+  if (update_nnue) {
+    update_nnue_state(thread_info.nnue_state, move, piece_from, captured_piece,
+                      captured_square, color);
   }
 
   return 0;
