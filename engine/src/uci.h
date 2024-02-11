@@ -39,6 +39,8 @@ void uci() {
 
     else if (command == "ucinewgame") {
       clear_TT();
+      thread_info.game_ply = 0;
+      memset(thread_info.game_hist, 0, sizeof(thread_info.game_hist));
       set_board(position, thread_info,
                 "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
     }
