@@ -30,7 +30,7 @@ uint64_t perft(int depth, Position position,
     uint64_t b = perft(depth - 1, new_position, false, thread_info);
     if (first) {
       char temp[6];
-      printf("%s: %lu\n", internal_to_uci(position, list[i]).c_str(), b);
+      printf("%s: %" PRIu64 "\n", internal_to_uci(position, list[i]).c_str(), b);
     }
     l += b;
   }
