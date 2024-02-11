@@ -235,6 +235,10 @@ int search(int alpha, int beta, int depth, Position &position,
     int score = -search(-beta, -alpha, depth - 1, moved_position, thread_info);
     ss_pop(thread_info, hash);
 
+    if (thread_info.stop){
+      return best_score;
+    }
+
     if (score > best_score) {
       best_score = score;
       best_move = move;
@@ -283,6 +287,10 @@ void iterative_deepen(
   for (int depth = 1; ; depth++) {
     int score = search(ScoreNone, -ScoreNone, depth, position, thread_info);
 
+    if (thread_info.stop){
+      break;
+    }
+    
     best_move = TT[thread_info.zobrist_key & TT_mask].best_move;
 
     int64_t search_time = time_elapsed(thread_info.start_time);

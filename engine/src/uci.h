@@ -10,6 +10,10 @@
 #include <stdio.h>
 
 void uci() {
+  setvbuf(stdin, NULL, _IONBF, 0);
+  setvbuf(stdout, NULL, _IONBF, 0);
+  
+  printf("Patricia Chess Engine, written by Adam Kulju\n\n\n");
 
   Position position;
   std::unique_ptr<ThreadInfo> T(new ThreadInfo);

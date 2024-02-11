@@ -15,7 +15,7 @@ internal_to_uci(Position position,
   uci[2] = get_file(to) + 'a', uci[3] = get_rank(to) + '1', uci[4] = '\0';
   if (position.board[from] - position.color == Pieces::WPawn &&
       get_rank(to) == (position.color ? 0 : 7)) {
-    std::string promos = "NBRQ";
+    std::string promos = "nbrq";
     uci[4] = promos[promo], uci[5] = '\0';
   }
   return uci;
@@ -24,7 +24,7 @@ internal_to_uci(Position position,
 Move uci_to_internal(std::string uci){
   int from_file = uci[0] - 'a', from_rank = uci[1] - '1', to_file = uci[2] - 'a', to_rank = uci[3] - '1', promo = 0;
   if (uci[4] != '\0'){
-    promo = std::string("NBRQ").find(uci[4]);
+    promo = std::string("nbrq").find(uci[4]);
   }
   return pack_move((from_rank * 16 + from_file), (to_rank * 16 + to_file), promo);
 }
