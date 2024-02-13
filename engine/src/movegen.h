@@ -146,9 +146,10 @@ void score_moves(Position position, MoveInfo &scored_moves, Move tt_move,
       scored_moves.scores[indx] = QueenPromoScore;
     } else if (is_cap(position, move)) {
       int from_piece = position.board[extract_from(move)],
-          to = position.board[extract_to(move)];
-      scored_moves.scores[indx] =
-          GoodCaptureBaseScore + SeeValues[to] - SeeValues[to] / 10;
+          to_piece = position.board[extract_to(move)];
+
+      scored_moves.scores[indx] = GoodCaptureBaseScore + SeeValues[to_piece] -
+                                  SeeValues[from_piece] / 10;
     } else {
       scored_moves.scores[indx] = 0;
     }

@@ -18,6 +18,8 @@ struct ThreadInfo {
   uint16_t time_checks;
   bool stop;
   NNUE_State nnue_state;
+
+  uint8_t max_iter_depth = MaxSearchDepth;
 };
 
 uint64_t TT_size = (1 << 20);

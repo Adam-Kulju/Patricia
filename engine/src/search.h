@@ -5,14 +5,14 @@
 #include "utils.h"
 #include <algorithm>
 
-bool out_of_time(ThreadInfo &thread_info){
-  if (thread_info.stop){
+bool out_of_time(ThreadInfo &thread_info) {
+  if (thread_info.stop) {
     return true;
   }
   thread_info.time_checks++;
-  if (thread_info.time_checks == 1024){
+  if (thread_info.time_checks == 1024) {
     thread_info.time_checks = 0;
-    if (time_elapsed(thread_info.start_time) > thread_info.max_time){
+    if (time_elapsed(thread_info.start_time) > thread_info.max_time) {
       thread_info.stop = true;
       return true;
     }
@@ -20,7 +20,7 @@ bool out_of_time(ThreadInfo &thread_info){
   return false;
 }
 
-int eval(Position &position) {
+int material_eval(Position &position) {
   int m = (position.material_count[0] - position.material_count[1]) * 100 +
           (position.material_count[2] - position.material_count[3]) * 300 +
           (position.material_count[4] - position.material_count[5]) * 300 +
@@ -28,6 +28,23 @@ int eval(Position &position) {
           (position.material_count[8] - position.material_count[9]) * 900;
 
   return position.color ? -m : m;
+}
+
+
+int eval(Position &position, ThreadInfo &thread_info) {
+  int color = position.color;
+  int eval = thread_info.nnue_state.evaluate(color);
+  int material = material_eval(position);
+
+  if (material <= 0 && eval > material + 200 && eval > -200 && eval < 300) {
+    // Conditions required:
+    //(a) we're not up in material
+    //(b) we're doing much better than material count says we are
+    //(c) we're not dead lost or dead won (every 300+ position is usually higher
+    //than the material count and if we're dead lost then what's the point)
+    eval += 50;
+  }
+  return eval;
 }
 
 void ss_push(Position &position, ThreadInfo &thread_info, Move move,
@@ -43,7 +60,8 @@ void ss_pop(ThreadInfo &thread_info, uint64_t hash) {
   thread_info.nnue_state.pop();
 }
 
-bool material_draw(Position &position) {  //Is there not enough material on the board for one side to win?
+bool material_draw(Position &position) { // Is there not enough material on the
+                                         // board for one side to win?
   for (int i :
        {0, 1, 6, 7, 8, 9}) { // Do we have pawns, rooks, or queens on the board?
     if (position.material_count[i]) {
@@ -65,7 +83,8 @@ bool material_draw(Position &position) {  //Is there not enough material on the 
   return true;
 }
 
-bool is_draw(Position &position, ThreadInfo &thread_info, uint64_t hash) {  //Detects if the position is a draw.
+bool is_draw(Position &position, ThreadInfo &thread_info,
+             uint64_t hash) { // Detects if the position is a draw.
 
   int halfmoves = position.halfmoves, game_ply = thread_info.game_ply;
   if (halfmoves >= 100) {
@@ -90,7 +109,9 @@ bool is_draw(Position &position, ThreadInfo &thread_info, uint64_t hash) {  //De
   return false;
 }
 
-int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info) { //Performs a quiescence search on the given position.
+int qsearch(int alpha, int beta, Position &position,
+            ThreadInfo &thread_info) { // Performs a quiescence search on the
+                                       // given position.
 
   int color = position.color;
 
@@ -98,8 +119,8 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info) { 
 
   int ply = thread_info.search_ply;
   if (ply > MaxSearchDepth) {
-    return thread_info.nnue_state.evaluate(
-        color); // if we're about to overflow stack return
+    return eval(position,
+                thread_info); // if we're about to overflow stack return
   }
 
   uint64_t hash = thread_info.zobrist_key;
@@ -130,7 +151,7 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info) { 
 
   if (!in_check) { // If we're not in check and static eval beats beta, we can
                    // immediately return
-    int static_eval = thread_info.nnue_state.evaluate(color);
+    int static_eval = eval(position, thread_info);
     if (static_eval >= beta) {
       return static_eval;
     }
@@ -173,9 +194,9 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info) { 
 }
 
 int search(int alpha, int beta, int depth, Position &position,
-           ThreadInfo &thread_info) { //Performs an alpha-beta search.
+           ThreadInfo &thread_info) { // Performs an alpha-beta search.
 
-  if (out_of_time(thread_info)){
+  if (out_of_time(thread_info)) {
     return thread_info.nnue_state.evaluate(position.color);
   }
   if (depth <= 0) {
@@ -235,7 +256,7 @@ int search(int alpha, int beta, int depth, Position &position,
     int score = -search(-beta, -alpha, depth - 1, moved_position, thread_info);
     ss_pop(thread_info, hash);
 
-    if (thread_info.stop){
+    if (thread_info.stop) {
       return best_score;
     }
 
@@ -284,22 +305,22 @@ void iterative_deepen(
 
   Move best_move = MoveNone;
 
-  for (int depth = 1; ; depth++) {
+  for (int depth = 1; depth <= thread_info.max_iter_depth; depth++) {
     int score = search(ScoreNone, -ScoreNone, depth, position, thread_info);
 
-    if (thread_info.stop){
+    if (thread_info.stop) {
       break;
     }
-    
+
     best_move = TT[thread_info.zobrist_key & TT_mask].best_move;
 
     int64_t search_time = time_elapsed(thread_info.start_time);
 
-    printf("info depth %i seldepth %i score cp %i nodes %" PRIu64 " time %" PRIi64 " pv %s\n",
+    printf("info depth %i seldepth %i score cp %i nodes %" PRIu64
+           " time %" PRIi64 " pv %s\n",
            depth, depth, score, thread_info.nodes, search_time,
            internal_to_uci(position, best_move).c_str());
-
-    if (search_time > thread_info.opt_time){
+    if (search_time > thread_info.opt_time) {
       break;
     }
   }
