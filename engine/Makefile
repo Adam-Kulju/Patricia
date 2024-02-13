@@ -1,4 +1,4 @@
-EXE := willow
+EXE := patricia
 
 SOURCES := src/patricia.cpp
 
