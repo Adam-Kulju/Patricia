@@ -30,6 +30,18 @@ void clear_TT() {
   memset(&TT[0], 0, TT_size * sizeof(TT[0]));
 } // Clears the TT of all data.
 
+void resize_TT(int size){
+  int target_size = size * 1024 * 1024 / sizeof(TTEntry);
+  int tt_size = 1024; 
+  while (tt_size * 2 <= target_size){
+    tt_size *= 2;
+  }
+  TT_size = tt_size;
+  TT.reserve(TT_size);
+  TT_mask = tt_size - 1;
+  clear_TT();
+}
+
 void insert_entry(
     uint64_t hash, int depth, Move best_move, int32_t score,
     uint8_t bound_type) { // Inserts an entry into the transposition table.

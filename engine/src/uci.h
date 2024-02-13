@@ -10,8 +10,8 @@
 #include <stdio.h>
 
 void uci(ThreadInfo &thread_info, Position &position) {
-  setvbuf(stdin, NULL, _IONBF, 0);
-  setvbuf(stdout, NULL, _IONBF, 0);
+  //setvbuf(stdin, NULL, _IONBF, 0);
+  //setvbuf(stdout, NULL, _IONBF, 0);
   
   printf("Patricia Chess Engine, written by Adam Kulju\n\n\n");
 
@@ -38,7 +38,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
 
     else if (command == "uci") {
       printf("id name Patricia 0.1\nid author Adam Kulju\noption name Hash "
-             "type spin default 32 min 32 max 32\noption name Threads type "
+             "type spin default 32 min 1 max 131072\noption name Threads type "
              "spin default 1 min 1 max 1\nuciok\n");
     }
 
@@ -47,7 +47,18 @@ void uci(ThreadInfo &thread_info, Position &position) {
     }
 
     else if (command == "setoption"){
+      std::string name; input_stream >> command; input_stream >> name;
 
+      if (name == "Hash"){
+        input_stream >> command;
+        int value;
+        input_stream >> value;
+        resize_TT(value);
+      }
+
+      else if (name == "Threads"){
+
+      }
     }
 
     else if (command == "stop"){

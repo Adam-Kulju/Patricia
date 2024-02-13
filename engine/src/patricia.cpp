@@ -13,7 +13,8 @@ perft(int depth, Position position, bool first,
     return 1; // a terminal node
   } else if (first) {
     thread_info.start_time = std::chrono::steady_clock::now();
-    set_board(position, thread_info, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+    set_board(position, thread_info,
+              "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
     thread_info.game_ply = 0;
   }
   Move list[216];
@@ -59,18 +60,19 @@ void bench(Position &position, ThreadInfo &thread_info) {
     total_nodes += thread_info.nodes;
   }
 
-  printf("%" PRIu64 " nodes %" PRIi64 " nps\n", total_nodes,
+  printf("Bench: %" PRIu64 " nodes %" PRIi64 " nps\n", total_nodes,
          (int64_t)(total_nodes * 1000 / time_elapsed(thread_info.start_time)));
 }
 
 int main(int argc, char *argv[]) {
   Position position;
   std::unique_ptr<ThreadInfo> thread_info(new ThreadInfo);
-
-  if (std::string(argv[1]) == "perft") {
-    perft(atoi(argv[2]), position, true, *thread_info);
-  } else if (std::string(argv[1]) == "bench") {
-    bench(position, *thread_info);
+  if (argc > 1) {
+    if (std::string(argv[1]) == "perft") {
+      perft(atoi(argv[2]), position, true, *thread_info);
+    } else if (std::string(argv[1]) == "bench") {
+      bench(position, *thread_info);
+    }
   } else {
     uci(*thread_info, position);
   }
