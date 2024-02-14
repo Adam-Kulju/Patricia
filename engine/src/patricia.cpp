@@ -19,7 +19,7 @@ perft(int depth, Position position, bool first,
   }
   Move list[216];
   uint64_t l = 0;
-  int nmoves = movegen(position, list);
+  int nmoves = movegen(position, list, attacks_square(position, position.kingpos[position.color], position.color ^ 1));
   for (int i = 0; i < nmoves;
        i++) // Loop through all of the moves, skipping illegal ones.
   {
@@ -45,11 +45,11 @@ perft(int depth, Position position, bool first,
 
 void bench(Position &position, ThreadInfo &thread_info) {
   std::vector<std::string> fens = {
-      "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"};
+      "r1bqkb1r/ppp2ppp/2n5/3np1N1/2B5/8/PPPP1PPP/RNBQK2R w KQkq - 0 6"};
 
   thread_info.game_ply = 0;
   thread_info.max_time = 100000000, thread_info.opt_time = 100000000;
-  thread_info.max_iter_depth = 8;
+  thread_info.max_iter_depth = 10;
   uint64_t total_nodes = 0;
 
   thread_info.start_time = std::chrono::steady_clock::now();

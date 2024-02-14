@@ -21,12 +21,14 @@ internal_to_uci(Position position,
   return uci;
 }
 
-Move uci_to_internal(std::string uci){
-  int from_file = uci[0] - 'a', from_rank = uci[1] - '1', to_file = uci[2] - 'a', to_rank = uci[3] - '1', promo = 0;
-  if (uci[4] != '\0'){
+Move uci_to_internal(std::string uci) {
+  int from_file = uci[0] - 'a', from_rank = uci[1] - '1',
+      to_file = uci[2] - 'a', to_rank = uci[3] - '1', promo = 0;
+  if (uci[4] != '\0') {
     promo = std::string("nbrq").find(uci[4]);
   }
-  return pack_move((from_rank * 16 + from_file), (to_rank * 16 + to_file), promo);
+  return pack_move((from_rank * 16 + from_file), (to_rank * 16 + to_file),
+                   promo);
 }
 
 void print_board(
@@ -299,6 +301,17 @@ void update_nnue_state(NNUE_State &nnue_state, Move move, int from_piece,
 
 int make_move(Position &position, Move move, ThreadInfo &thread_info,
               bool update_nnue) { // Perform a move on the board.
+
+  if (move == MoveNone) {
+    position.color ^= 1;
+    if (position.ep_square != 255) {
+      thread_info.zobrist_key ^= zobrist_keys[ep_index];
+      position.ep_square = 255;
+    }
+
+    thread_info.zobrist_key ^= zobrist_keys[side_index];
+    return 0;
+  }
 
   uint64_t temp_hash = thread_info.zobrist_key;
 

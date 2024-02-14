@@ -30,7 +30,6 @@ int material_eval(Position &position) {
   return position.color ? -m : m;
 }
 
-
 int eval(Position &position, ThreadInfo &thread_info) {
   int color = position.color;
   int eval = thread_info.nnue_state.evaluate(color);
@@ -41,7 +40,7 @@ int eval(Position &position, ThreadInfo &thread_info) {
     //(a) we're not up in material
     //(b) we're doing much better than material count says we are
     //(c) we're not dead lost or dead won (every 300+ position is usually higher
-    //than the material count and if we're dead lost then what's the point)
+    // than the material count and if we're dead lost then what's the point)
     eval += 50;
   }
   return eval;
@@ -98,9 +97,8 @@ bool is_draw(Position &position, ThreadInfo &thread_info,
       4; // game_ply - 1: last played move, game_ply - 2: your last played move,
          // game_ply - 4 is the first opportunity a repetition is possible
   int end_indx =
-      std::max(game_ply - halfmoves,
-               0); // impossible to have a repetition further back - it would
-                   // always be different due to capture/pawn move
+      std::max(game_ply - 100,
+               0);
   for (int i = start_index; i >= end_indx; i -= 2) {
     if (hash == thread_info.game_hist[i].position_key) {
       return true;
@@ -112,7 +110,6 @@ bool is_draw(Position &position, ThreadInfo &thread_info,
 int qsearch(int alpha, int beta, Position &position,
             ThreadInfo &thread_info) { // Performs a quiescence search on the
                                        // given position.
-
   int color = position.color;
 
   thread_info.nodes++;
@@ -159,7 +156,8 @@ int qsearch(int alpha, int beta, Position &position,
   }
 
   MoveInfo moves;
-  int num_moves = movegen(position, moves.moves); // Generate and score moves
+  int num_moves =
+      movegen(position, moves.moves, in_check); // Generate and score moves
   score_moves(position, moves, MoveNone, num_moves);
 
   for (int indx = 0; indx < num_moves; indx++) {
@@ -207,19 +205,30 @@ int search(int alpha, int beta, int depth, Position &position,
   int ply = thread_info.search_ply;
 
   bool root = !ply, color = position.color, raised_alpha = false;
+  bool is_pv = (beta != alpha + 1);
 
   Move best_move = MoveNone;
 
   uint64_t hash = thread_info.zobrist_key;
+  /*if (hash != calculate(position)){
+    print_board(position);
+    for (int i = 0; i < thread_info.game_ply; i++){
+      Move move = thread_info.game_hist[i].played_move;
+      printf("%x %x %i\n", extract_from(move), extract_to(move), extract_promo(move));
+    }
+    exit(0);
+  }*/
 
   if (!root && is_draw(position, thread_info, hash)) { // Draw detection
     return 2 - (thread_info.nodes & 3);
   }
 
   TTEntry entry = TT[hash & TT_mask];
-  int entry_type = EntryTypes::None, tt_score = ScoreNone, tt_move = MoveNone;
 
-  if (entry.position_key == get_hash_upper_bits(hash)) { // TT probe
+  int entry_type = EntryTypes::None, tt_score = ScoreNone, tt_move = MoveNone;
+  uint32_t hash_key = get_hash_upper_bits(hash);
+
+  if (entry.position_key == hash_key) { // TT probe
 
     entry_type = entry.type, tt_score = entry.score, tt_move = entry.best_move;
     if (tt_score > MateScore) {
@@ -239,9 +248,35 @@ int search(int alpha, int beta, int depth, Position &position,
     }
   }
 
+  bool in_check = attacks_square(position, position.kingpos[color], color ^ 1);
+
+  int static_eval = in_check ? ScoreNone : eval(position, thread_info);
+
+  if (!is_pv && !in_check && static_eval >= beta && depth >= 3 &&
+      thread_info.game_hist[thread_info.game_ply - 1].played_move != MoveNone) {
+
+    Position temp_pos = position;
+
+    make_move(temp_pos, MoveNone, thread_info, false);
+
+    ss_push(position, thread_info, MoveNone, hash);
+
+    int R = 3 + depth / 6;
+    int nmp_score =
+        -search(-alpha - 1, -alpha, depth - R, temp_pos, thread_info);
+
+    thread_info.search_ply--, thread_info.game_ply--;
+    thread_info.zobrist_key = hash;
+
+    if (nmp_score >= beta) {
+      return nmp_score;
+    }
+  }
+
   MoveInfo moves;
-  int num_moves = movegen(position, moves.moves),
-      best_score = ScoreNone; // Generate and score moves
+  int num_moves = movegen(position, moves.moves, in_check),
+      best_score = ScoreNone, moves_played = 0; // Generate and score moves
+
   score_moves(position, moves, tt_move, num_moves);
 
   for (int indx = 0; indx < num_moves; indx++) {
@@ -253,7 +288,17 @@ int search(int alpha, int beta, int depth, Position &position,
       continue;
     }
     ss_push(position, thread_info, move, hash);
-    int score = -search(-beta, -alpha, depth - 1, moved_position, thread_info);
+
+    int score = ScoreNone;
+
+    if (moves_played || !is_pv) {
+      score =
+          -search(-alpha - 1, -alpha, depth - 1, moved_position, thread_info);
+    }
+    if (score > alpha || (!moves_played && is_pv)) {
+      score = -search(-beta, -alpha, depth - 1, moved_position, thread_info);
+    }
+
     ss_pop(thread_info, hash);
 
     if (thread_info.stop) {
@@ -271,6 +316,7 @@ int search(int alpha, int beta, int depth, Position &position,
         break;
       }
     }
+    moves_played++;
   }
 
   if (best_score == ScoreNone) { // handle no legal moves (stalemate/checkmate)
@@ -283,7 +329,6 @@ int search(int alpha, int beta, int depth, Position &position,
                                   : EntryTypes::UBound;
 
   // Add the search results to the TT, accounting for mate scores
-
   insert_entry(hash, depth, best_move,
                best_score > MateScore    ? best_score + ply
                : best_score < -MateScore ? best_score - ply
