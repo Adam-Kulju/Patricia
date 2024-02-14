@@ -176,7 +176,7 @@ constexpr int SeeValues[14] = {
 #define friendly_square(color, piece) (piece && (piece & 1) == color)
 #define enemy_square(color, piece) (piece && (piece & 1) != color)
 #define get_zobrist_key(piece, sq) (((piece - 2) * 64) + sq)
-#define get_hash_upper_bits(hash) (hash >> 32)
+#define get_hash_upper_bits(hash) (static_cast<uint32_t>(hash >> 32))
 #define standard(mailbox) (MailboxToStandard[mailbox])
 
 constexpr int32_t side_index = 772;

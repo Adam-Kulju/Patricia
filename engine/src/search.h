@@ -97,9 +97,8 @@ bool is_draw(Position &position, ThreadInfo &thread_info,
       4; // game_ply - 1: last played move, game_ply - 2: your last played move,
          // game_ply - 4 is the first opportunity a repetition is possible
   int end_indx =
-      std::max(game_ply - halfmoves,
-               0); // impossible to have a repetition further back - it would
-                   // always be different due to capture/pawn move
+      std::max(game_ply - 100,
+               0);
   for (int i = start_index; i >= end_indx; i -= 2) {
     if (hash == thread_info.game_hist[i].position_key) {
       return true;
@@ -211,15 +210,25 @@ int search(int alpha, int beta, int depth, Position &position,
   Move best_move = MoveNone;
 
   uint64_t hash = thread_info.zobrist_key;
+  /*if (hash != calculate(position)){
+    print_board(position);
+    for (int i = 0; i < thread_info.game_ply; i++){
+      Move move = thread_info.game_hist[i].played_move;
+      printf("%x %x %i\n", extract_from(move), extract_to(move), extract_promo(move));
+    }
+    exit(0);
+  }*/
 
   if (!root && is_draw(position, thread_info, hash)) { // Draw detection
     return 2 - (thread_info.nodes & 3);
   }
 
   TTEntry entry = TT[hash & TT_mask];
-  int entry_type = EntryTypes::None, tt_score = ScoreNone, tt_move = MoveNone;
 
-  if (entry.position_key == get_hash_upper_bits(hash)) { // TT probe
+  int entry_type = EntryTypes::None, tt_score = ScoreNone, tt_move = MoveNone;
+  uint32_t hash_key = get_hash_upper_bits(hash);
+
+  if (entry.position_key == hash_key) { // TT probe
 
     entry_type = entry.type, tt_score = entry.score, tt_move = entry.best_move;
     if (tt_score > MateScore) {
@@ -240,16 +249,22 @@ int search(int alpha, int beta, int depth, Position &position,
   }
 
   bool in_check = attacks_square(position, position.kingpos[color], color ^ 1);
+
   int static_eval = in_check ? ScoreNone : eval(position, thread_info);
 
-  if (!is_pv && static_eval >= beta && depth >= 3 &&
-      thread_info.game_hist[thread_info.game_ply].played_move != MoveNone) {
+  if (!is_pv && !in_check && static_eval >= beta && depth >= 3 &&
+      thread_info.game_hist[thread_info.game_ply - 1].played_move != MoveNone) {
+
+    Position temp_pos = position;
+
+    make_move(temp_pos, MoveNone, thread_info, false);
+
     ss_push(position, thread_info, MoveNone, hash);
-    thread_info.zobrist_key ^= zobrist_keys[side_index];
 
     int R = 3 + depth / 6;
     int nmp_score =
-        -search(-alpha - 1, -alpha, depth - R, position, thread_info);
+        -search(-alpha - 1, -alpha, depth - R, temp_pos, thread_info);
+
     thread_info.search_ply--, thread_info.game_ply--;
     thread_info.zobrist_key = hash;
 
@@ -260,8 +275,8 @@ int search(int alpha, int beta, int depth, Position &position,
 
   MoveInfo moves;
   int num_moves = movegen(position, moves.moves, in_check),
-      best_score = ScoreNone, score = ScoreNone,
-      moves_played = 0; // Generate and score moves
+      best_score = ScoreNone, moves_played = 0; // Generate and score moves
+
   score_moves(position, moves, tt_move, num_moves);
 
   for (int indx = 0; indx < num_moves; indx++) {
@@ -274,6 +289,8 @@ int search(int alpha, int beta, int depth, Position &position,
     }
     ss_push(position, thread_info, move, hash);
 
+    int score = ScoreNone;
+
     if (moves_played || !is_pv) {
       score =
           -search(-alpha - 1, -alpha, depth - 1, moved_position, thread_info);
@@ -281,6 +298,7 @@ int search(int alpha, int beta, int depth, Position &position,
     if (score > alpha || (!moves_played && is_pv)) {
       score = -search(-beta, -alpha, depth - 1, moved_position, thread_info);
     }
+
     ss_pop(thread_info, hash);
 
     if (thread_info.stop) {
@@ -311,7 +329,6 @@ int search(int alpha, int beta, int depth, Position &position,
                                   : EntryTypes::UBound;
 
   // Add the search results to the TT, accounting for mate scores
-
   insert_entry(hash, depth, best_move,
                best_score > MateScore    ? best_score + ply
                : best_score < -MateScore ? best_score - ply
