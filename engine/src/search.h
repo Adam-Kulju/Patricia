@@ -30,7 +30,6 @@ int material_eval(Position &position) {
   return position.color ? -m : m;
 }
 
-
 int eval(Position &position, ThreadInfo &thread_info) {
   int color = position.color;
   int eval = thread_info.nnue_state.evaluate(color);
@@ -41,7 +40,7 @@ int eval(Position &position, ThreadInfo &thread_info) {
     //(a) we're not up in material
     //(b) we're doing much better than material count says we are
     //(c) we're not dead lost or dead won (every 300+ position is usually higher
-    //than the material count and if we're dead lost then what's the point)
+    // than the material count and if we're dead lost then what's the point)
     eval += 50;
   }
   return eval;
@@ -112,7 +111,6 @@ bool is_draw(Position &position, ThreadInfo &thread_info,
 int qsearch(int alpha, int beta, Position &position,
             ThreadInfo &thread_info) { // Performs a quiescence search on the
                                        // given position.
-
   int color = position.color;
 
   thread_info.nodes++;
@@ -159,7 +157,8 @@ int qsearch(int alpha, int beta, Position &position,
   }
 
   MoveInfo moves;
-  int num_moves = movegen(position, moves.moves); // Generate and score moves
+  int num_moves =
+      movegen(position, moves.moves, in_check); // Generate and score moves
   score_moves(position, moves, MoveNone, num_moves);
 
   for (int indx = 0; indx < num_moves; indx++) {
@@ -207,6 +206,7 @@ int search(int alpha, int beta, int depth, Position &position,
   int ply = thread_info.search_ply;
 
   bool root = !ply, color = position.color, raised_alpha = false;
+  bool is_pv = (beta != alpha + 1);
 
   Move best_move = MoveNone;
 
@@ -239,9 +239,29 @@ int search(int alpha, int beta, int depth, Position &position,
     }
   }
 
+  bool in_check = attacks_square(position, position.kingpos[color], color ^ 1);
+  int static_eval = in_check ? ScoreNone : eval(position, thread_info);
+
+  if (!is_pv && static_eval >= beta && depth >= 3 &&
+      thread_info.game_hist[thread_info.game_ply].played_move != MoveNone) {
+    ss_push(position, thread_info, MoveNone, hash);
+    thread_info.zobrist_key ^= zobrist_keys[side_index];
+
+    int R = 3 + depth / 6;
+    int nmp_score =
+        -search(-alpha - 1, -alpha, depth - R, position, thread_info);
+    thread_info.search_ply--, thread_info.game_ply--;
+    thread_info.zobrist_key = hash;
+
+    if (nmp_score >= beta) {
+      return nmp_score;
+    }
+  }
+
   MoveInfo moves;
-  int num_moves = movegen(position, moves.moves),
-      best_score = ScoreNone; // Generate and score moves
+  int num_moves = movegen(position, moves.moves, in_check),
+      best_score = ScoreNone, score = ScoreNone,
+      moves_played = 0; // Generate and score moves
   score_moves(position, moves, tt_move, num_moves);
 
   for (int indx = 0; indx < num_moves; indx++) {
@@ -253,7 +273,14 @@ int search(int alpha, int beta, int depth, Position &position,
       continue;
     }
     ss_push(position, thread_info, move, hash);
-    int score = -search(-beta, -alpha, depth - 1, moved_position, thread_info);
+
+    if (moves_played || !is_pv) {
+      score =
+          -search(-alpha - 1, -alpha, depth - 1, moved_position, thread_info);
+    }
+    if (score > alpha || (!moves_played && is_pv)) {
+      score = -search(-beta, -alpha, depth - 1, moved_position, thread_info);
+    }
     ss_pop(thread_info, hash);
 
     if (thread_info.stop) {
@@ -271,6 +298,7 @@ int search(int alpha, int beta, int depth, Position &position,
         break;
       }
     }
+    moves_played++;
   }
 
   if (best_score == ScoreNone) { // handle no legal moves (stalemate/checkmate)

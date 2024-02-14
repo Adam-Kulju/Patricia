@@ -7,7 +7,7 @@ constexpr int TTMoveScore = 10000000;
 constexpr int QueenPromoScore = 5000000;
 constexpr int GoodCaptureBaseScore = 2000000;
 
-int movegen(Position position, Move *move_list) {
+int movegen(Position position, Move *move_list, bool in_check) {
   uint8_t color = position.color;
   int pawn_dir = color ? Directions::South : Directions::North,
       promotion_rank = color ? 0 : 7, first_rank = color ? 6 : 1,
@@ -108,8 +108,7 @@ int movegen(Position position, Move *move_list) {
       }
     }
   }
-  if (attacks_square(position, position.kingpos[color],
-                     opp_color)) { // If we're in check there's no point in
+  if (in_check) { // If we're in check there's no point in
                                    // seeing if we can castle (can be optimized)
     return indx;
   }
