@@ -1,9 +1,11 @@
 #pragma once
 #include "movegen.h"
 #include "nnue.h"
+#include "params.h"
 #include "position.h"
 #include "utils.h"
 #include <algorithm>
+
 
 bool out_of_time(ThreadInfo &thread_info) {
   if (thread_info.stop) {
@@ -96,9 +98,7 @@ bool is_draw(Position &position, ThreadInfo &thread_info,
       game_ply -
       4; // game_ply - 1: last played move, game_ply - 2: your last played move,
          // game_ply - 4 is the first opportunity a repetition is possible
-  int end_indx =
-      std::max(game_ply - 100,
-               0);
+  int end_indx = std::max(game_ply - 100, 0);
   for (int i = start_index; i >= end_indx; i -= 2) {
     if (hash == thread_info.game_hist[i].position_key) {
       return true;
@@ -208,13 +208,17 @@ int search(int alpha, int beta, int depth, Position &position,
   bool is_pv = (beta != alpha + 1);
 
   Move best_move = MoveNone;
+  int score = ScoreNone;
 
   uint64_t hash = thread_info.zobrist_key;
+
   /*if (hash != calculate(position)){
     print_board(position);
     for (int i = 0; i < thread_info.game_ply; i++){
       Move move = thread_info.game_hist[i].played_move;
-      printf("%x %x %i\n", extract_from(move), extract_to(move), extract_promo(move));
+      printf("%x %x %i %i %llx\n", extract_from(move), extract_to(move),
+      extract_promo(move), thread_info.game_hist[i].piece_moved,
+  thread_info.game_hist[i].position_key);
     }
     exit(0);
   }*/
@@ -252,24 +256,29 @@ int search(int alpha, int beta, int depth, Position &position,
 
   int static_eval = in_check ? ScoreNone : eval(position, thread_info);
 
-  if (!is_pv && !in_check && static_eval >= beta && depth >= 3 &&
-      thread_info.game_hist[thread_info.game_ply - 1].played_move != MoveNone) {
+  if (!is_pv && !in_check) {
+    if (depth <= RFPMaxDepth && static_eval - RFPMargin * depth >= beta) {
+      return static_eval;
+    }
+    if (static_eval >= beta && depth >= NMPMinDepth &&
+        thread_info.game_hist[thread_info.game_ply - 1].played_move !=
+            MoveNone) {
 
-    Position temp_pos = position;
+      Position temp_pos = position;
 
-    make_move(temp_pos, MoveNone, thread_info, false);
+      make_move(temp_pos, MoveNone, thread_info, false);
 
-    ss_push(position, thread_info, MoveNone, hash);
+      ss_push(position, thread_info, MoveNone, hash);
 
-    int R = 3 + depth / 6;
-    int nmp_score =
-        -search(-alpha - 1, -alpha, depth - R, temp_pos, thread_info);
+      int R = NMPBase + depth / NMPDepthDiv;
+      score = -search(-alpha - 1, -alpha, depth - R, temp_pos, thread_info);
 
-    thread_info.search_ply--, thread_info.game_ply--;
-    thread_info.zobrist_key = hash;
+      thread_info.search_ply--, thread_info.game_ply--;
+      thread_info.zobrist_key = hash;
 
-    if (nmp_score >= beta) {
-      return nmp_score;
+      if (score >= beta) {
+        return score;
+      }
     }
   }
 
@@ -289,11 +298,28 @@ int search(int alpha, int beta, int depth, Position &position,
     }
     ss_push(position, thread_info, move, hash);
 
-    int score = ScoreNone;
+    bool full_search = false;
 
-    if (moves_played || !is_pv) {
-      score =
-          -search(-alpha - 1, -alpha, depth - 1, moved_position, thread_info);
+    if (depth >= 3 && moves_played > is_pv) {
+
+      int R = LMRTable[depth][moves_played];
+      if (is_cap(position, move)){
+        R /= 2;
+      }
+      R += !is_pv;
+      
+      R = std::clamp(R, 1, depth - 1);
+
+      score = -search(-alpha - 1, -alpha, depth - R, moved_position, thread_info);
+      if (score > alpha){
+        full_search = R > 1;
+      }
+    }
+    else{
+      full_search = moves_played || !is_pv;
+    }
+    if (full_search){
+      score = -search(-alpha - 1, -alpha, depth - 1, moved_position, thread_info);
     }
     if (score > alpha || (!moves_played && is_pv)) {
       score = -search(-beta, -alpha, depth - 1, moved_position, thread_info);

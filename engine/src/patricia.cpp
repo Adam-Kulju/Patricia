@@ -1,6 +1,7 @@
 #include "position.h"
 #include "search.h"
 #include "uci.h"
+#include "params.h"
 #include <memory>
 #include <stdio.h>
 
@@ -45,11 +46,11 @@ perft(int depth, Position position, bool first,
 
 void bench(Position &position, ThreadInfo &thread_info) {
   std::vector<std::string> fens = {
-      "r1bqkb1r/ppp2ppp/2n5/3np1N1/2B5/8/PPPP1PPP/RNBQK2R w KQkq - 0 6"};
+      "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"};
 
   thread_info.game_ply = 0;
   thread_info.max_time = 100000000, thread_info.opt_time = 100000000;
-  thread_info.max_iter_depth = 10;
+  thread_info.max_iter_depth = 12;
   uint64_t total_nodes = 0;
 
   thread_info.start_time = std::chrono::steady_clock::now();
@@ -67,6 +68,7 @@ void bench(Position &position, ThreadInfo &thread_info) {
 int main(int argc, char *argv[]) {
   Position position;
   std::unique_ptr<ThreadInfo> thread_info(new ThreadInfo);
+  init_LMR();
   if (argc > 1) {
     if (std::string(argv[1]) == "perft") {
       perft(atoi(argv[2]), position, true, *thread_info);
