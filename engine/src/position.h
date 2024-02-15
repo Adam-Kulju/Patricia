@@ -431,7 +431,9 @@ int make_move(Position &position, Move move, ThreadInfo &thread_info,
   // If we've moved a piece onto one of the opponent's starting rook square, set
   // their castling to false, because either we just captured it, the rook
   // already moved, or the opposing king moved.
-  else if (to == flip_sq(base_rank) || to == flip_sq(base_rank + 7)) {
+
+  if (to == flip_sq(base_rank) || to == flip_sq(base_rank + 7)) {
+
     int side = get_file(to) < 4 ? Sides::Queenside : Sides::Kingside;
     if (position.castling_rights[opp_color][side]) {
       position.castling_rights[opp_color][side] = false;
