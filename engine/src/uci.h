@@ -12,7 +12,7 @@
 void uci(ThreadInfo &thread_info, Position &position) {
   setvbuf(stdin, NULL, _IONBF, 0);
   setvbuf(stdout, NULL, _IONBF, 0);
-  
+
   printf("Patricia Chess Engine, written by Adam Kulju\n\n\n");
 
   thread_info.nnue_state.m_accumulator_stack.reserve(100);
@@ -26,14 +26,16 @@ void uci(ThreadInfo &thread_info, Position &position) {
     std::string command;
 
     input_stream >> std::skipws >> command; // write into command
-    if (command == "d"){
+    if (command == "d") {
       input_stream.clear();
-      input_stream.str("position fen r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
+      input_stream.str("position fen "
+                       "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/"
+                       "R3K2R w KQkq - 0 1");
       input_stream >> std::skipws >> command;
     }
 
-    if (command == "quit"){
-        exit(0);
+    if (command == "quit") {
+      exit(0);
     }
 
     else if (command == "uci") {
@@ -42,33 +44,32 @@ void uci(ThreadInfo &thread_info, Position &position) {
              "spin default 1 min 1 max 1\nuciok\n");
     }
 
-    else if (command == "isready"){
-        printf("readyok\n");
+    else if (command == "isready") {
+      printf("readyok\n");
     }
 
-    else if (command == "setoption"){
-      std::string name; input_stream >> command; input_stream >> name;
+    else if (command == "setoption") {
+      std::string name;
+      input_stream >> command;
+      input_stream >> name;
 
-      if (name == "Hash"){
+      if (name == "Hash") {
         input_stream >> command;
         int value;
         input_stream >> value;
         resize_TT(value);
       }
 
-      else if (name == "Threads"){
-
+      else if (name == "Threads") {
       }
     }
 
-    else if (command == "stop"){
-        
+    else if (command == "stop") {
+
     }
 
     else if (command == "ucinewgame") {
-      clear_TT();
-      thread_info.game_ply = 0;
-      memset(thread_info.game_hist, 0, sizeof(thread_info.game_hist));
+      new_game(thread_info);
       set_board(position, thread_info,
                 "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
     }
@@ -90,49 +91,44 @@ void uci(ThreadInfo &thread_info, Position &position) {
         }
 
         set_board(position, thread_info, fen);
-      }
-      else{
+      } else {
         set_board(position, thread_info,
-                "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+                  "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
       }
       thread_info.zobrist_key = calculate(position);
       std::string has_moves;
-      if (input_stream >> has_moves){   //we're at the "moves" part of the command now
+      if (input_stream >>
+          has_moves) { // we're at the "moves" part of the command now
         std::string moves;
-        while (input_stream >> moves){
-            Move move = uci_to_internal(moves);
-            ss_push(position, thread_info, move, thread_info.zobrist_key);  //fill the game hist stack as we go
-            make_move(position, move, thread_info, false);
+        while (input_stream >> moves) {
+          Move move = uci_to_internal(moves);
+          ss_push(position, thread_info, move,
+                  thread_info.zobrist_key); // fill the game hist stack as we go
+          make_move(position, move, thread_info, false);
         }
       }
     }
 
-    else if (command == "go"){
-        int color = position.color, time = 0, increment = 0;
-        std::string token;
-        while (input_stream >> token){
-            if (token == "infinite"){
-                time = 10000000;
-            }
-            else if (token == "wtime" && color == Colors::White){
-                input_stream >> time;
-            }
-            else if (token == "btime" && color == Colors::Black){
-                input_stream >> time;
-            }
-           else if (token == "winc" && color == Colors::White){
-                input_stream >> increment;
-            }
-            else if (token == "binc" && color == Colors::Black){
-                input_stream >> increment;
-            }
+    else if (command == "go") {
+      int color = position.color, time = 0, increment = 0;
+      std::string token;
+      while (input_stream >> token) {
+        if (token == "infinite") {
+          time = 10000000;
+        } else if (token == "wtime" && color == Colors::White) {
+          input_stream >> time;
+        } else if (token == "btime" && color == Colors::Black) {
+          input_stream >> time;
+        } else if (token == "winc" && color == Colors::White) {
+          input_stream >> increment;
+        } else if (token == "binc" && color == Colors::Black) {
+          input_stream >> increment;
         }
-        thread_info.max_time = time / 5;
-        thread_info.opt_time = time / 20 + increment * 6 / 10;
-        thread_info.start_time = std::chrono::steady_clock::now();
-        iterative_deepen(position, thread_info);
+      }
+      thread_info.max_time = time / 5;
+      thread_info.opt_time = time / 20 + increment * 6 / 10;
+      thread_info.start_time = std::chrono::steady_clock::now();
+      iterative_deepen(position, thread_info);
     }
-
-
   }
 }

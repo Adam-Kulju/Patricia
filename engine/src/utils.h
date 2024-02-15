@@ -10,14 +10,14 @@ struct ThreadInfo {
   uint16_t game_ply;               // how far we're into the game
   uint16_t search_ply;             // depth that we are in the search tree
   uint64_t nodes;                  // Total nodes searched so far this search
-  std::chrono::steady_clock::time_point
-      start_time; // Start time of the search
+  std::chrono::steady_clock::time_point start_time; // Start time of the search
 
   uint32_t max_time;
   uint32_t opt_time;
   uint16_t time_checks;
   bool stop;
   NNUE_State nnue_state;
+  int16_t HistoryScores[12][0x80];
 
   uint8_t max_iter_depth = MaxSearchDepth;
 };
@@ -26,20 +26,23 @@ uint64_t TT_size = (1 << 20);
 uint64_t TT_mask = TT_size - 1;
 std::vector<TTEntry> TT(TT_size);
 
-void clear_TT() {
+void new_game(ThreadInfo &thread_info) {
+  thread_info.game_ply = 0;
+  memset(thread_info.HistoryScores, 0, sizeof(thread_info.HistoryScores));
+  memset(thread_info.game_hist, 0, sizeof(thread_info.game_hist));
   memset(&TT[0], 0, TT_size * sizeof(TT[0]));
-} // Clears the TT of all data.
+}
 
-void resize_TT(int size){
+void resize_TT(int size) {
   int target_size = size * 1024 * 1024 / sizeof(TTEntry);
-  int tt_size = 1024; 
-  while (tt_size * 2 <= target_size){
+  int tt_size = 1024;
+  while (tt_size * 2 <= target_size) {
     tt_size *= 2;
   }
   TT_size = tt_size;
   TT.reserve(TT_size);
   TT_mask = tt_size - 1;
-  clear_TT();
+  memset(&TT[0], 0, TT_size * sizeof(TT[0]));
 }
 
 void insert_entry(
@@ -79,7 +82,6 @@ uint64_t calculate(
 
 int64_t time_elapsed(std::chrono::steady_clock::time_point start_time) {
   auto now = std::chrono::steady_clock::now();
-    return std::chrono::duration_cast<std::chrono::milliseconds>(
-                            now - start_time)
-                            .count();
+  return std::chrono::duration_cast<std::chrono::milliseconds>(now - start_time)
+      .count();
 }

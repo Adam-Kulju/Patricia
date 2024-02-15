@@ -6,6 +6,9 @@
 #include "utils.h"
 #include <algorithm>
 
+void update_history(int16_t &entry, int score) { // Update history score
+  entry += score - entry * abs(score) / 16384;
+}
 
 bool out_of_time(ThreadInfo &thread_info) {
   if (thread_info.stop) {
@@ -158,7 +161,7 @@ int qsearch(int alpha, int beta, Position &position,
   MoveInfo moves;
   int num_moves =
       movegen(position, moves.moves, in_check); // Generate and score moves
-  score_moves(position, moves, MoveNone, num_moves);
+  score_moves(position, thread_info, moves, MoveNone, num_moves);
 
   for (int indx = 0; indx < num_moves; indx++) {
     Move move = get_next_move(moves.moves, moves.scores, indx, num_moves);
@@ -286,7 +289,7 @@ int search(int alpha, int beta, int depth, Position &position,
   int num_moves = movegen(position, moves.moves, in_check),
       best_score = ScoreNone, moves_played = 0; // Generate and score moves
 
-  score_moves(position, moves, tt_move, num_moves);
+  score_moves(position, thread_info, moves, tt_move, num_moves);
 
   for (int indx = 0; indx < num_moves; indx++) {
     Move move = get_next_move(moves.moves, moves.scores, indx, num_moves);
@@ -343,6 +346,19 @@ int search(int alpha, int beta, int depth, Position &position,
       }
     }
     moves_played++;
+  }
+
+  if (best_score >= beta){
+    int bonus = std::min(300 * (depth - 1), 2500);
+    for (int i = 0; moves.moves[i] != best_move; i++){
+        Move move = moves.moves[i];
+        if (!is_cap(position, move)){
+          int piece = position.board[extract_from(move)] - 2, sq = extract_to(move);
+          update_history(thread_info.HistoryScores[piece][sq], -bonus);
+        }
+    }
+        int piece = position.board[extract_from(best_move)] - 2, sq = extract_to(best_move);
+        update_history(thread_info.HistoryScores[piece][sq], bonus);
   }
 
   if (best_score == ScoreNone) { // handle no legal moves (stalemate/checkmate)
