@@ -13,10 +13,10 @@ perft(int depth, Position position, bool first,
   if (!depth) {
     return 1; // a terminal node
   } else if (first) {
+    new_game(thread_info);
     thread_info.start_time = std::chrono::steady_clock::now();
     set_board(position, thread_info,
               "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
-    thread_info.game_ply = 0;
   }
   Move list[216];
   uint64_t l = 0;
@@ -48,7 +48,6 @@ void bench(Position &position, ThreadInfo &thread_info) {
   std::vector<std::string> fens = {
       "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"};
 
-  thread_info.game_ply = 0;
   thread_info.max_time = 100000000, thread_info.opt_time = 100000000;
   thread_info.max_iter_depth = 12;
   uint64_t total_nodes = 0;
@@ -56,6 +55,7 @@ void bench(Position &position, ThreadInfo &thread_info) {
   thread_info.start_time = std::chrono::steady_clock::now();
 
   for (std::string fen : fens) {
+    new_game(thread_info);
     set_board(position, thread_info, fen);
     iterative_deepen(position, thread_info);
     total_nodes += thread_info.nodes;

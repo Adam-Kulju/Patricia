@@ -135,7 +135,7 @@ int movegen(Position position, Move *move_list, bool in_check) {
   return indx;
 }
 
-void score_moves(Position position, MoveInfo &scored_moves, Move tt_move,
+void score_moves(Position position, ThreadInfo &thread_info, MoveInfo &scored_moves, Move tt_move,
                  int len) {
   for (int indx = 0; indx < len; indx++) {
     Move move = scored_moves.moves[indx];
@@ -150,7 +150,9 @@ void score_moves(Position position, MoveInfo &scored_moves, Move tt_move,
       scored_moves.scores[indx] = GoodCaptureBaseScore + SeeValues[to_piece] -
                                   SeeValues[from_piece] / 10;
     } else {
-      scored_moves.scores[indx] = 0;
+          int piece = position.board[extract_from(move)] - 2,
+          to = extract_to(move);
+      scored_moves.scores[indx] = thread_info.HistoryScores[piece][to];
     }
   }
 }
