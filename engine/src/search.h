@@ -25,7 +25,7 @@ bool out_of_time(ThreadInfo &thread_info) {
   return false;
 }
 
-int material_eval(Position &position) {
+int16_t material_eval(Position &position) {
   int m = (position.material_count[0] - position.material_count[1]) * 100 +
           (position.material_count[2] - position.material_count[3]) * 300 +
           (position.material_count[4] - position.material_count[5]) * 300 +
@@ -38,15 +38,56 @@ int material_eval(Position &position) {
 int eval(Position &position, ThreadInfo &thread_info) {
   int color = position.color;
   int eval = thread_info.nnue_state.evaluate(color);
-  int material = material_eval(position);
 
-  if (material <= 0 && eval > material + 200 && eval > -200 && eval < 300) {
-    // Conditions required:
-    //(a) we're not up in material
-    //(b) we're doing much better than material count says we are
-    //(c) we're not dead lost or dead won (every 300+ position is usually higher
-    // than the material count and if we're dead lost then what's the point)
-    eval += 50;
+  if (eval < -100) { // Sacrifices in lost positions are not useful.
+    return eval;
+  }
+
+  int start_index = thread_info.game_ply - thread_info.search_ply;
+  if (thread_info.search_ply % 2) {
+    start_index += 1;
+  }
+  // if we're at ply 4, ply-1 = material before opponent's last move, ply-2 =
+  // material before our last move, ply-4 = material before our first move
+
+  // if we're at odd ply we change the start index to ply=1
+
+  int s_material = thread_info.game_hist[start_index].material_count;
+
+  bool sacrificed = false;
+  int difference;
+
+  // A sacrificial position is defined as follows:
+  // We were higher in material before the sacrifice,
+  // We did not immediately take back, or at least the capture wasn't enough to
+  // bring the material balance back
+
+  for (int indx = start_index + 2; indx < thread_info.game_ply; indx += 2) {
+    if (-thread_info.game_hist[indx + 1].material_count < s_material) {
+      // Let's say that at ply 2 we're a rook for a pawn down because we
+      // sacrificed it on ply 0 when up a pawn. At ply 2, we take a knight,
+      // bringing the opponent's material count diff to 100. the ply 3 index is
+      // thus 200, which we negate to get -100, which is less than 100, so it's
+      // a sacrifice.
+
+      sacrificed = true;
+      difference =
+          s_material + (thread_info.game_hist[indx + 1].material_count);
+
+      // note the "scale" of the sacrifice. In our example above, 100 + 100 =
+      // 200.
+      break;
+    }
+  }
+
+  if (sacrificed) {
+
+    eval += (difference > 600 ? 150 : difference > 100 ? 75 : 40);
+    // Queen sacrifices get a massive bonus. Rook/piece/exchange sacs get a
+    // smaller but still sizable bonus. Pawn sacs get a relatively modest bonus.
+
+    // These bonuses disappear once you make the sacrifice in game but we've
+    // already verified it's not losing.
   }
   return eval;
 }
@@ -55,7 +96,8 @@ void ss_push(Position &position, ThreadInfo &thread_info, Move move,
              uint64_t hash) {
   thread_info.search_ply++;
   thread_info.game_hist[thread_info.game_ply++] = {
-      hash, move, position.board[extract_from(move)]};
+      hash, move, position.board[extract_from(move)], material_eval(position),
+      is_cap(position, move)};
 }
 
 void ss_pop(ThreadInfo &thread_info, uint64_t hash) {
@@ -306,23 +348,24 @@ int search(int alpha, int beta, int depth, Position &position,
     if (depth >= 3 && moves_played > is_pv) {
 
       int R = LMRTable[depth][moves_played];
-      if (is_cap(position, move)){
+      if (is_cap(position, move)) {
         R /= 2;
       }
       R += !is_pv;
-      
+
       R = std::clamp(R, 1, depth - 1);
 
-      score = -search(-alpha - 1, -alpha, depth - R, moved_position, thread_info);
-      if (score > alpha){
+      score =
+          -search(-alpha - 1, -alpha, depth - R, moved_position, thread_info);
+      if (score > alpha) {
         full_search = R > 1;
       }
-    }
-    else{
+    } else {
       full_search = moves_played || !is_pv;
     }
-    if (full_search){
-      score = -search(-alpha - 1, -alpha, depth - 1, moved_position, thread_info);
+    if (full_search) {
+      score =
+          -search(-alpha - 1, -alpha, depth - 1, moved_position, thread_info);
     }
     if (score > alpha || (!moves_played && is_pv)) {
       score = -search(-beta, -alpha, depth - 1, moved_position, thread_info);
@@ -348,17 +391,19 @@ int search(int alpha, int beta, int depth, Position &position,
     moves_played++;
   }
 
-  if (best_score >= beta){
+  if (best_score >= beta) {
     int bonus = std::min(300 * (depth - 1), 2500);
-    for (int i = 0; moves.moves[i] != best_move; i++){
-        Move move = moves.moves[i];
-        if (!is_cap(position, move)){
-          int piece = position.board[extract_from(move)] - 2, sq = extract_to(move);
-          update_history(thread_info.HistoryScores[piece][sq], -bonus);
-        }
+    for (int i = 0; moves.moves[i] != best_move; i++) {
+      Move move = moves.moves[i];
+      if (!is_cap(position, move)) {
+        int piece = position.board[extract_from(move)] - 2,
+            sq = extract_to(move);
+        update_history(thread_info.HistoryScores[piece][sq], -bonus);
+      }
     }
-        int piece = position.board[extract_from(best_move)] - 2, sq = extract_to(best_move);
-        update_history(thread_info.HistoryScores[piece][sq], bonus);
+    int piece = position.board[extract_from(best_move)] - 2,
+        sq = extract_to(best_move);
+    update_history(thread_info.HistoryScores[piece][sq], bonus);
   }
 
   if (best_score == ScoreNone) { // handle no legal moves (stalemate/checkmate)

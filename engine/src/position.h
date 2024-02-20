@@ -244,14 +244,15 @@ bool attacks_square(Position position, int sq,
   return false;
 }
 
+bool is_queen_promo(Move move) { return extract_promo(move) == 3; }
+
 bool is_cap(Position &position, Move move) {
   int to = extract_to(move);
   return (position.board[to] ||
           (to == position.ep_square && position.board[extract_from(move)] ==
-                                           Pieces::WPawn + position.color));
+                                           Pieces::WPawn + position.color) || is_queen_promo((move)));
 }
 
-bool is_queen_promo(Move move) { return extract_promo(move) == 3; }
 
 void update_nnue_state(NNUE_State &nnue_state, Move move, int from_piece,
                        int captured_piece, int captured_square,

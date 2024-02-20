@@ -86,6 +86,8 @@ struct GameHistory { // keeps the state of the board at a particular point in
   Move played_move;      // The move that was played
   uint8_t piece_moved; // The piece that was moved (will be useful for histories
                        // later)
+  int16_t material_count;
+  bool is_cap;
 };
 
 constexpr int MaxSearchDepth = 127;
