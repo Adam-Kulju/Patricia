@@ -285,7 +285,7 @@ int search(int alpha, int beta, int depth, Position &position,
     } else if (tt_score < -MateScore) {
       tt_score += ply;
     }
-    if (!root &&
+    if (!is_pv &&
         entry.depth >= depth) { // If we get a useful score from the TT and it's
                                 // searched to at least the same depth we would
                                 // have searched, then we can return
