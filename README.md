@@ -22,3 +22,14 @@ Code for filtering programs are found in the utils/ directory, and are indentifi
 
 
 All filtering programs are run with the command `./[exe] [input.txt] [output.txt]`. You'll have to compile the particular program that you want to run yourself, or you can ask me for a binary for a specific filtering method.
+
+
+
+
+[license-badge]: https://img.shields.io/github/license/Adam-Kulju/Patricia?style=for-the-badge
+[release-badge]: https://img.shields.io/github/v/release/Adam-Kulju/Patricia?style=for-the-badge
+[commits-badge]: https://img.shields.io/github/commits-since/Adam-Kulju/Patricia/latest?style=for-the-badge
+
+[license-link]: https://github.com/Adam-Kulju/Patricia/blob/main/LICENSE
+[release-link]: https://github.com/Adam-Kulju/Patricia/releases/latest
+[commits-link]: https://github.com/Adam-Kulju/Patricia/commits/main
