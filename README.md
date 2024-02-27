@@ -1,4 +1,12 @@
+<div align="center">
+
 # Patricia
+
+[![License][license-badge]][license-link]  
+[![GitHub release (latest by date)][release-badge]][release-link]
+[![Commits since latest release][commits-badge]][commits-link]
+
+</div>
 
 A chess program made with the goal of objectifying chess style, and then training networks to excel at said style.
 
