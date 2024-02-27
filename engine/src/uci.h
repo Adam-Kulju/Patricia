@@ -119,6 +119,9 @@ void uci(ThreadInfo &thread_info, Position &position) {
     }
 
     else if (command == "go") {
+      if (s.joinable()){
+        s.join();
+      }
       int color = position.color, time = 0, increment = 0;
       std::string token;
       while (input_stream >> token) {
