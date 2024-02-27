@@ -34,9 +34,18 @@ int16_t material_eval(Position &position) {
 
   return position.color ? -m : m;
 }
+int16_t total_mat(Position &position) {
+  int m = (position.material_count[0] + position.material_count[1]) * 100 +
+          (position.material_count[2] + position.material_count[3]) * 300 +
+          (position.material_count[4] + position.material_count[5]) * 300 +
+          (position.material_count[6] + position.material_count[7]) * 500 +
+          (position.material_count[8] + position.material_count[9]) * 900;
 
-int eval(Position &position, ThreadInfo &thread_info) {
-  int color = position.color;
+  return m;
+}
+
+int eval(Position &position, ThreadInfo &thread_info, int alpha, int beta) {
+ int color = position.color;
   int eval = thread_info.nnue_state.evaluate(color);
 
   if (eval < -100) { // Sacrifices in lost positions are not useful.
@@ -161,8 +170,8 @@ int qsearch(int alpha, int beta, Position &position,
 
   int ply = thread_info.search_ply;
   if (ply > MaxSearchDepth) {
-    return eval(position,
-                thread_info); // if we're about to overflow stack return
+    return eval(position, thread_info, alpha,
+                beta); // if we're about to overflow stack return
   }
 
   uint64_t hash = thread_info.zobrist_key;
@@ -193,7 +202,7 @@ int qsearch(int alpha, int beta, Position &position,
 
   if (!in_check) { // If we're not in check and static eval beats beta, we can
                    // immediately return
-    int static_eval = eval(position, thread_info);
+    int static_eval = eval(position, thread_info, alpha, beta);
     if (static_eval >= beta) {
       return static_eval;
     }
@@ -269,7 +278,23 @@ int search(int alpha, int beta, int depth, Position &position,
   }*/
 
   if (!root && is_draw(position, thread_info, hash)) { // Draw detection
-    return 2 - (thread_info.nodes & 3);
+    int draw_score = 2 - (thread_info.nodes & 3);
+    int m = material_eval(position);
+    if (m < 0) {
+      return draw_score;
+    } else if (m > 0 || total_mat(position) > 2500) {
+      draw_score -= 40;
+    }
+    return ply % 2 ? -draw_score : draw_score;
+    //We want to discourage draws at the root.
+    //ply 0 - make a move that makes the position a draw
+    //ply 1 - bonus to side, which is penalty to us
+
+
+    //alternatively
+    //ply 0 - we make forced move
+    //ply 1 - opponent makes draw move
+    //ply 2 - penalty to us
   }
 
   TTEntry entry = TT[hash & TT_mask];
@@ -299,7 +324,8 @@ int search(int alpha, int beta, int depth, Position &position,
 
   bool in_check = attacks_square(position, position.kingpos[color], color ^ 1);
 
-  int static_eval = in_check ? ScoreNone : eval(position, thread_info);
+  int static_eval =
+      in_check ? ScoreNone : eval(position, thread_info, alpha, beta);
 
   if (!is_pv && !in_check) {
     if (depth <= RFPMaxDepth && static_eval - RFPMargin * depth >= beta) {

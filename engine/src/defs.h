@@ -78,6 +78,7 @@ struct Position {
   uint8_t ep_square;          // stores ep square
   bool color;                 // whose side to move
   uint8_t halfmoves;
+  int8_t is_sacrifice;
 };
 
 struct GameHistory { // keeps the state of the board at a particular point in
@@ -163,7 +164,7 @@ constexpr int8_t SliderAttacks[4][8] =
 
 
 constexpr int SeeValues[14] = {
-  100, 0, 100, 100, 450, 450, 650, 650, 1250, 1250, 10000, 10000
+  100, 0, 100, 100, 450, 450, 450, 450, 650, 650, 1250, 1250, 10000, 10000
 };  //the first value is 100 for en passant
 
 #define out_of_board(x) (x & 0x88)

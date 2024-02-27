@@ -109,7 +109,7 @@ int movegen(Position position, Move *move_list, bool in_check) {
     }
   }
   if (in_check) { // If we're in check there's no point in
-                                   // seeing if we can castle (can be optimized)
+                  // seeing if we can castle (can be optimized)
     return indx;
   }
 
@@ -135,8 +135,112 @@ int movegen(Position position, Move *move_list, bool in_check) {
   return indx;
 }
 
-void score_moves(Position position, ThreadInfo &thread_info, MoveInfo &scored_moves, Move tt_move,
-                 int len) {
+int cheapest_attacker(Position position, int sq, int color, int &attack_sq) {
+  int opp_color = color ^ 1, indx = -1;
+
+  int lowest = Pieces::Blank + 20;
+
+  for (int dirs : AttackRays) {
+    indx++;
+    int temp_pos = sq + dirs;
+
+    while (!out_of_board(temp_pos)) {
+      int piece = position.board[temp_pos];
+      if (!piece) {
+        temp_pos += dirs;
+        continue;
+      } else if (get_color(piece) == opp_color) {
+        break;
+      }
+
+      bool attacker = false;
+
+      piece -= color; // This statement lets us get the piece type without
+                      // needing to account for color.
+
+      if (piece == Pieces::WQueen || (piece == Pieces::WRook && indx < 4) ||
+          (piece == Pieces::WBishop &&
+           indx > 3)) { // A queen attack is a check from every direction, rooks
+                        // and bishops only from orthogonal/diagonal directions
+                        // respectively.
+        attacker = true;
+      } else if (piece == Pieces::WPawn) {
+        // Pawns and kings are only attackers if they're right next to the
+        // square. Pawns additionally have to be on the right vector.
+        if (temp_pos == sq + dirs &&
+            (color ? (indx > 5) : (indx == 4 || indx == 5))) {
+
+          attack_sq = temp_pos;
+          return piece;
+        }
+      } else if (piece == Pieces::WKing && temp_pos == sq + dirs) {
+        attacker = true;
+      }
+
+      if (attacker && piece < lowest) {
+        lowest = piece;
+        attack_sq = temp_pos;
+      }
+      break;
+    }
+
+    temp_pos = sq + KnightAttacks[indx]; // Check for knight attacks
+    if (!out_of_board(temp_pos) &&
+        position.board[temp_pos] - color == Pieces::WKnight) {
+      lowest = Pieces::WKnight;
+      attack_sq = temp_pos;
+    }
+  }
+  return lowest;
+}
+
+bool SEE(Position &position, ThreadInfo &thread_info, Move move,
+         int threshold) {
+  int color = position.color, from = extract_from(move), to = extract_to(move),
+      gain = SeeValues[position.board[to]],
+      risk = SeeValues[position.board[from]];
+
+  if (gain < threshold) {
+    return false;
+  }
+
+  Position temp_pos = position;
+  temp_pos.board[from] = Pieces::Blank;
+
+  int None = 20, attack_sq = 0;
+
+  while (gain - risk < threshold) {
+    int type = cheapest_attacker(temp_pos, to, color ^ 1, attack_sq);
+
+    if (type == None) {
+      return true;
+    }
+
+    gain -= risk;
+    risk = SeeValues[type];
+
+    if (gain + risk < threshold) {
+      return false;
+    }
+    temp_pos.board[attack_sq] = Pieces::Blank;
+
+    type = cheapest_attacker(temp_pos, to, color, attack_sq);
+
+    if (type == None) {
+      return false;
+    }
+
+    gain += risk;
+    risk = SeeValues[type];
+
+    temp_pos.board[attack_sq] = Pieces::Blank;
+  }
+
+  return true;
+}
+
+void score_moves(Position position, ThreadInfo &thread_info,
+                 MoveInfo &scored_moves, Move tt_move, int len) {
   for (int indx = 0; indx < len; indx++) {
     Move move = scored_moves.moves[indx];
     if (move == tt_move) {
@@ -150,8 +254,7 @@ void score_moves(Position position, ThreadInfo &thread_info, MoveInfo &scored_mo
       scored_moves.scores[indx] = GoodCaptureBaseScore + SeeValues[to_piece] -
                                   SeeValues[from_piece] / 10;
     } else {
-          int piece = position.board[extract_from(move)] - 2,
-          to = extract_to(move);
+      int piece = position.board[extract_from(move)] - 2, to = extract_to(move);
       scored_moves.scores[indx] = thread_info.HistoryScores[piece][to];
     }
   }
