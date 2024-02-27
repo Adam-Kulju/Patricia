@@ -8,6 +8,13 @@
 #include <iostream>
 #include <memory>
 #include <stdio.h>
+#include <thread>
+
+std::thread s;
+
+void run_thread(Position &position, ThreadInfo &thread_info) {
+  s = std::thread(iterative_deepen, std::ref(position), std::ref(thread_info));
+}
 
 void uci(ThreadInfo &thread_info, Position &position) {
   setvbuf(stdin, NULL, _IONBF, 0);
@@ -65,7 +72,9 @@ void uci(ThreadInfo &thread_info, Position &position) {
     }
 
     else if (command == "stop") {
-
+      thread_info.stop = true;
+      s.join();
+      
     }
 
     else if (command == "ucinewgame") {
@@ -128,7 +137,8 @@ void uci(ThreadInfo &thread_info, Position &position) {
       thread_info.max_time = time / 5;
       thread_info.opt_time = time / 20 + increment * 6 / 10;
       thread_info.start_time = std::chrono::steady_clock::now();
-      iterative_deepen(position, thread_info);
+
+      run_thread(position, thread_info);
     }
   }
 }
