@@ -11,6 +11,9 @@ void update_history(int16_t &entry, int score) { // Update history score
 }
 
 bool out_of_time(ThreadInfo &thread_info) {
+  if (thread_info.current_iter == 1) { // dont return on d1
+    return false;
+  }
   if (thread_info.stop) {
     return true;
   }
@@ -43,69 +46,58 @@ int16_t total_mat(Position &position) {
 
   return m;
 }
-
+int sacrifice_scale(Position &position, ThreadInfo &thread_info,
+                        Move move) {
+  int scale = 0, threshold = 0;
+  while (!SEE(position, thread_info, move, threshold) && scale < 4) {
+    scale++;
+    threshold -= 250;
+    // scale = 1: > -250
+    // scale = 2: > -500
+    // scale = 3: > -750
+    // scale = 4: < -750
+  }
+  return scale;
+}
 int eval(Position &position, ThreadInfo &thread_info, int alpha, int beta) {
- int color = position.color;
+  int color = position.color;
   int eval = thread_info.nnue_state.evaluate(color);
-
-  if (eval < -100) { // Sacrifices in lost positions are not useful.
+  if (thread_info.search_ply == 0){
     return eval;
   }
+  
+  int s = 0, s_opp = 0;
 
-  int start_index = thread_info.game_ply - thread_info.search_ply;
-  if (thread_info.search_ply % 2) {
-    start_index += 1;
-  }
-  // if we're at ply 4, ply-1 = material before opponent's last move, ply-2 =
-  // material before our last move, ply-4 = material before our first move
+  int start_index = std::max(thread_info.game_ply - thread_info.search_ply, 0);
 
-  // if we're at odd ply we change the start index to ply=1
+  for (int idx = start_index; idx < thread_info.game_ply - 1; idx += 2) {
 
-  int s_material = thread_info.game_hist[start_index].material_count;
-
-  bool sacrificed = false;
-  int difference;
-
-  // A sacrificial position is defined as follows:
-  // We were higher in material before the sacrifice,
-  // We did not immediately take back, or at least the capture wasn't enough to
-  // bring the material balance back
-
-  for (int indx = start_index + 2; indx < thread_info.game_ply; indx += 2) {
-    if (-thread_info.game_hist[indx + 1].material_count < s_material) {
-      // Let's say that at ply 2 we're a rook for a pawn down because we
-      // sacrificed it on ply 0 when up a pawn. At ply 2, we take a knight,
-      // bringing the opponent's material count diff to 100. the ply 3 index is
-      // thus 200, which we negate to get -100, which is less than 100, so it's
-      // a sacrifice.
-
-      sacrificed = true;
-      difference =
-          s_material + (thread_info.game_hist[indx + 1].material_count);
-
-      // note the "scale" of the sacrifice. In our example above, 100 + 100 =
-      // 200.
-      break;
-    }
+      s = std::max(s, (int)thread_info.game_hist[idx].sacrifice_scale); //Sacrifices made on root color plies
   }
 
-  if (sacrificed) {
+  int bonus1 = 0, bonus2 = 0, bonus3 = 0;
 
-    eval += (difference > 600 ? 150 : difference > 100 ? 75 : 40);
-    // Queen sacrifices get a massive bonus. Rook/piece/exchange sacs get a
-    // smaller but still sizable bonus. Pawn sacs get a relatively modest bonus.
+  int m = material_eval(position);
 
-    // These bonuses disappear once you make the sacrifice in game but we've
-    // already verified it's not losing.
-  }
-  return eval;
+  bonus1 = std::clamp((eval - m) / 6, -150, 150);
+
+  int bonus[5] = {0, 50, 100, 150, 200};
+
+  bonus2 = (bonus[s]) * ((thread_info.search_ply % 2) ? -1 : 1);
+
+  int is_sacrifice_at_root = thread_info.game_hist[start_index].sacrifice_scale;
+
+
+  bonus3 = 70 * is_sacrifice_at_root * (thread_info.search_ply % 2 ? -1 : 1); 
+
+  return eval + bonus1 + bonus2 + bonus3;
 }
 
 void ss_push(Position &position, ThreadInfo &thread_info, Move move,
-             uint64_t hash) {
+             uint64_t hash, int16_t s) {
   thread_info.search_ply++;
   thread_info.game_hist[thread_info.game_ply++] = {
-      hash, move, position.board[extract_from(move)], material_eval(position),
+      hash, move, position.board[extract_from(move)], s,
       is_cap(position, move)};
 }
 
@@ -164,6 +156,10 @@ bool is_draw(Position &position, ThreadInfo &thread_info,
 int qsearch(int alpha, int beta, Position &position,
             ThreadInfo &thread_info) { // Performs a quiescence search on the
                                        // given position.
+
+  if (out_of_time(thread_info)) {
+    return thread_info.nnue_state.evaluate(position.color);
+  }
   int color = position.color;
 
   thread_info.nodes++;
@@ -208,7 +204,9 @@ int qsearch(int alpha, int beta, Position &position,
     }
     best_score = static_eval;
   }
-
+  if (thread_info.search_ply == 1) {
+    // print_board(position);
+  }
   MoveInfo moves;
   int num_moves =
       movegen(position, moves.moves, in_check); // Generate and score moves
@@ -216,6 +214,10 @@ int qsearch(int alpha, int beta, Position &position,
 
   for (int indx = 0; indx < num_moves; indx++) {
     Move move = get_next_move(moves.moves, moves.scores, indx, num_moves);
+    if (thread_info.search_ply == 1) {
+      // printf("%s %i\n", internal_to_uci(position, move).c_str(),
+      // moves.scores[indx]);
+    }
     int move_score = moves.scores[indx];
     if (move_score < GoodCaptureBaseScore &&
         !in_check) { // If we're not in check only look at captures
@@ -225,7 +227,7 @@ int qsearch(int alpha, int beta, Position &position,
     if (make_move(moved_position, move, thread_info, true)) {
       continue;
     }
-    ss_push(position, thread_info, move, hash);
+    ss_push(position, thread_info, move, hash, 0);
     int score = -qsearch(-beta, -alpha, moved_position, thread_info);
     ss_pop(thread_info, hash);
 
@@ -242,11 +244,25 @@ int qsearch(int alpha, int beta, Position &position,
     }
   }
 
+  entry_type = best_score >= beta ? EntryTypes::LBound
+               : raised_alpha     ? EntryTypes::Exact
+                                  : EntryTypes::UBound;
+
+  insert_entry(hash, 0, best_move,
+               best_score > MateScore    ? best_score + ply
+               : best_score < -MateScore ? best_score - ply
+                                         : best_score,
+               entry_type);
+
   return best_score;
 }
 
 int search(int alpha, int beta, int depth, Position &position,
            ThreadInfo &thread_info) { // Performs an alpha-beta search.
+
+  if (!thread_info.search_ply) {
+    thread_info.current_iter = depth;
+  }
 
   if (out_of_time(thread_info)) {
     return thread_info.nnue_state.evaluate(position.color);
@@ -256,9 +272,11 @@ int search(int alpha, int beta, int depth, Position &position,
                    thread_info); // drop into qsearch if depth is too low.
   }
   thread_info.nodes++;
+
   int ply = thread_info.search_ply;
 
   bool root = !ply, color = position.color, raised_alpha = false;
+
   bool is_pv = (beta != alpha + 1);
 
   Move best_move = MoveNone;
@@ -283,18 +301,17 @@ int search(int alpha, int beta, int depth, Position &position,
     if (m < 0) {
       return draw_score;
     } else if (m > 0 || total_mat(position) > 2500) {
-      draw_score -= 40;
+      draw_score -= 80;
     }
     return ply % 2 ? -draw_score : draw_score;
-    //We want to discourage draws at the root.
-    //ply 0 - make a move that makes the position a draw
-    //ply 1 - bonus to side, which is penalty to us
+    // We want to discourage draws at the root.
+    // ply 0 - make a move that makes the position a draw
+    // ply 1 - bonus to side, which is penalty to us
 
-
-    //alternatively
-    //ply 0 - we make forced move
-    //ply 1 - opponent makes draw move
-    //ply 2 - penalty to us
+    // alternatively
+    // ply 0 - we make forced move
+    // ply 1 - opponent makes draw move
+    // ply 2 - penalty to us
   }
 
   TTEntry entry = TT[hash & TT_mask];
@@ -339,7 +356,7 @@ int search(int alpha, int beta, int depth, Position &position,
 
       make_move(temp_pos, MoveNone, thread_info, false);
 
-      ss_push(position, thread_info, MoveNone, hash);
+      ss_push(position, thread_info, MoveNone, hash, 0);
 
       int R = NMPBase + depth / NMPDepthDiv;
       score = -search(-alpha - 1, -alpha, depth - R, temp_pos, thread_info);
@@ -356,6 +373,7 @@ int search(int alpha, int beta, int depth, Position &position,
   MoveInfo moves;
   int num_moves = movegen(position, moves.moves, in_check),
       best_score = ScoreNone, moves_played = 0; // Generate and score moves
+  bool iscap = false;
 
   score_moves(position, thread_info, moves, tt_move, num_moves);
 
@@ -367,14 +385,22 @@ int search(int alpha, int beta, int depth, Position &position,
     if (make_move(moved_position, move, thread_info, true)) {
       continue;
     }
-    ss_push(position, thread_info, move, hash);
+
+    iscap = is_cap(position, move);
+    int is_sac = 0;
+    if (root || depth > 1){
+      is_sac = sacrifice_scale(position, thread_info, move);
+    }
+
+
+    ss_push(position, thread_info, move, hash, is_sac);
 
     bool full_search = false;
 
     if (depth >= 3 && moves_played > is_pv) {
 
       int R = LMRTable[depth][moves_played];
-      if (is_cap(position, move)) {
+      if (iscap) {
         R /= 2;
       }
       R += !is_pv;
@@ -417,7 +443,7 @@ int search(int alpha, int beta, int depth, Position &position,
     moves_played++;
   }
 
-  if (best_score >= beta) {
+  if (best_score >= beta && !iscap) {
     int bonus = std::min(300 * (depth - 1), 2500);
     for (int i = 0; moves.moves[i] != best_move; i++) {
       Move move = moves.moves[i];
@@ -429,7 +455,9 @@ int search(int alpha, int beta, int depth, Position &position,
     }
     int piece = position.board[extract_from(best_move)] - 2,
         sq = extract_to(best_move);
+
     update_history(thread_info.HistoryScores[piece][sq], bonus);
+    thread_info.KillerMoves[ply] = best_move;
   }
 
   if (best_score == ScoreNone) { // handle no legal moves (stalemate/checkmate)
@@ -460,6 +488,7 @@ void iterative_deepen(
   thread_info.time_checks = 0;
   thread_info.stop = false;
   thread_info.search_ply = 0; // reset all relevant thread_info
+  memset(thread_info.KillerMoves, 0, sizeof(thread_info.KillerMoves));
 
   Move best_move = MoveNone;
 

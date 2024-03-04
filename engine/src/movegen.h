@@ -6,6 +6,8 @@
 constexpr int TTMoveScore = 10000000;
 constexpr int QueenPromoScore = 5000000;
 constexpr int GoodCaptureBaseScore = 2000000;
+constexpr int BadCaptureBaseScore = -2000000;
+constexpr int KillerMoveScore = 100000;
 
 int movegen(Position position, Move *move_list, bool in_check) {
   uint8_t color = position.color;
@@ -251,9 +253,16 @@ void score_moves(Position position, ThreadInfo &thread_info,
       int from_piece = position.board[extract_from(move)],
           to_piece = position.board[extract_to(move)];
 
-      scored_moves.scores[indx] = GoodCaptureBaseScore + SeeValues[to_piece] -
-                                  SeeValues[from_piece] / 10;
-    } else {
+      scored_moves.scores[indx] =
+          GoodCaptureBaseScore + SeeValues[to_piece] -
+          SeeValues[from_piece] / 20 - 5000 * !SEE(position, thread_info, move, 0);
+    }
+
+    else if (move == thread_info.KillerMoves[thread_info.search_ply]) {
+      scored_moves.scores[indx] = KillerMoveScore;
+    }
+
+    else {
       int piece = position.board[extract_from(move)] - 2, to = extract_to(move);
       scored_moves.scores[indx] = thread_info.HistoryScores[piece][to];
     }

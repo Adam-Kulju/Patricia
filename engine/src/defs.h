@@ -87,7 +87,7 @@ struct GameHistory { // keeps the state of the board at a particular point in
   Move played_move;      // The move that was played
   uint8_t piece_moved; // The piece that was moved (will be useful for histories
                        // later)
-  int16_t material_count;
+  int16_t sacrifice_scale;
   bool is_cap;
 };
 
@@ -164,7 +164,7 @@ constexpr int8_t SliderAttacks[4][8] =
 
 
 constexpr int SeeValues[14] = {
-  100, 0, 100, 100, 450, 450, 450, 450, 650, 650, 1250, 1250, 10000, 10000
+  0, 0, 100, 100, 450, 450, 450, 450, 650, 650, 1250, 1250, 10000, 10000
 };  //the first value is 100 for en passant
 
 #define out_of_board(x) (x & 0x88)

@@ -42,11 +42,14 @@ void uci(ThreadInfo &thread_info, Position &position) {
     }
 
     if (command == "quit") {
+      if (s.joinable()){
+        s.join();
+      }
       exit(0);
     }
 
     else if (command == "uci") {
-      printf("id name Patricia 1.0\nid author Adam Kulju\noption name Hash "
+      printf("id name Patricia 0.1\nid author Adam Kulju\noption name Hash "
              "type spin default 32 min 1 max 131072\noption name Threads type "
              "spin default 1 min 1 max 1\nuciok\n");
     }
@@ -112,7 +115,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
         while (input_stream >> moves) {
           Move move = uci_to_internal(moves);
           ss_push(position, thread_info, move,
-                  thread_info.zobrist_key); // fill the game hist stack as we go
+                  thread_info.zobrist_key, 0); // fill the game hist stack as we go
           make_move(position, move, thread_info, false);
         }
       }
@@ -122,6 +125,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
       if (s.joinable()){
         s.join();
       }
+
       int color = position.color, time = 0, increment = 0;
       std::string token;
       while (input_stream >> token) {
@@ -137,8 +141,9 @@ void uci(ThreadInfo &thread_info, Position &position) {
           input_stream >> increment;
         }
       }
+      time = std::max(1, time - 50);
       thread_info.max_time = time / 5;
-      thread_info.opt_time = time / 20 + increment * 6 / 10;
+      thread_info.opt_time = (time / 20 + increment) * 6 / 10;
       thread_info.start_time = std::chrono::steady_clock::now();
 
       run_thread(position, thread_info);

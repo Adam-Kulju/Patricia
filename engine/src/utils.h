@@ -18,6 +18,8 @@ struct ThreadInfo {
   bool stop;
   NNUE_State nnue_state;
   int16_t HistoryScores[12][0x80];
+  uint8_t current_iter;
+  Move KillerMoves[MaxSearchDepth + 1];
 
   uint8_t max_iter_depth = MaxSearchDepth;
 };
