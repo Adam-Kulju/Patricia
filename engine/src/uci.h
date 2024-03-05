@@ -49,7 +49,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
     }
 
     else if (command == "uci") {
-      printf("id name Patricia 0.1\nid author Adam Kulju\noption name Hash "
+      printf("id name Patricia 1.0\nid author Adam Kulju\noption name Hash "
              "type spin default 32 min 1 max 131072\noption name Threads type "
              "spin default 1 min 1 max 1\nuciok\n");
     }
