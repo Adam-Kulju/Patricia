@@ -46,8 +46,14 @@ int16_t total_mat(Position &position) {
 
   return m;
 }
-int sacrifice_scale(Position &position, ThreadInfo &thread_info,
-                        Move move) {
+int16_t total_mat_color(Position &position, int color) {
+  int m = 0;
+  for (int i = 0; i < 5; i++) {
+    m += position.material_count[i * 2 + color] * SeeValues[i * 2 + 2];
+  }
+  return m;
+}
+int sacrifice_scale(Position &position, ThreadInfo &thread_info, Move move) {
   int scale = 0, threshold = 0;
   while (!SEE(position, thread_info, move, threshold) && scale < 4) {
     scale++;
@@ -59,25 +65,133 @@ int sacrifice_scale(Position &position, ThreadInfo &thread_info,
   }
   return scale;
 }
+
+float danger_values[5] = {0.8, 2.2, 2, 3, 6};
+float defense_values[5] = {1, 1.1, 1.1, 1, 1.7};
+
+float in_danger_white(Position &position) {
+
+  /*
+  --------
+  --------
+  --------
+  --------
+  --***---
+  --***---
+  -*****--
+  --*K*---
+  */
+  int white_king = position.kingpos[Colors::White];
+  float danger_level = 0, attacks = 0;
+  int kingzones[16] = {
+      white_king + Directions::Southwest,
+      white_king + Directions::South,
+      white_king + Directions::Southeast,
+      white_king + Directions::West,
+      white_king + Directions::East,
+
+      white_king + Directions::Northwest + Directions::West,
+      white_king + Directions::Northwest,
+      white_king + Directions::North,
+      white_king + Directions::Northeast,
+      white_king + Directions::Northeast + Directions::East,
+
+      white_king + Directions::North + Directions::Northwest,
+      white_king + Directions::North + Directions::North,
+      white_king + Directions::North + Directions::Northeast,
+      white_king + Directions::North + Directions::North +
+          Directions::Northwest,
+      white_king + Directions::North + Directions::North + Directions::North,
+      white_king + Directions::North + Directions::North +
+          Directions::Northeast,
+  };
+  for (int pos : kingzones) {
+    if (out_of_board(pos)) {
+      continue;
+    }
+    if (position.board[pos] % 2 ==
+        Colors::Black) { // if we have a board index of 3, 5, etc. it's a
+                         // black(enemy) piece
+      danger_level += danger_values[position.board[pos] / 2 - 1];
+      attacks += danger_values[position.board[pos] / 2 - 1];
+    } else if (position.board[pos]) { // otherwise verify it's not blank
+                                      // (friendly piece)
+      danger_level -= defense_values[position.board[pos] / 2 - 1];
+    }
+  }
+  if (attacks < 7) {
+    return 0;
+  }
+  return danger_level;
+}
+
+float in_danger_black(Position &position) {
+  int black_king = position.kingpos[Colors::Black];
+  float danger_level = 0, attacks = 0;
+  int kingzones[16] = {
+      black_king + Directions::Northwest,
+      black_king + Directions::North,
+      black_king + Directions::Northeast,
+      black_king + Directions::West,
+      black_king + Directions::East,
+
+      black_king + Directions::Southwest + Directions::West,
+      black_king + Directions::Southwest,
+      black_king + Directions::South,
+      black_king + Directions::Southeast,
+      black_king + Directions::Southeast + Directions::East,
+
+      black_king + Directions::South + Directions::Southwest,
+      black_king + Directions::South + Directions::South,
+      black_king + Directions::South + Directions::Southeast,
+      black_king + Directions::South + Directions::South +
+          Directions::Southwest,
+      black_king + Directions::South + Directions::South + Directions::South,
+      black_king + Directions::South + Directions::South +
+          Directions::Southeast,
+  };
+  for (int pos : kingzones) {
+    if (out_of_board(pos)) {
+      continue;
+    }
+    if (position.board[pos]) {
+      if (position.board[pos] % 2 ==
+          Colors::White) { // if we have a board index of 2, 4, etc and is not
+                           // blank it's white(enemy)
+        danger_level += danger_values[position.board[pos] / 2 - 1];
+        attacks += danger_values[position.board[pos] / 2 - 1];
+      } else { // else it's a friendly piece
+        danger_level -= defense_values[position.board[pos] / 2 - 1];
+      }
+    }
+  }
+  if (attacks < 7) {
+    return 0;
+  }
+  return danger_level;
+}
+
 int eval(Position &position, ThreadInfo &thread_info, int alpha, int beta) {
   int color = position.color;
   int eval = thread_info.nnue_state.evaluate(color);
-  if (thread_info.search_ply == 0){
+  if (thread_info.search_ply == 0) {
     return eval;
   }
-  
+
   int s = 0, s_opp = 0;
 
   int start_index = std::max(thread_info.game_ply - thread_info.search_ply, 0);
 
   for (int idx = start_index; idx < thread_info.game_ply - 1; idx += 2) {
 
-      s = std::max(s, (int)thread_info.game_hist[idx].sacrifice_scale); //Sacrifices made on root color plies
+    s = std::max(s,
+                 (int)thread_info.game_hist[idx]
+                     .sacrifice_scale); // Sacrifices made on root color plies
   }
 
-  int bonus1 = 0, bonus2 = 0, bonus3 = 0;
+  int bonus1 = 0, bonus2 = 0, bonus3 = 0, bonus4 = 0;
 
-  int m = material_eval(position);
+  int m = material_eval(position), tm = total_mat_color(position, color ^ 1);
 
   bonus1 = std::clamp((eval - m) / 6, -150, 150);
 
@@ -87,10 +201,31 @@ int eval(Position &position, ThreadInfo &thread_info, int alpha, int beta) {
 
   int is_sacrifice_at_root = thread_info.game_hist[start_index].sacrifice_scale;
 
+  bonus3 = 70 * is_sacrifice_at_root;
+  if (thread_info.search_ply % 2) {
+    bonus3 *= -1;
+    if (eval < -800 && m > 2500) { // if we are completely winning, make
+                                   // sacrifices EXTREMELY attractive
+      bonus3 *= 3;
+    }
+  } else if (eval > 800 && m > 2500) {
+    bonus3 *= 3;
+  }
 
-  bonus3 = 70 * is_sacrifice_at_root * (thread_info.search_ply % 2 ? -1 : 1); 
+  int color_attacked = thread_info.search_ply % 2 ? color : color ^ 1;
 
-  return eval + bonus1 + bonus2 + bonus3;
+  if (tm > 3000) {
+    float a = (color_attacked ? in_danger_black(position) : in_danger_white(position));
+        // on even plies, color^1 is the opposing root side; on odd plies, color
+        // is the root side
+        if (a > 3) {
+      bonus4 = std::min(180, (int)((a - 3) * 30)) * (thread_info.search_ply % 2
+                   ? -1
+                   : 1);
+    }
+  }
+
+  return (eval + bonus1 + bonus2 + bonus3 + bonus4) * (512 + tm / 15) / 1024;
 }
 
 void ss_push(Position &position, ThreadInfo &thread_info, Move move,
@@ -108,9 +243,9 @@ void ss_pop(ThreadInfo &thread_info, uint64_t hash) {
 }
 
 bool material_draw(Position &position) { // Is there not enough material on the
-                                         // board for one side to win?
-  for (int i :
-       {0, 1, 6, 7, 8, 9}) { // Do we have pawns, rooks, or queens on the board?
+                                         // position for one side to win?
+  for (int i : {0, 1, 6, 7, 8,
+                9}) { // Do we have pawns, rooks, or queens on the position?
     if (position.material_count[i]) {
       return false;
     }
@@ -205,7 +340,7 @@ int qsearch(int alpha, int beta, Position &position,
     best_score = static_eval;
   }
   if (thread_info.search_ply == 1) {
-    // print_board(position);
+    // print_position(position);
   }
   MoveInfo moves;
   int num_moves =
@@ -285,7 +420,7 @@ int search(int alpha, int beta, int depth, Position &position,
   uint64_t hash = thread_info.zobrist_key;
 
   /*if (hash != calculate(position)){
-    print_board(position);
+    print_position(position);
     for (int i = 0; i < thread_info.game_ply; i++){
       Move move = thread_info.game_hist[i].played_move;
       printf("%x %x %i %i %llx\n", extract_from(move), extract_to(move),
@@ -388,10 +523,9 @@ int search(int alpha, int beta, int depth, Position &position,
 
     iscap = is_cap(position, move);
     int is_sac = 0;
-    if (root || depth > 1){
+    if (root || depth > 1) {
       is_sac = sacrifice_scale(position, thread_info, move);
     }
-
 
     ss_push(position, thread_info, move, hash, is_sac);
 
