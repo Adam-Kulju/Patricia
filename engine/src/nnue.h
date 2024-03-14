@@ -21,7 +21,7 @@
 #endif
 
 constexpr size_t INPUT_SIZE = 768;
-constexpr size_t LAYER1_SIZE = 128;
+constexpr size_t LAYER1_SIZE = 768;
 
 constexpr int CRELU_MIN = 0;
 constexpr int CRELU_MAX = 255;
@@ -40,7 +40,7 @@ struct alignas(64) NNUE_Params {
   int16_t output_bias;
 };
 
-INCBIN(nnue, "src/patty.nnue");
+INCBIN(nnue, "src/lily.nnue");
 const NNUE_Params &g_nnue = *reinterpret_cast<const NNUE_Params *>(g_nnueData);
 
 template <size_t HiddenSize> struct alignas(64) Accumulator {

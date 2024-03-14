@@ -78,7 +78,6 @@ struct Position {
   uint8_t ep_square;          // stores ep square
   bool color;                 // whose side to move
   uint8_t halfmoves;
-  int8_t is_sacrifice;
 };
 
 struct GameHistory { // keeps the state of the board at a particular point in
@@ -89,6 +88,7 @@ struct GameHistory { // keeps the state of the board at a particular point in
                        // later)
   int16_t sacrifice_scale;
   bool is_cap;
+  int16_t m_diff;
 };
 
 constexpr int MaxSearchDepth = 127;

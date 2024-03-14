@@ -178,26 +178,30 @@ int eval(Position &position, ThreadInfo &thread_info, int alpha, int beta) {
     return eval;
   }
 
-  int s = 0, s_opp = 0;
+  int bonus1 = 0, bonus2 = 0, bonus3 = 0, bonus4 = 0;
 
   int start_index = std::max(thread_info.game_ply - thread_info.search_ply, 0);
+  int s_m = thread_info.game_hist[start_index].m_diff;
 
-  for (int idx = start_index; idx < thread_info.game_ply - 1; idx += 2) {
+  for (int idx = start_index + 2; idx < thread_info.game_ply - 3; idx += 2) {
 
-    s = std::max(s,
-                 (int)thread_info.game_hist[idx]
-                     .sacrifice_scale); // Sacrifices made on root color plies
+    if (thread_info.game_hist[idx].m_diff < s_m && thread_info.game_hist[idx + 1].m_diff > s_m &&
+        thread_info.game_hist[idx + 2].m_diff < s_m && thread_info.game_hist[idx + 3].m_diff > s_m){
+
+          //indx = -200
+          //indx + 1 = 200
+          //indx + 2 = -200
+          int s = (s_m + thread_info.game_hist[idx + 3].m_diff);
+          //bonus2 = (s > 800 ? 300 : s > 400 ? 200 : s > 100 ? 125 : 75);
+          if (thread_info.search_ply % 2){
+            bonus2 *= -1;
+          }
+        }
   }
-
-  int bonus1 = 0, bonus2 = 0, bonus3 = 0, bonus4 = 0;
 
   int m = material_eval(position), tm = total_mat_color(position, color ^ 1);
 
   bonus1 = std::clamp((eval - m) / 6, -150, 150);
-
-  int bonus[5] = {0, 50, 100, 150, 200};
-
-  bonus2 = (bonus[s]) * ((thread_info.search_ply % 2) ? -1 : 1);
 
   int is_sacrifice_at_root = thread_info.game_hist[start_index].sacrifice_scale;
 
@@ -233,7 +237,7 @@ void ss_push(Position &position, ThreadInfo &thread_info, Move move,
   thread_info.search_ply++;
   thread_info.game_hist[thread_info.game_ply++] = {
       hash, move, position.board[extract_from(move)], s,
-      is_cap(position, move)};
+      is_cap(position, move), material_eval(position)};
 }
 
 void ss_pop(ThreadInfo &thread_info, uint64_t hash) {
