@@ -63,6 +63,28 @@ int sacrifice_scale(Position &position, ThreadInfo &thread_info, Move move) {
     // scale = 3: > -750
     // scale = 4: < -750
   }
+  if (scale) {
+    int opp_square;
+    int color = position.color;
+    int i =
+        cheapest_attacker(position, extract_to(move), color ^ 1, opp_square);
+    if (i == Pieces::WKing) {
+      return scale;
+    }
+    // opp_sq: the location of the piece that'll take your piece
+    // remove from_square and opp_sq and replace to_sq with opp_square.
+
+    Position temp_pos = position;
+    temp_pos.board[extract_to(move)] = i,
+    temp_pos.board[opp_square] = Pieces::Blank,
+    temp_pos.board[extract_from(move)] = Pieces::Blank;
+    bool a = attacks_square(temp_pos, temp_pos.kingpos[color ^ 1], color);
+
+    if (a) {
+      return 0;
+    }
+
+  }
   return scale;
 }
 
@@ -182,50 +204,53 @@ int eval(Position &position, ThreadInfo &thread_info, int alpha, int beta) {
 
   int start_index = std::max(thread_info.game_ply - thread_info.search_ply, 0);
   int s_m = thread_info.game_hist[start_index].m_diff;
+  int s = 0;
 
   for (int idx = start_index + 2; idx < thread_info.game_ply - 3; idx += 2) {
 
-    if (thread_info.game_hist[idx].m_diff < s_m && thread_info.game_hist[idx + 1].m_diff > s_m &&
-        thread_info.game_hist[idx + 2].m_diff < s_m && thread_info.game_hist[idx + 3].m_diff > s_m){
+    if (thread_info.game_hist[idx].m_diff < s_m &&
+        thread_info.game_hist[idx + 1].m_diff > s_m &&
+        thread_info.game_hist[idx + 2].m_diff < s_m &&
+        thread_info.game_hist[idx + 3].m_diff > s_m) {
 
-          //indx = -200
-          //indx + 1 = 200
-          //indx + 2 = -200
-          int s = (s_m + thread_info.game_hist[idx + 3].m_diff);
-          //bonus2 = (s > 800 ? 300 : s > 400 ? 200 : s > 100 ? 125 : 75);
-          if (thread_info.search_ply % 2){
-            bonus2 *= -1;
-          }
-        }
+      // indx = -200
+      // indx + 1 = 200
+      // indx + 2 = -200
+      s = s_m + thread_info.game_hist[idx + 3].m_diff;
+    }
+  }
+  if (s) {
+    bonus2 = (s > 800 ? 325 : s > 400 ? 220 : s > 100 ? 140 : 90);
+    if (thread_info.search_ply % 2) {
+      bonus2 *= -1;
+    }
   }
 
   int m = material_eval(position), tm = total_mat_color(position, color ^ 1);
 
-  bonus1 = std::clamp((eval - m) / 6, -150, 150);
+  if (thread_info.search_ply % 2) {
+    bonus1 = std::clamp((eval - m) / 6, -300, 0);
+  } else {
+    bonus1 = std::clamp((eval - m) / 6, 0, 300);
+  }
 
   int is_sacrifice_at_root = thread_info.game_hist[start_index].sacrifice_scale;
 
-  bonus3 = 70 * is_sacrifice_at_root;
+  bonus3 = 90 * is_sacrifice_at_root;
   if (thread_info.search_ply % 2) {
     bonus3 *= -1;
-    if (eval < -800 && m > 2500) { // if we are completely winning, make
-                                   // sacrifices EXTREMELY attractive
-      bonus3 *= 3;
-    }
-  } else if (eval > 800 && m > 2500) {
-    bonus3 *= 3;
   }
 
   int color_attacked = thread_info.search_ply % 2 ? color : color ^ 1;
 
   if (tm > 3000) {
-    float a = (color_attacked ? in_danger_black(position) : in_danger_white(position));
-        // on even plies, color^1 is the opposing root side; on odd plies, color
-        // is the root side
-        if (a > 3) {
-      bonus4 = std::min(180, (int)((a - 3) * 30)) * (thread_info.search_ply % 2
-                   ? -1
-                   : 1);
+    float a = (color_attacked ? in_danger_black(position)
+                              : in_danger_white(position));
+    // on even plies, color^1 is the opposing root side; on odd plies, color
+    // is the root side
+    if (a > 3) {
+      bonus4 = std::min(240, (int)((a - 3) * 40)) *
+               (thread_info.search_ply % 2 ? -1 : 1);
     }
   }
 
@@ -236,8 +261,12 @@ void ss_push(Position &position, ThreadInfo &thread_info, Move move,
              uint64_t hash, int16_t s) {
   thread_info.search_ply++;
   thread_info.game_hist[thread_info.game_ply++] = {
-      hash, move, position.board[extract_from(move)], s,
-      is_cap(position, move), material_eval(position)};
+      hash,
+      move,
+      position.board[extract_from(move)],
+      s,
+      is_cap(position, move),
+      material_eval(position)};
 }
 
 void ss_pop(ThreadInfo &thread_info, uint64_t hash) {
@@ -527,7 +556,7 @@ int search(int alpha, int beta, int depth, Position &position,
 
     iscap = is_cap(position, move);
     int is_sac = 0;
-    if (root || depth > 1) {
+    if (root) {
       is_sac = sacrifice_scale(position, thread_info, move);
     }
 
