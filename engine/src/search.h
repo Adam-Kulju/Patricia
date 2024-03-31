@@ -83,7 +83,6 @@ int sacrifice_scale(Position &position, ThreadInfo &thread_info, Move move) {
     if (a) {
       return 0;
     }
-
   }
   return scale;
 }
@@ -200,9 +199,10 @@ int eval(Position &position, ThreadInfo &thread_info, int alpha, int beta) {
     return eval;
   }
 
-  int bonus1 = 0, bonus2 = 0, bonus3 = 0, bonus4 = 0;
+  int bonus1 = 0, bonus2 = 0, bonus3 = 0, bonus4 = 0, bonus5 = 0;
 
   int start_index = std::max(thread_info.game_ply - thread_info.search_ply, 0);
+
   int s_m = thread_info.game_hist[start_index].m_diff;
   int s = 0;
 
@@ -241,20 +241,31 @@ int eval(Position &position, ThreadInfo &thread_info, int alpha, int beta) {
     bonus3 *= -1;
   }
 
-  int color_attacked = thread_info.search_ply % 2 ? color : color ^ 1;
+  int root_color = thread_info.search_ply % 2 ? color ^ 1 : color;
 
-  if (tm > 3000) {
-    float a = (color_attacked ? in_danger_black(position)
-                              : in_danger_white(position));
+  if (tm > 2500) {
+    float a =
+        (root_color ? in_danger_white(position) : in_danger_black(position));
     // on even plies, color^1 is the opposing root side; on odd plies, color
     // is the root side
     if (a > 3) {
       bonus4 = std::min(240, (int)((a - 3) * 40)) *
                (thread_info.search_ply % 2 ? -1 : 1);
     }
+
+    if (abs(get_file(position.kingpos[root_color]) -
+                     get_file(position.kingpos[root_color ^ 1])) > 1 &&
+        !position.castling_rights[root_color ^ 1][0]){
+          bonus5 = 50 * (thread_info.search_ply % 2 ? -1 : 1);
+        }
   }
 
-  return (eval + bonus1 + bonus2 + bonus3 + bonus4) * (512 + tm / 15) / 1024;
+  int total_bonus = (bonus1 + bonus2 + bonus3 + bonus4 + bonus5);
+
+  return (eval + total_bonus) *
+         (512 + tm / 15 -
+          (position.material_count[0] + position.material_count[1]) * 20) /
+         768 * 75 / std::clamp(static_cast<int>(thread_info.game_ply), 50, 100);
 }
 
 void ss_push(Position &position, ThreadInfo &thread_info, Move move,
