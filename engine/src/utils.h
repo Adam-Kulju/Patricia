@@ -20,6 +20,7 @@ struct ThreadInfo {
   int16_t HistoryScores[12][0x80];
   uint8_t current_iter;
   Move KillerMoves[MaxSearchDepth + 1];
+  Move excluded_move;
 
   uint8_t max_iter_depth = MaxSearchDepth;
 };
@@ -51,6 +52,7 @@ void insert_entry(
     uint64_t hash, int depth, Move best_move, int32_t score,
     uint8_t bound_type) { // Inserts an entry into the transposition table.
   int indx = hash & TT_mask;
+  
   TT[indx].position_key = static_cast<uint32_t>(get_hash_upper_bits(hash)),
   TT[indx].depth = static_cast<uint8_t>(depth), TT[indx].type = bound_type,
   TT[indx].score = score;

@@ -107,6 +107,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
         set_board(position, thread_info,
                   "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
       }
+      thread_info.nnue_state.reset_nnue(position);
       thread_info.zobrist_key = calculate(position);
       std::string has_moves;
       if (input_stream >>
@@ -116,9 +117,11 @@ void uci(ThreadInfo &thread_info, Position &position) {
           Move move = uci_to_internal(moves);
           ss_push(position, thread_info, move,
                   thread_info.zobrist_key, 0); // fill the game hist stack as we go
+          update_nnue_state(thread_info.nnue_state, move, position);
           make_move(position, move, thread_info, false);
         }
       }
+
     }
 
     else if (command == "go") {

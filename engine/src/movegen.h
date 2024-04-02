@@ -196,7 +196,7 @@ int cheapest_attacker(Position position, int sq, int color, int &attack_sq) {
   return lowest;
 }
 
-bool SEE(Position &position, ThreadInfo &thread_info, Move move,
+bool SEE(Position &position, Move move,
          int threshold) {
   int color = position.color, from = extract_from(move), to = extract_to(move),
       gain = SeeValues[position.board[to]],
@@ -255,7 +255,7 @@ void score_moves(Position position, ThreadInfo &thread_info,
 
       scored_moves.scores[indx] =
           GoodCaptureBaseScore + SeeValues[to_piece] -
-          SeeValues[from_piece] / 20 - 5000 * !SEE(position, thread_info, move, 0);
+          SeeValues[from_piece] / 20 - 5000 * !SEE(position, move, 0);
     }
 
     else if (move == thread_info.KillerMoves[thread_info.search_ply]) {

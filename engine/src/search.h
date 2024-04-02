@@ -55,7 +55,7 @@ int16_t total_mat_color(Position &position, int color) {
 }
 int sacrifice_scale(Position &position, ThreadInfo &thread_info, Move move) {
   int scale = 0, threshold = 0;
-  while (!SEE(position, thread_info, move, threshold) && scale < 4) {
+  while (!SEE(position, move, threshold) && scale < 4) {
     scale++;
     threshold -= 250;
     // scale = 1: > -250
@@ -254,10 +254,10 @@ int eval(Position &position, ThreadInfo &thread_info, int alpha, int beta) {
     }
 
     if (abs(get_file(position.kingpos[root_color]) -
-                     get_file(position.kingpos[root_color ^ 1])) > 1 &&
-        !position.castling_rights[root_color ^ 1][0]){
-          bonus5 = 50 * (thread_info.search_ply % 2 ? -1 : 1);
-        }
+            get_file(position.kingpos[root_color ^ 1])) > 1 &&
+        !position.castling_rights[root_color ^ 1][0]) {
+      bonus5 = 50 * (thread_info.search_ply % 2 ? -1 : 1);
+    }
   }
 
   int total_bonus = (bonus1 + bonus2 + bonus3 + bonus4 + bonus5);
@@ -383,9 +383,6 @@ int qsearch(int alpha, int beta, Position &position,
     }
     best_score = static_eval;
   }
-  if (thread_info.search_ply == 1) {
-    // print_position(position);
-  }
   MoveInfo moves;
   int num_moves =
       movegen(position, moves.moves, in_check); // Generate and score moves
@@ -393,10 +390,7 @@ int qsearch(int alpha, int beta, Position &position,
 
   for (int indx = 0; indx < num_moves; indx++) {
     Move move = get_next_move(moves.moves, moves.scores, indx, num_moves);
-    if (thread_info.search_ply == 1) {
-      // printf("%s %i\n", internal_to_uci(position, move).c_str(),
-      // moves.scores[indx]);
-    }
+
     int move_score = moves.scores[indx];
     if (move_score < GoodCaptureBaseScore &&
         !in_check) { // If we're not in check only look at captures
@@ -406,6 +400,7 @@ int qsearch(int alpha, int beta, Position &position,
     if (make_move(moved_position, move, thread_info, true)) {
       continue;
     }
+    update_nnue_state(thread_info.nnue_state, move, position);
     ss_push(position, thread_info, move, hash, 0);
     int score = -qsearch(-beta, -alpha, moved_position, thread_info);
     ss_pop(thread_info, hash);
@@ -459,20 +454,15 @@ int search(int alpha, int beta, int depth, Position &position,
   bool is_pv = (beta != alpha + 1);
 
   Move best_move = MoveNone;
+  Move excluded_move = thread_info.excluded_move;
+
+  bool singular_search = (excluded_move != MoveNone);
+
+  thread_info.excluded_move = MoveNone;
   int score = ScoreNone;
 
   uint64_t hash = thread_info.zobrist_key;
 
-  /*if (hash != calculate(position)){
-    print_position(position);
-    for (int i = 0; i < thread_info.game_ply; i++){
-      Move move = thread_info.game_hist[i].played_move;
-      printf("%x %x %i %i %llx\n", extract_from(move), extract_to(move),
-      extract_promo(move), thread_info.game_hist[i].piece_moved,
-  thread_info.game_hist[i].position_key);
-    }
-    exit(0);
-  }*/
 
   if (!root && is_draw(position, thread_info, hash)) { // Draw detection
     int draw_score = 2 - (thread_info.nodes & 3);
@@ -498,7 +488,7 @@ int search(int alpha, int beta, int depth, Position &position,
   int entry_type = EntryTypes::None, tt_score = ScoreNone, tt_move = MoveNone;
   uint32_t hash_key = get_hash_upper_bits(hash);
 
-  if (entry.position_key == hash_key) { // TT probe
+  if (entry.position_key == hash_key && !singular_search) { // TT probe
 
     entry_type = entry.type, tt_score = entry.score, tt_move = entry.best_move;
     if (tt_score > MateScore) {
@@ -523,7 +513,7 @@ int search(int alpha, int beta, int depth, Position &position,
   int static_eval =
       in_check ? ScoreNone : eval(position, thread_info, alpha, beta);
 
-  if (!is_pv && !in_check) {
+  if (!is_pv && !in_check && !singular_search) {
     if (depth <= RFPMaxDepth && static_eval - RFPMargin * depth >= beta) {
       return static_eval;
     }
@@ -552,24 +542,67 @@ int search(int alpha, int beta, int depth, Position &position,
   MoveInfo moves;
   int num_moves = movegen(position, moves.moves, in_check),
       best_score = ScoreNone, moves_played = 0; // Generate and score moves
-  bool iscap = false;
+  bool is_capture = false, skip = false;
 
   score_moves(position, thread_info, moves, tt_move, num_moves);
 
-  for (int indx = 0; indx < num_moves; indx++) {
+  for (int indx = 0; indx < num_moves && !skip; indx++) {
     Move move = get_next_move(moves.moves, moves.scores, indx, num_moves);
     int move_score = moves.scores[indx];
 
     Position moved_position = position;
-    if (make_move(moved_position, move, thread_info, true)) {
+    if (move == excluded_move ||
+        make_move(moved_position, move, thread_info, false)) {
       continue;
     }
 
-    iscap = is_cap(position, move);
+    is_capture = is_cap(position, move);
     int is_sac = 0;
     if (root) {
       is_sac = sacrifice_scale(position, thread_info, move);
     }
+
+    else if (!is_capture && !is_pv) {
+      if (depth < LMPDepth && moves_played >= LMPBase + depth * depth) {
+        skip = true;
+      }
+      if (!in_check && depth < FPDepth && move_score < GoodCaptureBaseScore &&
+          static_eval + 125 * depth < alpha) {
+        skip = true;
+      }
+    }
+
+    int extension = 0;
+
+    if (!root && ply < thread_info.current_iter * 2) {
+      if (!singular_search && depth >= SEDepth && move_score == TTMoveScore &&
+          abs(entry.score) < MateScore && entry.depth >= depth - 3 &&
+          entry_type != EntryTypes::UBound) {
+
+        uint64_t temp_hash = thread_info.zobrist_key;
+        thread_info.zobrist_key = hash;
+
+        int sBeta = entry.score - depth * 3;
+        thread_info.excluded_move = move;
+        int sScore =
+            search(sBeta - 1, sBeta, (depth - 1) / 2, position, thread_info);
+
+        if (sScore < sBeta) {
+          if (!is_pv && sScore + SEDoubleExtMargin < sBeta &&
+              ply < thread_info.current_iter) {
+            extension = 2;
+          } else {
+            extension = 1;
+          }
+        } else if (sBeta >= beta) {
+          return sBeta;
+        }
+
+        thread_info.zobrist_key = temp_hash;
+      }
+    }
+
+    update_nnue_state(thread_info.nnue_state, move, position);
 
     ss_push(position, thread_info, move, hash, is_sac);
 
@@ -578,15 +611,15 @@ int search(int alpha, int beta, int depth, Position &position,
     if (depth >= 3 && moves_played > is_pv) {
 
       int R = LMRTable[depth][moves_played];
-      if (iscap) {
+      if (is_capture) {
         R /= 2;
       }
       R += !is_pv;
 
       R = std::clamp(R, 1, depth - 1);
 
-      score =
-          -search(-alpha - 1, -alpha, depth - R, moved_position, thread_info);
+      score = -search(-alpha - 1, -alpha, depth - R + extension, moved_position,
+                      thread_info);
       if (score > alpha) {
         full_search = R > 1;
       }
@@ -594,11 +627,12 @@ int search(int alpha, int beta, int depth, Position &position,
       full_search = moves_played || !is_pv;
     }
     if (full_search) {
-      score =
-          -search(-alpha - 1, -alpha, depth - 1, moved_position, thread_info);
+      score = -search(-alpha - 1, -alpha, depth - 1 + extension, moved_position,
+                      thread_info);
     }
     if (score > alpha || (!moves_played && is_pv)) {
-      score = -search(-beta, -alpha, depth - 1, moved_position, thread_info);
+      score = -search(-beta, -alpha, depth - 1 + extension, moved_position,
+                      thread_info);
     }
 
     ss_pop(thread_info, hash);
@@ -613,6 +647,8 @@ int search(int alpha, int beta, int depth, Position &position,
       if (score > alpha) {
         raised_alpha = true;
         alpha = score;
+      } else if (root && !moves_played) {
+        return score;
       }
       if (score >= beta) {
         break;
@@ -621,7 +657,7 @@ int search(int alpha, int beta, int depth, Position &position,
     moves_played++;
   }
 
-  if (best_score >= beta && !iscap) {
+  if (best_score >= beta && !is_capture) {
     int bonus = std::min(300 * (depth - 1), 2500);
     for (int i = 0; moves.moves[i] != best_move; i++) {
       Move move = moves.moves[i];
@@ -639,7 +675,8 @@ int search(int alpha, int beta, int depth, Position &position,
   }
 
   if (best_score == ScoreNone) { // handle no legal moves (stalemate/checkmate)
-    return attacks_square(position, position.kingpos[color], color ^ 1)
+    return singular_search ? alpha
+           : attacks_square(position, position.kingpos[color], color ^ 1)
                ? (Mate + ply)
                : 0;
   }
@@ -648,11 +685,13 @@ int search(int alpha, int beta, int depth, Position &position,
                                   : EntryTypes::UBound;
 
   // Add the search results to the TT, accounting for mate scores
-  insert_entry(hash, depth, best_move,
-               best_score > MateScore    ? best_score + ply
-               : best_score < -MateScore ? best_score - ply
-                                         : best_score,
-               entry_type);
+  if (!singular_search) {
+    insert_entry(hash, depth, best_move,
+                 best_score > MateScore    ? best_score + ply
+                 : best_score < -MateScore ? best_score - ply
+                                           : best_score,
+                 entry_type);
+  }
   return best_score;
 }
 
@@ -669,17 +708,25 @@ void iterative_deepen(
   memset(thread_info.KillerMoves, 0, sizeof(thread_info.KillerMoves));
 
   Move best_move = MoveNone;
+  int alpha = ScoreNone, beta = -ScoreNone;
 
   for (int depth = 1; depth <= thread_info.max_iter_depth; depth++) {
-    int score = search(ScoreNone, -ScoreNone, depth, position, thread_info);
 
-    if (thread_info.stop) {
-      break;
+    int score, delta = 20;
+
+    score = search(alpha, beta, depth, position, thread_info);
+
+    while (score <= alpha || score >= beta || thread_info.stop) {
+      if (thread_info.stop) {
+        printf("bestmove %s\n", internal_to_uci(position, best_move).c_str());
+        return;
+      }
+      alpha -= delta, beta += delta, delta = delta * 3 / 2;
+      score = search(alpha, beta, depth, position, thread_info);
     }
 
-    best_move = TT[thread_info.zobrist_key & TT_mask].best_move;
-
     int64_t search_time = time_elapsed(thread_info.start_time);
+    best_move = TT[thread_info.zobrist_key & TT_mask].best_move;
 
     printf("info depth %i seldepth %i score cp %i nodes %" PRIu64
            " time %" PRIi64 " pv %s\n",
@@ -688,7 +735,15 @@ void iterative_deepen(
     if (search_time > thread_info.opt_time) {
       break;
     }
-  }
 
+    if (thread_info.stop) {
+      break;
+    }
+
+    if (depth > 6) {
+      alpha = score - 20, beta = score + 20;
+    }
+  }
   printf("bestmove %s\n", internal_to_uci(position, best_move).c_str());
+  return;
 }

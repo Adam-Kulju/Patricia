@@ -254,19 +254,29 @@ bool is_cap(Position &position, Move move) {
 }
 
 
-void update_nnue_state(NNUE_State &nnue_state, Move move, int from_piece,
-                       int captured_piece, int captured_square,
-                       bool color) { // Updates the nnue state
+void update_nnue_state(NNUE_State &nnue_state, Move move, Position &position) { // Updates the nnue state
 
   nnue_state.push();
 
   int from = extract_from(move), to = extract_to(move);
-  int to_piece = from_piece;
+  int from_piece = position.board[from];
+  int to_piece = from_piece, color = position.color;
 
   if (from_piece - color == Pieces::WPawn &&
       get_rank(to) == (color ? 0 : 7)) { // Grab promos
 
     to_piece = extract_promo(move) * 2 + 4 + color;
+  }
+
+  int captured_piece = Pieces::Blank, captured_square = 255;
+
+  if (position.board[to]) {
+    captured_piece = position.board[to], captured_square = to;
+  }
+  // en passant
+  else if (from_piece - color == Pieces::WPawn && to == position.ep_square) {
+    captured_square = to + (color ? Directions::North : Directions::South);
+    captured_piece = position.board[captured_square];
   }
 
   int to_square = to;
@@ -460,11 +470,6 @@ int make_move(Position &position, Move move, ThreadInfo &thread_info,
   thread_info.zobrist_key = temp_hash;
 
   __builtin_prefetch(&TT[temp_hash & TT_mask]);
-
-  if (update_nnue) {
-    update_nnue_state(thread_info.nnue_state, move, piece_from, captured_piece,
-                      captured_square, color);
-  }
 
   return 0;
 }

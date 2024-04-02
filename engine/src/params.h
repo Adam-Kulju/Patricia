@@ -8,6 +8,13 @@ constexpr int RFPMargin = 80;
 constexpr int RFPMaxDepth = 9;
 constexpr int LMRBase = 5;
 constexpr int LMRRatio = 23;
+constexpr int LMPBase = 5;
+constexpr int LMPDepth = 5;
+constexpr int SEDepth = 7;
+constexpr int SEDoubleExtMargin = 20;
+constexpr int FPDepth = 8;
+constexpr int IIRMinDepth = 3;
+
 
 int LMRTable[MaxSearchDepth][ListSize];
 

@@ -68,6 +68,7 @@ void bench(Position &position, ThreadInfo &thread_info) {
 int main(int argc, char *argv[]) {
   Position position;
   std::unique_ptr<ThreadInfo> thread_info(new ThreadInfo);
+  thread_info->nnue_state.m_accumulator_stack.reserve(100);
   init_LMR();
   if (argc > 1) {
     if (std::string(argv[1]) == "perft") {
