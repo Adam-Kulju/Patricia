@@ -21,14 +21,14 @@ The average engine's EAS score generally falls between 50,000 and 100,000. The m
 
 Patricia, with an EAS score of 425,000 in gauntlet testing, is leaps and bounds above any engine that has ever existed in terms of attacking, sacrificing, and playing stylishly. 
 
-It's worth noting that Patricia is still well into superhuman territory, with an estimated CCRL elo of 3100-3150; it'll lose badly to top engines, but will still crush any human.
+It's worth noting that Patricia is still well into superhuman territory, with an estimated CCRL elo of 3100-3150; she'll lose badly to top engines, but will still crush any human.
 
 <br/><br/>
 
 # What Patricia currently does to increase aggressiveness
 - Default contempt of 80 centipawns for draws deemed avoidable
 - Neural network retrained on "aggressive" positions filtered by a variety of criteria
-- Asymmetrical evaluation; Patricia doesn't care if it gets sacrificed against, so all sacrifice bonuses apply to the original side to move only.
+- Asymmetrical evaluation; Patricia doesn't care if she gets sacrificed against, so all sacrifice bonuses apply to the original side to move only.
 - Bonuses for going down in material compared to original position being searched
 - Bonuses for being better off than what material would suggest
 - Bonuses for sacrifices at root
@@ -37,7 +37,7 @@ It's worth noting that Patricia is still well into superhuman territory, with an
 - If the above applies, bonus for open files towards enemy king
 - Material scaling
 - Game length evaluation scaling
-- Lack of search techniques that aggressively prune moves that lose material. Patricia has no SEE pruning, and it orders bad captures right behind good captures instead of right at the end.
+- Lack of search techniques that aggressively prune moves that lose material. Patricia has no SEE pruning, and she orders bad captures right behind good captures instead of right at the end.
 
 <br/><br/>
 
