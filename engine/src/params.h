@@ -15,13 +15,12 @@ constexpr int SEDoubleExtMargin = 20;
 constexpr int FPDepth = 8;
 constexpr int IIRMinDepth = 3;
 
-
 int LMRTable[MaxSearchDepth][ListSize];
 
-void init_LMR(){
-    for (int i = 0; i < MaxSearchDepth; i++){
-        for (int n = 0; n < ListSize; n++){
-            LMRTable[i][n] = LMRBase / 10.0 + log(i) * log(n) / (LMRRatio / 10.0);
-        }
+void init_LMR() {
+  for (int i = 0; i < MaxSearchDepth; i++) {
+    for (int n = 0; n < ListSize; n++) {
+      LMRTable[i][n] = LMRBase / 10.0 + log(i) * log(n) / (LMRRatio / 10.0);
     }
+  }
 }

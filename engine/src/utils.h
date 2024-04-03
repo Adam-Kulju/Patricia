@@ -30,6 +30,8 @@ uint64_t TT_mask = TT_size - 1;
 std::vector<TTEntry> TT(TT_size);
 
 void new_game(ThreadInfo &thread_info) {
+  // Reset TT and other thread_info values for a new game
+
   thread_info.game_ply = 0;
   memset(thread_info.HistoryScores, 0, sizeof(thread_info.HistoryScores));
   memset(thread_info.game_hist, 0, sizeof(thread_info.game_hist));
@@ -52,7 +54,7 @@ void insert_entry(
     uint64_t hash, int depth, Move best_move, int32_t score,
     uint8_t bound_type) { // Inserts an entry into the transposition table.
   int indx = hash & TT_mask;
-  
+
   TT[indx].position_key = static_cast<uint32_t>(get_hash_upper_bits(hash)),
   TT[indx].depth = static_cast<uint8_t>(depth), TT[indx].type = bound_type,
   TT[indx].score = score;
@@ -85,6 +87,8 @@ uint64_t calculate(
 }
 
 int64_t time_elapsed(std::chrono::steady_clock::time_point start_time) {
+  // get the time that has elapsed since the start of search
+
   auto now = std::chrono::steady_clock::now();
   return std::chrono::duration_cast<std::chrono::milliseconds>(now - start_time)
       .count();

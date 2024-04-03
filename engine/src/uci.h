@@ -13,6 +13,10 @@
 std::thread s;
 
 void run_thread(Position &position, ThreadInfo &thread_info) {
+
+  // This wrapper function makes you able to use the "stop" command to stop the
+  // search immediately.
+
   s = std::thread(iterative_deepen, std::ref(position), std::ref(thread_info));
 }
 
@@ -42,7 +46,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
     }
 
     if (command == "quit") {
-      if (s.joinable()){
+      if (s.joinable()) {
         s.join();
       }
       exit(0);
@@ -77,7 +81,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
     else if (command == "stop") {
       thread_info.stop = true;
       s.join();
-      
+
     }
 
     else if (command == "ucinewgame") {
@@ -115,8 +119,8 @@ void uci(ThreadInfo &thread_info, Position &position) {
         std::string moves;
         while (input_stream >> moves) {
           Move move = uci_to_internal(moves);
-          ss_push(position, thread_info, move,
-                  thread_info.zobrist_key, 0); // fill the game hist stack as we go
+          ss_push(position, thread_info, move, thread_info.zobrist_key,
+                  0); // fill the game hist stack as we go
           update_nnue_state(thread_info.nnue_state, move, position);
           make_move(position, move, thread_info, false);
         }
@@ -125,7 +129,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
     }
 
     else if (command == "go") {
-      if (s.joinable()){
+      if (s.joinable()) {
         s.join();
       }
 
@@ -144,6 +148,9 @@ void uci(ThreadInfo &thread_info, Position &position) {
           input_stream >> increment;
         }
       }
+
+      // Calculate time allotted to search
+
       time = std::max(1, time - 50);
       thread_info.max_time = time / 5;
       thread_info.opt_time = (time / 20 + increment) * 6 / 10;

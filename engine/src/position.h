@@ -22,6 +22,8 @@ internal_to_uci(Position position,
 }
 
 Move uci_to_internal(std::string uci) {
+  // Converts a uci move into an internal move.
+
   int from_file = uci[0] - 'a', from_rank = uci[1] - '1',
       to_file = uci[2] - 'a', to_rank = uci[3] - '1', promo = 0;
   if (uci[4] != '\0') {
@@ -250,11 +252,12 @@ bool is_cap(Position &position, Move move) {
   int to = extract_to(move);
   return (position.board[to] ||
           (to == position.ep_square && position.board[extract_from(move)] ==
-                                           Pieces::WPawn + position.color) || is_queen_promo((move)));
+                                           Pieces::WPawn + position.color) ||
+          is_queen_promo((move)));
 }
 
-
-void update_nnue_state(NNUE_State &nnue_state, Move move, Position &position) { // Updates the nnue state
+void update_nnue_state(NNUE_State &nnue_state, Move move,
+                       Position &position) { // Updates the nnue state
 
   nnue_state.push();
 

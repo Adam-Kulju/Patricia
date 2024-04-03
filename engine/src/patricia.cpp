@@ -1,9 +1,10 @@
+#include "params.h"
 #include "position.h"
 #include "search.h"
 #include "uci.h"
-#include "params.h"
 #include <memory>
 #include <stdio.h>
+
 
 uint64_t
 perft(int depth, Position position, bool first,
@@ -18,9 +19,12 @@ perft(int depth, Position position, bool first,
     set_board(position, thread_info,
               "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
   }
-  Move list[216];
+  Move list[ListSize];
   uint64_t l = 0;
-  int nmoves = movegen(position, list, attacks_square(position, position.kingpos[position.color], position.color ^ 1));
+  int nmoves =
+      movegen(position, list,
+              attacks_square(position, position.kingpos[position.color],
+                             position.color ^ 1));
   for (int i = 0; i < nmoves;
        i++) // Loop through all of the moves, skipping illegal ones.
   {

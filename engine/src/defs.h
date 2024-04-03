@@ -1,7 +1,7 @@
 #pragma once
 #include <chrono>
-#include <stdint.h>
 #include <cinttypes>
+#include <stdint.h>
 
 namespace Colors {
 constexpr uint8_t White = 0;
@@ -44,13 +44,12 @@ constexpr uint8_t LBound = 2;
 constexpr uint8_t Exact = 3;
 } // namespace EntryTypes
 
-
 namespace Promos {
-  constexpr uint8_t Knight = 0;
-  constexpr uint8_t Bishop = 1;
-  constexpr uint8_t Rook = 2;
-  constexpr uint8_t Queen = 3;
-}
+constexpr uint8_t Knight = 0;
+constexpr uint8_t Bishop = 1;
+constexpr uint8_t Rook = 2;
+constexpr uint8_t Queen = 3;
+} // namespace Promos
 
 constexpr int16_t ListSize = 216;
 constexpr int16_t GameSize = 2000;
@@ -162,11 +161,11 @@ constexpr int8_t SliderAttacks[4][8] =
          Directions::North, Directions::Southeast, Directions::Southwest,
          Directions::Northeast, Directions::Northwest}};
 
-
 constexpr int SeeValues[14] = {
-  0, 0, 100, 100, 450, 450, 450, 450, 650, 650, 1250, 1250, 10000, 10000
-};  //the first value is 100 for en passant
+    0,   0,   100, 100,  450,  450,   450,
+    450, 650, 650, 1250, 1250, 10000, 10000}; // SEE values for different pieces
 
+// Simple one liners
 #define out_of_board(x) (x & 0x88)
 #define get_rank(x) (x / 16)
 #define get_file(x) (x % 16)

@@ -11,7 +11,7 @@ void update_history(int16_t &entry, int score) { // Update history score
 }
 
 bool out_of_time(ThreadInfo &thread_info) {
-  if (thread_info.current_iter == 1) { // dont return on d1
+  if (thread_info.current_iter == 1) { // dont return on depth 1
     return false;
   }
   if (thread_info.stop) {
@@ -47,6 +47,8 @@ int16_t total_mat(Position &position) {
   return m;
 }
 int16_t total_mat_color(Position &position, int color) {
+  // total material for one color
+
   int m = 0;
   for (int i = 0; i < 5; i++) {
     m += position.material_count[i * 2 + color] * SeeValues[i * 2 + 2];
@@ -91,6 +93,8 @@ float danger_values[5] = {0.8, 2.2, 2, 3, 6};
 float defense_values[5] = {1, 1.1, 1.1, 1, 1.7};
 
 float in_danger_white(Position &position) {
+
+  // is the white king in danger?
 
   /*
   --------
@@ -147,6 +151,9 @@ float in_danger_white(Position &position) {
 }
 
 float in_danger_black(Position &position) {
+
+  // same as last function, but for the black king.
+
   int black_king = position.kingpos[Colors::Black];
   float danger_level = 0, attacks = 0;
   int kingzones[16] = {
@@ -206,6 +213,8 @@ int eval(Position &position, ThreadInfo &thread_info, int alpha, int beta) {
   int s_m = thread_info.game_hist[start_index].m_diff;
   int s = 0;
 
+  // Agression bonus 1: Did we lose material during the moves played in search?
+
   for (int idx = start_index + 2; idx < thread_info.game_ply - 3; idx += 2) {
 
     if (thread_info.game_hist[idx].m_diff < s_m &&
@@ -220,21 +229,27 @@ int eval(Position &position, ThreadInfo &thread_info, int alpha, int beta) {
     }
   }
   if (s) {
-    bonus2 = (s > 800 ? 325 : s > 400 ? 220 : s > 100 ? 140 : 90);
+    bonus1 = (s > 800 ? 325 : s > 400 ? 220 : s > 100 ? 140 : 90);
     if (thread_info.search_ply % 2) {
-      bonus2 *= -1;
+      // We only hand the bonuses out for root side. We don't particularly care
+      // if we're under attack ourselves.
+      bonus1 *= -1;
     }
   }
 
   int m = material_eval(position), tm = total_mat_color(position, color ^ 1);
 
+  // Aggression bonus 2: Is our eval better than material would suggest?
+
   if (thread_info.search_ply % 2) {
-    bonus1 = std::clamp((eval - m) / 6, -300, 0);
+    bonus2 = std::clamp((eval - m) / 6, -300, 0);
   } else {
-    bonus1 = std::clamp((eval - m) / 6, 0, 300);
+    bonus2 = std::clamp((eval - m) / 6, 0, 300);
   }
 
   int is_sacrifice_at_root = thread_info.game_hist[start_index].sacrifice_scale;
+
+  // Aggression bonus 3: Was our first move a sacrifice?
 
   bonus3 = 90 * is_sacrifice_at_root;
   if (thread_info.search_ply % 2) {
@@ -242,6 +257,11 @@ int eval(Position &position, ThreadInfo &thread_info, int alpha, int beta) {
   }
 
   int root_color = thread_info.search_ply % 2 ? color ^ 1 : color;
+
+  // Aggression bonuses 4 and 5, both only applicable with lots of material:
+  // 4: Are we attacking the enemy king?
+  // 5: Are we in an opposite castling position? If so, do we have open lines
+  // towards the enemy king?
 
   if (tm > 2500) {
     float a =
@@ -257,10 +277,30 @@ int eval(Position &position, ThreadInfo &thread_info, int alpha, int beta) {
             get_file(position.kingpos[root_color ^ 1])) > 1 &&
         !position.castling_rights[root_color ^ 1][0]) {
       bonus5 = 50 * (thread_info.search_ply % 2 ? -1 : 1);
+
+      int opp_file = get_file(position.kingpos[root_color ^ 1]);
+      int dir, start;
+      if (root_color) {
+        start = 0x60, dir = Directions::South;
+      } else {
+        start = 0x10, dir = Directions::North;
+      }
+
+      for (int a = std::max(0, opp_file - 1); a <= std::max(7, opp_file + 1);
+           a++) {
+        if (position.board[start + a] == Pieces::Blank &&
+            position.board[start + dir + a] == Pieces::Blank &&
+            position.board[start + dir * 2 + a] == Pieces::Blank) {
+          bonus5 *= 2;
+          break;
+        }
+      }
     }
   }
 
   int total_bonus = (bonus1 + bonus2 + bonus3 + bonus4 + bonus5);
+
+  // Scale for material and game length.
 
   return (eval + total_bonus) *
          (512 + tm / 15 -
@@ -270,6 +310,7 @@ int eval(Position &position, ThreadInfo &thread_info, int alpha, int beta) {
 
 void ss_push(Position &position, ThreadInfo &thread_info, Move move,
              uint64_t hash, int16_t s) {
+  // update search stack after makemove
   thread_info.search_ply++;
   thread_info.game_hist[thread_info.game_ply++] = {
       hash,
@@ -281,6 +322,7 @@ void ss_push(Position &position, ThreadInfo &thread_info, Move move,
 }
 
 void ss_pop(ThreadInfo &thread_info, uint64_t hash) {
+  // associated with unmake
   thread_info.search_ply--, thread_info.game_ply--;
   thread_info.zobrist_key = hash;
   thread_info.nnue_state.pop();
@@ -337,6 +379,7 @@ int qsearch(int alpha, int beta, Position &position,
                                        // given position.
 
   if (out_of_time(thread_info)) {
+    // return if out of time
     return thread_info.nnue_state.evaluate(position.color);
   }
   int color = position.color;
@@ -386,6 +429,7 @@ int qsearch(int alpha, int beta, Position &position,
   MoveInfo moves;
   int num_moves =
       movegen(position, moves.moves, in_check); // Generate and score moves
+
   score_moves(position, thread_info, moves, MoveNone, num_moves);
 
   for (int indx = 0; indx < num_moves; indx++) {
@@ -393,7 +437,7 @@ int qsearch(int alpha, int beta, Position &position,
 
     int move_score = moves.scores[indx];
     if (move_score < GoodCaptureBaseScore &&
-        !in_check) { // If we're not in check only look at captures
+        !in_check) { // If we're not in check only look at good captures
       break;
     }
     Position moved_position = position;
@@ -401,6 +445,7 @@ int qsearch(int alpha, int beta, Position &position,
       continue;
     }
     update_nnue_state(thread_info.nnue_state, move, position);
+
     ss_push(position, thread_info, move, hash, 0);
     int score = -qsearch(-beta, -alpha, moved_position, thread_info);
     ss_pop(thread_info, hash);
@@ -417,6 +462,8 @@ int qsearch(int alpha, int beta, Position &position,
       }
     }
   }
+
+  // insert entries and return
 
   entry_type = best_score >= beta ? EntryTypes::LBound
                : raised_alpha     ? EntryTypes::Exact
@@ -439,6 +486,7 @@ int search(int alpha, int beta, int depth, Position &position,
   }
 
   if (out_of_time(thread_info)) {
+    // check for timeout
     return thread_info.nnue_state.evaluate(position.color);
   }
   if (depth <= 0) {
@@ -458,11 +506,12 @@ int search(int alpha, int beta, int depth, Position &position,
 
   bool singular_search = (excluded_move != MoveNone);
 
-  thread_info.excluded_move = MoveNone;
+  thread_info.excluded_move =
+      MoveNone; // If we currently are in singular search, this sets it so moves
+                // *after* it are not in singular search
   int score = ScoreNone;
 
   uint64_t hash = thread_info.zobrist_key;
-
 
   if (!root && is_draw(position, thread_info, hash)) { // Draw detection
     int draw_score = 2 - (thread_info.nodes & 3);
@@ -510,16 +559,25 @@ int search(int alpha, int beta, int depth, Position &position,
 
   bool in_check = attacks_square(position, position.kingpos[color], color ^ 1);
 
+  // We can't do any eval-based pruning if in check.
+
   int static_eval =
       in_check ? ScoreNone : eval(position, thread_info, alpha, beta);
 
   if (!is_pv && !in_check && !singular_search) {
+
+    // Reverse Futility Pruning (RFP): If our position is way better than beta,
+    // we're likely good to stop searching the node.
+
     if (depth <= RFPMaxDepth && static_eval - RFPMargin * depth >= beta) {
       return static_eval;
     }
     if (static_eval >= beta && depth >= NMPMinDepth &&
         thread_info.game_hist[thread_info.game_ply - 1].played_move !=
             MoveNone) {
+
+      // Null Move Pruning (NMP): If we can give our opponent a free move and
+      // still beat beta on a reduced search, we can prune the node.
 
       Position temp_pos = position;
 
@@ -559,13 +617,24 @@ int search(int alpha, int beta, int depth, Position &position,
     is_capture = is_cap(position, move);
     int is_sac = 0;
     if (root) {
+
+      // Grab the "scale" of the sacrifice of the move at root, so we can use it
+      // for eval purposes.
       is_sac = sacrifice_scale(position, thread_info, move);
     }
 
     else if (!is_capture && !is_pv) {
+
+      // Late Move Pruning (LMP): If we've searched enough moves, we can skip
+      // the rest.
+
       if (depth < LMPDepth && moves_played >= LMPBase + depth * depth) {
         skip = true;
       }
+
+      // Futility Pruning (FP): If we're far worse than alpha and our move isn't
+      // a good capture, we can skip the rest.
+
       if (!in_check && depth < FPDepth && move_score < GoodCaptureBaseScore &&
           static_eval + 125 * depth < alpha) {
         skip = true;
@@ -573,6 +642,9 @@ int search(int alpha, int beta, int depth, Position &position,
     }
 
     int extension = 0;
+
+    // Singular Extensions (SE): If a search finds that the TT move is way
+    // better than all other moves, extend it under certain conditions.
 
     if (!root && ply < thread_info.current_iter * 2) {
       if (!singular_search && depth >= SEDepth && move_score == TTMoveScore &&
@@ -590,11 +662,16 @@ int search(int alpha, int beta, int depth, Position &position,
         if (sScore < sBeta) {
           if (!is_pv && sScore + SEDoubleExtMargin < sBeta &&
               ply < thread_info.current_iter) {
+
+            // In some cases we can even double extend
             extension = 2;
           } else {
             extension = 1;
           }
         } else if (sBeta >= beta) {
+          // Multicut: If there was another move that beat beta, it's a sign
+          // that we'll probably beat beta with a full search too.
+
           return sBeta;
         }
 
@@ -608,16 +685,31 @@ int search(int alpha, int beta, int depth, Position &position,
 
     bool full_search = false;
 
+    // Late Move Reductions (LMR): Moves ordered later in search and at high
+    // depths can be searched to a lesser depth than normal. If the reduced
+    // search beats alpha, we'll have to search again, but most moves don't,
+    // making this technique more than worth it.
+
+    // First we search at reduced depth with a null window
+    // If that beats alpha, we search at normal depth with null window
+    // If that also beats alpha, we search at normal depth with full window.
+
     if (depth >= 3 && moves_played > is_pv) {
 
       int R = LMRTable[depth][moves_played];
       if (is_capture) {
+        // Captures get LMRd less because they're the most likely moves to beat
+        // alpha/beta
         R /= 2;
       }
+
+      // Increase reduction if not in pv
       R += !is_pv;
 
+      // Clamp reduction so we don't immediately go into qsearch
       R = std::clamp(R, 1, depth - 1);
 
+      // Reduced search, reduced window
       score = -search(-alpha - 1, -alpha, depth - R + extension, moved_position,
                       thread_info);
       if (score > alpha) {
@@ -627,10 +719,12 @@ int search(int alpha, int beta, int depth, Position &position,
       full_search = moves_played || !is_pv;
     }
     if (full_search) {
+      // Full search, null window
       score = -search(-alpha - 1, -alpha, depth - 1 + extension, moved_position,
                       thread_info);
     }
     if (score > alpha || (!moves_played && is_pv)) {
+      // Full search, full window
       score = -search(-beta, -alpha, depth - 1 + extension, moved_position,
                       thread_info);
     }
@@ -638,6 +732,7 @@ int search(int alpha, int beta, int depth, Position &position,
     ss_pop(thread_info, hash);
 
     if (thread_info.stop) {
+      // return if we ran out of time for search
       return best_score;
     }
 
@@ -658,8 +753,16 @@ int search(int alpha, int beta, int depth, Position &position,
   }
 
   if (best_score >= beta && !is_capture) {
+
+    // Update history scores and the killer move.
+
     int bonus = std::min(300 * (depth - 1), 2500);
+
     for (int i = 0; moves.moves[i] != best_move; i++) {
+
+      // Every quiet move that *didn't* raise beta gets its history score
+      // reduced
+
       Move move = moves.moves[i];
       if (!is_cap(position, move)) {
         int piece = position.board[extract_from(move)] - 2,
@@ -716,6 +819,10 @@ void iterative_deepen(
 
     score = search(alpha, beta, depth, position, thread_info);
 
+    // Aspiration Windows: We search the position with a narrow window around
+    // the last search score in order to get cutoffs faster. If our search lands
+    // outside the bounds, expand them and try again.
+
     while (score <= alpha || score >= beta || thread_info.stop) {
       if (thread_info.stop) {
         printf("bestmove %s\n", internal_to_uci(position, best_move).c_str());
@@ -745,5 +852,4 @@ void iterative_deepen(
     }
   }
   printf("bestmove %s\n", internal_to_uci(position, best_move).c_str());
-  return;
 }

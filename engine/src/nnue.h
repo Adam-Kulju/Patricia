@@ -110,15 +110,12 @@ public:
   std::vector<Accumulator<LAYER1_SIZE>> m_accumulator_stack{};
   Accumulator<LAYER1_SIZE> *m_curr{};
 
-
   void push();
   void pop();
   int evaluate(int color);
   void reset_nnue(Position position);
 
-  template <bool Activate>
-  inline void update_feature(int piece, int square);
-
+  template <bool Activate> inline void update_feature(int piece, int square);
 };
 
 void NNUE_State::push() {
@@ -129,7 +126,6 @@ void NNUE_State::push() {
 void NNUE_State::pop() {
   m_accumulator_stack.pop_back();
   m_curr = &m_accumulator_stack.back();
-
 }
 
 int NNUE_State::evaluate(int color) {
@@ -163,8 +159,8 @@ void NNUE_State::reset_nnue(Position position) {
 
   for (int square : StandardToMailbox) {
     if (position.board[square]) {
-      // printf("%i\n", MAILBOX_TO_STANDARD[square]);
-      update_feature<true>(position.board[square], MailboxToStandard_NNUE[square]);
+      update_feature<true>(position.board[square],
+                           MailboxToStandard_NNUE[square]);
     }
   }
 }

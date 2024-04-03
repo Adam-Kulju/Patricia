@@ -138,6 +138,8 @@ int movegen(Position position, Move *move_list, bool in_check) {
 }
 
 int cheapest_attacker(Position position, int sq, int color, int &attack_sq) {
+  // Finds the cheapest attacker for a given square on a given board.
+
   int opp_color = color ^ 1, indx = -1;
 
   int lowest = Pieces::Blank + 20;
@@ -196,13 +198,14 @@ int cheapest_attacker(Position position, int sq, int color, int &attack_sq) {
   return lowest;
 }
 
-bool SEE(Position &position, Move move,
-         int threshold) {
+bool SEE(Position &position, Move move, int threshold) {
+
   int color = position.color, from = extract_from(move), to = extract_to(move),
       gain = SeeValues[position.board[to]],
       risk = SeeValues[position.board[from]];
 
   if (gain < threshold) {
+    // If taking the piece isn't good enough return
     return false;
   }
 
@@ -243,26 +246,38 @@ bool SEE(Position &position, Move move,
 
 void score_moves(Position position, ThreadInfo &thread_info,
                  MoveInfo &scored_moves, Move tt_move, int len) {
+
+  // score the moves
+
   for (int indx = 0; indx < len; indx++) {
     Move move = scored_moves.moves[indx];
     if (move == tt_move) {
       scored_moves.scores[indx] = TTMoveScore;
-    } else if (extract_promo(move) == Promos::Queen) {
+      // TT move score;
+    }
+
+    else if (extract_promo(move) == Promos::Queen) {
+      // Queen promo score
       scored_moves.scores[indx] = QueenPromoScore;
-    } else if (is_cap(position, move)) {
+    }
+
+    else if (is_cap(position, move)) {
+      // Capture score
       int from_piece = position.board[extract_from(move)],
           to_piece = position.board[extract_to(move)];
 
-      scored_moves.scores[indx] =
-          GoodCaptureBaseScore + SeeValues[to_piece] -
-          SeeValues[from_piece] / 20 - 5000 * !SEE(position, move, 0);
+      scored_moves.scores[indx] = GoodCaptureBaseScore + SeeValues[to_piece] -
+                                  SeeValues[from_piece] / 20 -
+                                  5000 * !SEE(position, move, 0);
     }
 
     else if (move == thread_info.KillerMoves[thread_info.search_ply]) {
+      // Killer move score
       scored_moves.scores[indx] = KillerMoveScore;
     }
 
     else {
+      // Normal moves are scored using history
       int piece = position.board[extract_from(move)] - 2, to = extract_to(move);
       scored_moves.scores[indx] = thread_info.HistoryScores[piece][to];
     }
