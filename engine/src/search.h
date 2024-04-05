@@ -463,6 +463,12 @@ int qsearch(int alpha, int beta, Position &position,
     }
   }
 
+  if (best_score == ScoreNone) { // handle no legal moves (stalemate/checkmate)
+    return attacks_square(position, position.kingpos[color], color ^ 1)
+               ? (Mate + ply)
+               : 0;
+  }
+
   // insert entries and return
 
   entry_type = best_score >= beta ? EntryTypes::LBound
