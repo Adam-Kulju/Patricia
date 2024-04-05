@@ -53,9 +53,11 @@ void uci(ThreadInfo &thread_info, Position &position) {
     }
 
     else if (command == "uci") {
-      printf("id name Patricia 2.0\nid author Adam Kulju\noption name Hash "
-             "type spin default 32 min 1 max 131072\noption name Threads type "
-             "spin default 1 min 1 max 1\nuciok\n");
+      printf("id name Patricia 2.0\nid author Adam Kulju\n"
+            "option name Hash type spin default 32 min 1 max 131072\n"
+            "option name Threads type spin default 1 min 1 max 1\n"
+            "option name UCI_Elo type spin default 3200 min 1000 max 3200\n"
+            "uciok\n");
     }
 
     else if (command == "isready") {
@@ -64,17 +66,26 @@ void uci(ThreadInfo &thread_info, Position &position) {
 
     else if (command == "setoption") {
       std::string name;
+      int value;
       input_stream >> command;
       input_stream >> name;
+      input_stream >> value;
 
       if (name == "Hash") {
         input_stream >> command;
-        int value;
-        input_stream >> value;
         resize_TT(value);
       }
 
       else if (name == "Threads") {
+      }
+
+      else if (name == "UCI_Elo"){
+        if (value < 1500){
+          thread_info.max_iter_depth = 2;
+        }
+        else if (value > 3100){
+          thread_info.max_iter_depth = MaxSearchDepth;
+        }
       }
     }
 
