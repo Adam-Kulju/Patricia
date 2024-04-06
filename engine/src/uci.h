@@ -80,9 +80,17 @@ void uci(ThreadInfo &thread_info, Position &position) {
       }
 
       else if (name == "UCI_Elo"){
-        if (value < 1500){
-          thread_info.max_iter_depth = 2;
+        if (value < 1200){
+          thread_info.max_iter_depth = 2; //Depth 2: 1300-1400 10+0.1, 1100-1200 60+0.6
         }
+        else if (value <= 1400){
+          thread_info.max_iter_depth = 3; //Depth 3: tbd
+        }
+        else if (value <= 1600){
+          thread_info.max_iter_depth = 4;  //Depth 4: tbd
+        }
+
+
         else if (value > 3100){
           thread_info.max_iter_depth = MaxSearchDepth;
         }
@@ -148,7 +156,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
       std::string token;
       while (input_stream >> token) {
         if (token == "infinite") {
-          time = 10000000;
+          time = 1000000000;
         } else if (token == "wtime" && color == Colors::White) {
           input_stream >> time;
         } else if (token == "btime" && color == Colors::Black) {
