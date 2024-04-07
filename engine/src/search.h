@@ -89,7 +89,7 @@ int sacrifice_scale(Position &position, ThreadInfo &thread_info, Move move) {
   return scale;
 }
 
-float danger_values[5] = {0.8, 2.2, 2, 3, 6};
+float danger_values[6] = {0.8, 2.2, 2, 3, 6, 0};
 float defense_values[5] = {1, 1.1, 1.1, 1, 1.7};
 
 float in_danger_white(Position &position) {
@@ -463,6 +463,12 @@ int qsearch(int alpha, int beta, Position &position,
     }
   }
 
+  if (best_score == ScoreNone) { // handle no legal moves (stalemate/checkmate)
+    return attacks_square(position, position.kingpos[color], color ^ 1)
+               ? (Mate + ply)
+               : 0;
+  }
+
   // insert entries and return
 
   entry_type = best_score >= beta ? EntryTypes::LBound
@@ -808,6 +814,7 @@ void iterative_deepen(
   thread_info.time_checks = 0;
   thread_info.stop = false;
   thread_info.search_ply = 0; // reset all relevant thread_info
+  thread_info.excluded_move = MoveNone;
   memset(thread_info.KillerMoves, 0, sizeof(thread_info.KillerMoves));
 
   Move best_move = MoveNone;

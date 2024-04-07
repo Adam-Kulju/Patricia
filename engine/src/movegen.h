@@ -288,6 +288,7 @@ Move get_next_move(Move *moves, int *scores, int start_indx, int len) {
   // Performs a selection sort
   int best_indx = start_indx, best_score = scores[start_indx];
   for (int i = start_indx + 1; i < len; i++) {
+    //printf("%i\n", scores[i]);
     if (scores[i] > best_score) {
       best_score = scores[i];
       best_indx = i;
