@@ -39,8 +39,8 @@ void new_game(ThreadInfo &thread_info) {
 }
 
 void resize_TT(int size) {
-  int target_size = size * 1024 * 1024 / sizeof(TTEntry);
-  int tt_size = 1024;
+  uint64_t target_size = static_cast<uint64_t>(size) * 1024 * 1024 / sizeof(TTEntry);
+  uint64_t tt_size = 1024;
   while (tt_size * 2 <= target_size) {
     tt_size *= 2;
   }

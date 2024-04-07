@@ -68,10 +68,10 @@ void uci(ThreadInfo &thread_info, Position &position) {
       int value;
       input_stream >> command;
       input_stream >> name;
+      input_stream >> command;
       input_stream >> value;
 
       if (name == "Hash") {
-        input_stream >> command;
         resize_TT(value);
       }
 
