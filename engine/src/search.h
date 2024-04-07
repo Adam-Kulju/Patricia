@@ -89,7 +89,7 @@ int sacrifice_scale(Position &position, ThreadInfo &thread_info, Move move) {
   return scale;
 }
 
-float danger_values[6] = {0.8, 2.2, 2, 3, 6, 1.5};
+float danger_values[6] = {0.8, 2.2, 2, 3, 6, 0};
 float defense_values[5] = {1, 1.1, 1.1, 1, 1.7};
 
 float in_danger_white(Position &position) {
