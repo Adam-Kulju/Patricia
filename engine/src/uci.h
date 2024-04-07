@@ -56,7 +56,6 @@ void uci(ThreadInfo &thread_info, Position &position) {
       printf("id name Patricia 2.0\nid author Adam Kulju\n"
             "option name Hash type spin default 32 min 1 max 131072\n"
             "option name Threads type spin default 1 min 1 max 1\n"
-            "option name UCI_Elo type spin default 3200 min 1000 max 3200\n"
             "uciok\n");
     }
 
@@ -77,23 +76,6 @@ void uci(ThreadInfo &thread_info, Position &position) {
       }
 
       else if (name == "Threads") {
-      }
-
-      else if (name == "UCI_Elo"){
-        if (value < 1200){
-          thread_info.max_iter_depth = 2; //Depth 2: 1300-1400 10+0.1, 1100-1200 60+0.6
-        }
-        else if (value <= 1400){
-          thread_info.max_iter_depth = 3; //Depth 3: tbd
-        }
-        else if (value <= 1600){
-          thread_info.max_iter_depth = 4;  //Depth 4: tbd
-        }
-
-
-        else if (value > 3100){
-          thread_info.max_iter_depth = MaxSearchDepth;
-        }
       }
     }
 
