@@ -14,7 +14,8 @@ bool out_of_time(ThreadInfo &thread_info) {
   if (thread_info.current_iter == 1) { // dont return on depth 1
     return false;
   }
-  if (thread_info.stop) {
+  if (thread_info.stop || thread_info.nodes > thread_info.max_nodes_searched) {
+    thread_info.stop = true;
     return true;
   }
   thread_info.time_checks++;

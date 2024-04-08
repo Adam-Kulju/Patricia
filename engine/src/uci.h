@@ -56,6 +56,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
       printf("id name Patricia 2.0.1\nid author Adam Kulju\n"
             "option name Hash type spin default 32 min 1 max 131072\n"
             "option name Threads type spin default 1 min 1 max 1\n"
+            "option name UCI_Elo type spin default 3200 min 1000 max 3200\n"
             "uciok\n");
     }
 
@@ -76,6 +77,39 @@ void uci(ThreadInfo &thread_info, Position &position) {
       }
 
       else if (name == "Threads") {
+      }
+
+      else if (name == "UCI_Elo"){
+        thread_info.max_nodes_searched = UINT64_MAX / 2;
+        
+        if (value >= 3100){
+          thread_info.max_iter_depth = MaxSearchDepth;
+        }
+        else if (value == 1200){
+          thread_info.max_iter_depth = 2; //60 + 0.6 elo: 1100-1200
+        }
+        else if (value == 1400){
+          thread_info.max_nodes_searched = 1000; //60 + 0.6 elo: 1300-1400
+        }
+        else if (value == 1600){
+          thread_info.max_nodes_searched = 1600; //60 + 0.6 elo: 1550-1600
+        }
+        else if (value == 1800){
+          thread_info.max_iter_depth = 4; //60 + 0.6 elo: ~1700
+        }
+        else if (value == 2000){
+          thread_info.max_nodes_searched = 4000;  //60 + 0.6 elo: ~1900
+        }
+        else if (value == 2200){
+          thread_info.max_nodes_searched = 8000; //60 + 0.6 elo: 2150-2250
+        }
+        else if (value == 2600){
+          thread_info.max_nodes_searched = 64000; //60 + 0.6 elo: 2500-2600
+        }
+        else{
+          printf("Unknown UCI Elo option, defaulting to maximum strength\n");
+          thread_info.max_iter_depth = MaxSearchDepth;
+        }
       }
     }
 
@@ -133,12 +167,15 @@ void uci(ThreadInfo &thread_info, Position &position) {
       if (s.joinable()) {
         s.join();
       }
+      
+      thread_info.max_nodes_searched = UINT64_MAX / 2;
+      thread_info.max_iter_depth = MaxSearchDepth;
 
-      int color = position.color, time = 0, increment = 0;
+      int color = position.color, time = 1000000000, increment = 0;
       std::string token;
       while (input_stream >> token) {
         if (token == "infinite") {
-          time = 1000000000;
+          ;
         } else if (token == "wtime" && color == Colors::White) {
           input_stream >> time;
         } else if (token == "btime" && color == Colors::Black) {
@@ -147,6 +184,16 @@ void uci(ThreadInfo &thread_info, Position &position) {
           input_stream >> increment;
         } else if (token == "binc" && color == Colors::Black) {
           input_stream >> increment;
+        }
+        else if (token == "nodes"){
+          uint64_t nodes;
+          input_stream >> nodes;
+          thread_info.max_nodes_searched = nodes;
+        }
+        else if (token == "depth"){
+          int depth;
+          input_stream >> depth;
+          thread_info.max_iter_depth = depth;
         }
       }
 

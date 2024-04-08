@@ -23,6 +23,7 @@ struct ThreadInfo {
   Move excluded_move;
 
   uint8_t max_iter_depth = MaxSearchDepth;
+  uint64_t max_nodes_searched = UINT64_MAX / 2;
 };
 
 uint64_t TT_size = (1 << 20);
