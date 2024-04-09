@@ -24,6 +24,8 @@ struct ThreadInfo {
 
   uint8_t max_iter_depth = MaxSearchDepth;
   uint64_t max_nodes_searched = UINT64_MAX / 2;
+
+  Move pv[MaxSearchDepth * MaxSearchDepth];
 };
 
 uint64_t TT_size = (1 << 20);

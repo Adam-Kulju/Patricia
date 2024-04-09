@@ -10,6 +10,11 @@ void update_history(int16_t &entry, int score) { // Update history score
   entry += score - entry * abs(score) / 16384;
 }
 
+void copy_pv(Move *pTarget, Move *pSource, int n) {
+  while (n-- && (*pTarget++ = *pSource++))
+    ;
+}
+
 bool out_of_time(ThreadInfo &thread_info) {
   if (thread_info.current_iter == 1) { // dont return on depth 1
     return false;
@@ -502,7 +507,9 @@ int search(int alpha, int beta, int depth, Position &position,
   }
   thread_info.nodes++;
 
-  int ply = thread_info.search_ply;
+  int ply = thread_info.search_ply, pv_index = ply * MaxSearchDepth;
+
+  thread_info.pv[pv_index] = MoveNone;
 
   bool root = !ply, color = position.color, raised_alpha = false;
 
@@ -749,11 +756,16 @@ int search(int alpha, int beta, int depth, Position &position,
       if (score > alpha) {
         raised_alpha = true;
         alpha = score;
+        if (score >= beta) {
+          break;
+        } else {
+          thread_info.pv[pv_index] = best_move;
+          for (int n = 0; n < MaxSearchDepth + ply + 1; n++){
+            thread_info.pv[pv_index + 1 + n] = thread_info.pv[pv_index + MaxSearchDepth + n];
+          }
+        }
       } else if (root && !moves_played) {
         return score;
-      }
-      if (score >= beta) {
-        break;
       }
     }
     moves_played++;
@@ -805,6 +817,22 @@ int search(int alpha, int beta, int depth, Position &position,
   return best_score;
 }
 
+void print_pv(Position &position, ThreadInfo &thread_info) {
+  Position temp_position = position;
+  uint64_t hash = thread_info.zobrist_key;
+
+  int indx = 0;
+  while (thread_info.pv[indx] != MoveNone) {
+    Move best_move = thread_info.pv[indx];
+    printf("%s ", internal_to_uci(temp_position, best_move).c_str());
+    make_move(temp_position, best_move, thread_info, false);
+    indx++;
+  }
+  printf("\n");
+
+  thread_info.zobrist_key = hash;
+}
+
 void iterative_deepen(
     Position &position,
     ThreadInfo &thread_info) { // Performs an iterative deepening search.
@@ -844,9 +872,10 @@ void iterative_deepen(
     best_move = TT[thread_info.zobrist_key & TT_mask].best_move;
 
     printf("info depth %i seldepth %i score cp %i nodes %" PRIu64
-           " time %" PRIi64 " pv %s\n",
-           depth, depth, score, thread_info.nodes, search_time,
-           internal_to_uci(position, best_move).c_str());
+           " time %" PRIi64 " pv ",
+           depth, depth, score, thread_info.nodes, search_time);
+    print_pv(position, thread_info);
+
     if (search_time > thread_info.opt_time) {
       break;
     }
