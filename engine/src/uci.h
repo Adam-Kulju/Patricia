@@ -7,17 +7,15 @@
 #include "utils.h"
 #include <iostream>
 #include <memory>
-#include <stdio.h>
-#include <thread>
 
 std::thread s;
 
-void run_thread(Position &position, ThreadInfo &thread_info) {
+void run_thread(Position &position, ThreadInfo &thread_info, int num_threads) {
 
   // This wrapper function makes you able to use the "stop" command to stop the
   // search immediately.
 
-  s = std::thread(iterative_deepen, std::ref(position), std::ref(thread_info));
+  s = std::thread(search_position, std::ref(position), std::ref(thread_info), num_threads);
 }
 
 void uci(ThreadInfo &thread_info, Position &position) {
@@ -29,6 +27,8 @@ void uci(ThreadInfo &thread_info, Position &position) {
   thread_info.nnue_state.m_accumulator_stack.reserve(100);
 
   std::string input;
+
+  int num_threads = 1;
 
   while (getline(std::cin, input)) {
 
@@ -55,7 +55,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
     else if (command == "uci") {
       printf("id name Patricia 2.0.1\nid author Adam Kulju\n"
             "option name Hash type spin default 32 min 1 max 131072\n"
-            "option name Threads type spin default 1 min 1 max 1\n"
+            "option name Threads type spin default 1 min 1 max 1024\n"
             "option name UCI_Elo type spin default 3200 min 1000 max 3200\n"
             "uciok\n");
     }
@@ -77,6 +77,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
       }
 
       else if (name == "Threads") {
+        num_threads = value;
       }
 
       else if (name == "UCI_Elo"){
@@ -204,7 +205,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
       thread_info.opt_time = (time / 20 + increment) * 6 / 10;
       thread_info.start_time = std::chrono::steady_clock::now();
 
-      run_thread(position, thread_info);
+      run_thread(position, thread_info, num_threads);
     }
   }
 }

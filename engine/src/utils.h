@@ -2,6 +2,7 @@
 #include "defs.h"
 #include "nnue.h"
 #include <vector>
+#include <thread>
 
 struct ThreadInfo {
   uint64_t zobrist_key; // hash key of the position we're currently on
@@ -26,7 +27,11 @@ struct ThreadInfo {
   uint64_t max_nodes_searched = UINT64_MAX / 2;
 
   Move pv[MaxSearchDepth * MaxSearchDepth];
+  Position position;
 };
+
+std::vector<std::thread> threads;
+std::vector<ThreadInfo> thread_infos;
 
 uint64_t TT_size = (1 << 20);
 uint64_t TT_mask = TT_size - 1;
