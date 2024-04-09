@@ -211,8 +211,7 @@ float in_danger_black(Position &position) {
 int eval(Position &position, ThreadInfo &thread_info, int alpha, int beta) {
   int color = position.color;
   int eval = thread_info.nnue_state.evaluate(color);
-  return eval;
-  /*
+  
   if (thread_info.search_ply == 0) {
     return eval;
   }
@@ -317,7 +316,7 @@ int eval(Position &position, ThreadInfo &thread_info, int alpha, int beta) {
          (512 + tm / 15 -
           (position.material_count[0] + position.material_count[1]) * 20) /
          768 * 75 / std::clamp(static_cast<int>(thread_info.game_ply), 50, 100);
-  */
+  
 }
 
 void ss_push(Position &position, ThreadInfo &thread_info, Move move,
