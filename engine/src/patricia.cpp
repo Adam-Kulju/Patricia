@@ -61,8 +61,7 @@ void bench(Position &position, ThreadInfo &thread_info) {
   for (std::string fen : fens) {
     new_game(thread_info);
     set_board(position, thread_info, fen);
-    search_position(position, thread_info, 1);
-
+    iterative_deepen(position, thread_info);
     total_nodes += thread_info.nodes;
   }
 

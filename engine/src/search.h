@@ -23,9 +23,6 @@ bool out_of_time(ThreadInfo &thread_info) {
     thread_info.stop = true;
     return true;
   }
-  if (thread_info.thread_id != 0) {
-    return false;
-  }
   thread_info.time_checks++;
   if (thread_info.time_checks == 1024) {
     thread_info.time_checks = 0;
@@ -211,7 +208,6 @@ float in_danger_black(Position &position) {
 int eval(Position &position, ThreadInfo &thread_info, int alpha, int beta) {
   int color = position.color;
   int eval = thread_info.nnue_state.evaluate(color);
-  
   if (thread_info.search_ply == 0) {
     return eval;
   }
@@ -316,7 +312,6 @@ int eval(Position &position, ThreadInfo &thread_info, int alpha, int beta) {
          (512 + tm / 15 -
           (position.material_count[0] + position.material_count[1]) * 20) /
          768 * 75 / std::clamp(static_cast<int>(thread_info.game_ply), 50, 100);
-  
 }
 
 void ss_push(Position &position, ThreadInfo &thread_info, Move move,
@@ -765,9 +760,8 @@ int search(int alpha, int beta, int depth, Position &position,
           break;
         } else {
           thread_info.pv[pv_index] = best_move;
-          for (int n = 0; n < MaxSearchDepth + ply + 1; n++) {
-            thread_info.pv[pv_index + 1 + n] =
-                thread_info.pv[pv_index + MaxSearchDepth + n];
+          for (int n = 0; n < MaxSearchDepth + ply + 1; n++){
+            thread_info.pv[pv_index + 1 + n] = thread_info.pv[pv_index + MaxSearchDepth + n];
           }
         }
       } else if (root && !moves_played) {
@@ -843,6 +837,15 @@ void iterative_deepen(
     Position &position,
     ThreadInfo &thread_info) { // Performs an iterative deepening search.
 
+  thread_info.nnue_state.reset_nnue(position);
+  thread_info.zobrist_key = calculate(position);
+  thread_info.nodes = 0;
+  thread_info.time_checks = 0;
+  thread_info.stop = false;
+  thread_info.search_ply = 0; // reset all relevant thread_info
+  thread_info.excluded_move = MoveNone;
+  memset(thread_info.KillerMoves, 0, sizeof(thread_info.KillerMoves));
+
   Move best_move = MoveNone;
   int alpha = ScoreNone, beta = -ScoreNone;
 
@@ -858,32 +861,23 @@ void iterative_deepen(
 
     while (score <= alpha || score >= beta || thread_info.stop) {
       if (thread_info.stop) {
-        if (!thread_info.thread_id) {
-          printf("bestmove %s\n", internal_to_uci(position, best_move).c_str());
-        }
+        printf("bestmove %s\n", internal_to_uci(position, best_move).c_str());
         return;
       }
       alpha -= delta, beta += delta, delta = delta * 3 / 2;
       score = search(alpha, beta, depth, position, thread_info);
     }
 
-    if (thread_info.thread_id == 0) {
-      int64_t search_time = time_elapsed(thread_info.start_time);
-      best_move = TT[thread_info.zobrist_key & TT_mask].best_move;
+    int64_t search_time = time_elapsed(thread_info.start_time);
+    best_move = TT[thread_info.zobrist_key & TT_mask].best_move;
 
-      uint64_t nodes = thread_info.nodes;
-      for (auto &th : thread_infos) {
-        nodes += th.nodes;
-      }
+    printf("info depth %i seldepth %i score cp %i nodes %" PRIu64
+           " time %" PRIi64 " pv ",
+           depth, depth, score, thread_info.nodes, search_time);
+    print_pv(position, thread_info);
 
-      printf("info depth %i seldepth %i score cp %i nodes %" PRIu64
-             " time %" PRIi64 " pv ",
-             depth, depth, score, nodes, search_time);
-      print_pv(position, thread_info);
-
-      if (search_time > thread_info.opt_time) {
-        break;
-      }
+    if (search_time > thread_info.opt_time) {
+      break;
     }
 
     if (thread_info.stop) {
@@ -894,51 +888,5 @@ void iterative_deepen(
       alpha = score - 20, beta = score + 20;
     }
   }
-
-  if (thread_info.thread_id) {
-    return;
-  }
-
   printf("bestmove %s\n", internal_to_uci(position, best_move).c_str());
-}
-
-void search_position(Position &position, ThreadInfo &thread_info,
-                     int num_threads) {
-  thread_info.position = position;
-  thread_info.nnue_state.reset_nnue(position);
-  thread_info.zobrist_key = calculate(position);
-  thread_info.nodes = 0;
-  thread_info.time_checks = 0;
-  thread_info.stop = false;
-  thread_info.search_ply = 0; // reset all relevant thread_info
-  thread_info.excluded_move = MoveNone;
-  thread_info.thread_id = 0;
-  memset(thread_info.KillerMoves, 0, sizeof(thread_info.KillerMoves));
-
-  for (int i = thread_infos.size(); i < num_threads - 1; i++) {
-    thread_infos.emplace_back();
-  }
-
-  for (unsigned int i = 0; i < thread_infos.size(); i++) {
-    thread_infos[i] = thread_info;
-    thread_infos[i].thread_id = i + 1;
-  }
-
-  for (int i = 0; i < num_threads - 1; i++) {
-    threads.emplace_back(iterative_deepen, std::ref(thread_info.position),
-                         std::ref(thread_infos[i]));
-  }
-  iterative_deepen(position, thread_info);
-
-  for (auto &th : thread_infos) {
-    th.stop = true;
-  }
-
-  for (auto &th : threads) {
-    if (th.joinable()){
-      th.join();
-    }
-  }
-
-  threads.clear();
 }
