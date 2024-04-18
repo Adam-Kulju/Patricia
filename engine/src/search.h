@@ -72,20 +72,29 @@ int sacrifice_scale(Position &position, ThreadInfo &thread_info, Move move) {
     // scale = 4: < -750
   }
   if (scale) {
-    int opp_square;
+    int opp_square = 0x99;
     int color = position.color;
-    int i =
-        cheapest_attacker(position, extract_to(move), color ^ 1, opp_square);
-    if (i == Pieces::WKing) {
-      return scale;
-    }
     // opp_sq: the location of the piece that'll take your piece
     // remove from_square and opp_sq and replace to_sq with opp_square.
 
     Position temp_pos = position;
-    temp_pos.board[extract_to(move)] = i,
-    temp_pos.board[opp_square] = Pieces::Blank,
     temp_pos.board[extract_from(move)] = Pieces::Blank;
+
+    int i = cheapest_attacker(temp_pos, extract_to(move), color ^ 1, opp_square);
+    if (i == Pieces::WKing) {
+      return scale;
+    }
+
+    if (extract_to(move) > 127 || extract_to(move) < 0){
+      exit(0);
+    }
+    if ((i < 0 || i > Pieces::BKing)){
+      printf("%i\n", scale);
+      exit(0);
+    }
+    temp_pos.board[extract_to(move)] = i,
+    temp_pos.board[opp_square] = Pieces::Blank;
+    
     bool a = attacks_square(temp_pos, temp_pos.kingpos[color ^ 1], color);
 
     if (a) {
