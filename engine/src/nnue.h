@@ -40,7 +40,7 @@ struct alignas(64) NNUE_Params {
   int16_t output_bias;
 };
 
-INCBIN(nnue, "src/lily.nnue");
+INCBIN(nnue, "src/abby.nnue");
 const NNUE_Params &g_nnue = *reinterpret_cast<const NNUE_Params *>(g_nnueData);
 
 template <size_t HiddenSize> struct alignas(64) Accumulator {
@@ -51,7 +51,7 @@ template <size_t HiddenSize> struct alignas(64) Accumulator {
     std::memcpy(white.data(), bias.data(), bias.size_bytes());
     std::memcpy(black.data(), bias.data(), bias.size_bytes());
   }
-};
+}
 
 constexpr int32_t crelu(int16_t x) {
   const auto clipped =
