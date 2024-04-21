@@ -51,7 +51,7 @@ template <size_t HiddenSize> struct alignas(64) Accumulator {
     std::memcpy(white.data(), bias.data(), bias.size_bytes());
     std::memcpy(black.data(), bias.data(), bias.size_bytes());
   }
-}
+};
 
 constexpr int32_t crelu(int16_t x) {
   const auto clipped =
