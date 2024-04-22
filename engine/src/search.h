@@ -217,6 +217,9 @@ float in_danger_black(Position &position) {
 int eval(Position &position, ThreadInfo &thread_info, int alpha, int beta) {
   int color = position.color;
   int eval = thread_info.nnue_state.evaluate(color);
+  return eval;
+
+
   if (thread_info.search_ply == 0) {
     return eval;
   }
@@ -538,6 +541,9 @@ int search(int alpha, int beta, int depth, Position &position,
 
   if (!root && is_draw(position, thread_info, hash)) { // Draw detection
     int draw_score = 2 - (thread_info.nodes & 3);
+    return draw_score;
+
+
     int m = material_eval(position);
     if (m < 0) {
       return draw_score;
@@ -831,7 +837,7 @@ void print_pv(Position &position, ThreadInfo &thread_info) {
   uint64_t hash = thread_info.zobrist_key;
 
   int indx = 0;
-  while (thread_info.pv[indx] != MoveNone) {
+  while (thread_info.pv[indx] != MoveNone && indx < thread_info.current_iter) {
     Move best_move = thread_info.pv[indx];
     printf("%s ", internal_to_uci(temp_position, best_move).c_str());
     make_move(temp_position, best_move, thread_info, false);
