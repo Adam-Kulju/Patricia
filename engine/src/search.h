@@ -220,7 +220,7 @@ int eval(Position &position, ThreadInfo &thread_info, int alpha, int beta) {
   return eval;
 
 
-  if (thread_info.search_ply == 0) {
+  /*if (thread_info.search_ply == 0) {
     return eval;
   }
 
@@ -323,7 +323,7 @@ int eval(Position &position, ThreadInfo &thread_info, int alpha, int beta) {
   return (eval + total_bonus) *
          (512 + tm / 15 -
           (position.material_count[0] + position.material_count[1]) * 20) /
-         768 * 75 / std::clamp(static_cast<int>(thread_info.game_ply), 50, 100);
+         768 * 75 / std::clamp(static_cast<int>(thread_info.game_ply), 50, 100);*/
 }
 
 void ss_push(Position &position, ThreadInfo &thread_info, Move move,
@@ -544,7 +544,7 @@ int search(int alpha, int beta, int depth, Position &position,
     return draw_score;
 
 
-    int m = material_eval(position);
+    /*int m = material_eval(position);
     if (m < 0) {
       return draw_score;
     } else if (m > 0 || total_mat(position) > 2500) {
@@ -558,7 +558,7 @@ int search(int alpha, int beta, int depth, Position &position,
     // alternatively
     // ply 0 - we make forced move
     // ply 1 - opponent makes draw move
-    // ply 2 - penalty to us
+    // ply 2 - penalty to us*/
   }
 
   TTEntry entry = TT[hash & TT_mask];
