@@ -2,10 +2,11 @@
 #include "defs.h"
 #include "nnue.h"
 #include <vector>
+#include <thread>
 
 struct ThreadInfo {
   uint64_t zobrist_key; // hash key of the position we're currently on
-  uint16_t thread_id;   // ID of the thread
+  uint16_t thread_id = 0;   // ID of the thread
   GameHistory game_hist[GameSize]; // all positions from earlier in the game
   uint16_t game_ply;               // how far we're into the game
   uint16_t search_ply;             // depth that we are in the search tree
@@ -14,10 +15,15 @@ struct ThreadInfo {
 
   uint32_t max_time;
   uint32_t opt_time;
+
   uint16_t time_checks;
   bool stop;
   NNUE_State nnue_state;
+
   int16_t HistoryScores[12][0x80];
+  int16_t ContHistScores[2][12][0x80][12][0x80];
+  int16_t CapHistScores[12][0x80];
+
   uint8_t current_iter;
   Move KillerMoves[MaxSearchDepth + 1];
   Move excluded_move;
@@ -26,7 +32,17 @@ struct ThreadInfo {
   uint64_t max_nodes_searched = UINT64_MAX / 2;
 
   Move pv[MaxSearchDepth * MaxSearchDepth];
+
+  Position position;
 };
+
+struct ThreadData{
+  std::vector<ThreadInfo> thread_infos;
+  std::vector<std::thread> threads;
+  int num_threads = 1;
+};
+
+ThreadData thread_data;
 
 uint64_t TT_size = (1 << 20);
 uint64_t TT_mask = TT_size - 1;
@@ -37,6 +53,8 @@ void new_game(ThreadInfo &thread_info) {
 
   thread_info.game_ply = 0;
   memset(thread_info.HistoryScores, 0, sizeof(thread_info.HistoryScores));
+  memset(thread_info.ContHistScores, 0, sizeof(thread_info.ContHistScores));
+  memset(thread_info.CapHistScores, 0, sizeof(thread_info.CapHistScores));
   memset(thread_info.game_hist, 0, sizeof(thread_info.game_hist));
   memset(&TT[0], 0, TT_size * sizeof(TT[0]));
 }

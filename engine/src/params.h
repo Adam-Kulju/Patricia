@@ -4,16 +4,22 @@
 constexpr int NMPMinDepth = 3;
 constexpr int NMPBase = 3;
 constexpr int NMPDepthDiv = 6;
+constexpr int NMPEvalDiv = 200;
 constexpr int RFPMargin = 80;
 constexpr int RFPMaxDepth = 9;
 constexpr int LMRBase = 5;
 constexpr int LMRRatio = 23;
-constexpr int LMPBase = 5;
+constexpr int LMPBase = 3;
 constexpr int LMPDepth = 5;
 constexpr int SEDepth = 7;
 constexpr int SEDoubleExtMargin = 20;
 constexpr int FPDepth = 8;
+constexpr int FPMargin1 = 100;
+constexpr int FPMargin2 = 125;
 constexpr int IIRMinDepth = 3;
+constexpr int SeePruningDepth = 8;
+constexpr int SeePruningQuietMargin = -80;
+constexpr int SeePruningNoisyMargin = -30;
 
 int LMRTable[MaxSearchDepth][ListSize];
 

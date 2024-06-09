@@ -56,7 +56,7 @@ constexpr int16_t GameSize = 2000;
 constexpr int32_t Mate = -100000;
 constexpr int32_t MateScore = 80000;
 constexpr int32_t ScoreNone = -200000;
-typedef uint32_t Move;
+typedef uint16_t Move;
 /*The format of a move structure is:      from     to      promo
                                          (<< 10)  (<< 2)
                                         xxxxxxxx xxxxxxxx  xx
@@ -171,8 +171,8 @@ constexpr int SeeValues[14] = {
 #define get_file(x) (x % 16)
 #define flip_sq(x) (x ^ 112)
 #define get_color(x) (x & 1)
-#define pack_move(from, to, promo) ((from << 10) + (to << 2) + promo)
-#define extract_from(move) (move >> 10)
+#define pack_move(from, to, promo) ((from << 9) + (to << 2) + promo)
+#define extract_from(move) (move >> 9)
 #define extract_to(move) ((move >> 2) & 127)
 #define extract_promo(move) (move & 3)
 #define friendly_square(color, piece) (piece && (piece & 1) == color)

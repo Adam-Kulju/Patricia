@@ -16,8 +16,9 @@ int movegen(Position position, Move *move_list, bool in_check) {
       opp_color = color ^ 1;
   int indx = 0;
   for (uint8_t from : StandardToMailbox) {
+
     int piece = position.board[from];
-    if (!piece || get_color(piece) != color) {
+    if (piece == Pieces::Blank || get_color(piece) != color) {
       continue;
     }
     piece -= color; // A trick we use to be able to compare piece types without
@@ -30,7 +31,8 @@ int movegen(Position position, Move *move_list, bool in_check) {
       int c_right = to + Directions::East;
 
       // A pawn push one square forward
-      if (!position.board[to]) {
+      if (position.board[to] == Pieces::Blank) {
+
         move_list[indx++] = pack_move(from, to, 0);
         if (get_rank(to) == promotion_rank) {
           for (int promo : {1, 2, 3}) {
@@ -39,7 +41,7 @@ int movegen(Position position, Move *move_list, bool in_check) {
         }
         // two squares forwards
         else if (get_rank(from) == first_rank &&
-                 !position.board[to + pawn_dir]) {
+                 position.board[to + pawn_dir] == Pieces::Blank) {
           move_list[indx++] = pack_move(from, (to + pawn_dir), 0);
         }
       }
@@ -221,7 +223,7 @@ bool SEE(Position &position, Move move, int threshold) {
       return true;
     }
 
-    gain -= risk;
+    gain -= risk + 1;
     risk = SeeValues[type];
 
     if (gain + risk < threshold) {
@@ -235,7 +237,7 @@ bool SEE(Position &position, Move move, int threshold) {
       return false;
     }
 
-    gain += risk;
+    gain += risk - 1;
     risk = SeeValues[type];
 
     temp_pos.board[attack_sq] = Pieces::Blank;
@@ -248,6 +250,22 @@ void score_moves(Position position, ThreadInfo &thread_info,
                  MoveInfo &scored_moves, Move tt_move, int len) {
 
   // score the moves
+
+  int ply = thread_info.search_ply;
+
+  int their_last =
+      ply < 1 ? MoveNone
+                : extract_to(thread_info.game_hist[thread_info.game_ply - 1].played_move);
+  int their_piece =
+      ply < 1 ? Pieces::Blank
+                : thread_info.game_hist[thread_info.game_ply - 1].piece_moved - 2;
+
+  int our_last =
+      ply < 2 ? MoveNone
+                : extract_to(thread_info.game_hist[thread_info.game_ply - 2].played_move);
+  int our_piece =
+      ply < 2 ? Pieces::Blank
+                : thread_info.game_hist[thread_info.game_ply - 2].piece_moved - 2;
 
   for (int indx = 0; indx < len; indx++) {
     Move move = scored_moves.moves[indx];
@@ -266,9 +284,14 @@ void score_moves(Position position, ThreadInfo &thread_info,
       int from_piece = position.board[extract_from(move)],
           to_piece = position.board[extract_to(move)];
 
-      scored_moves.scores[indx] = GoodCaptureBaseScore + SeeValues[to_piece] -
-                                  SeeValues[from_piece] / 20 -
-                                  5000 * !SEE(position, move, 0);
+      scored_moves.scores[indx] = GoodCaptureBaseScore + SeeValues[to_piece] * 100 -
+                                  SeeValues[from_piece] / 100 -
+                                  TTMoveScore * !SEE(position, move, -107);
+
+      int piece = position.board[extract_from(move)] - 2, to = extract_to(move);
+
+      scored_moves.scores[indx] += thread_info.CapHistScores[piece][to];
+
     }
 
     else if (move == thread_info.KillerMoves[thread_info.search_ply]) {
@@ -280,6 +303,13 @@ void score_moves(Position position, ThreadInfo &thread_info,
       // Normal moves are scored using history
       int piece = position.board[extract_from(move)] - 2, to = extract_to(move);
       scored_moves.scores[indx] = thread_info.HistoryScores[piece][to];
+
+      if (ply > 0 && their_last != MoveNone){
+        scored_moves.scores[indx] += thread_info.ContHistScores[0][their_piece][their_last][piece][to];
+      }
+      if (ply > 1 && our_last != MoveNone){
+        scored_moves.scores[indx] += thread_info.ContHistScores[1][our_piece][our_last][piece][to];
+      }
     }
   }
 }
@@ -288,7 +318,6 @@ Move get_next_move(Move *moves, int *scores, int start_indx, int len) {
   // Performs a selection sort
   int best_indx = start_indx, best_score = scores[start_indx];
   for (int i = start_indx + 1; i < len; i++) {
-    //printf("%i\n", scores[i]);
     if (scores[i] > best_score) {
       best_score = scores[i];
       best_indx = i;
