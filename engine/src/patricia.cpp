@@ -52,7 +52,7 @@ void bench(Position &position, ThreadInfo &thread_info) {
   std::vector<std::string> fens = {
       "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"};
 
-  thread_info.max_time = 100000000, thread_info.opt_time = 100000000;
+  thread_info.max_time = INT32_MAX / 2, thread_info.opt_time = INT32_MAX / 2;
   thread_info.max_iter_depth = 12;
   uint64_t total_nodes = 0;
 

@@ -28,6 +28,8 @@ void uci(ThreadInfo &thread_info, Position &position) {
 
   std::string input;
 
+  int skill_level = 3200;
+
   while (getline(std::cin, input)) {
 
     std::istringstream input_stream(input);
@@ -51,10 +53,10 @@ void uci(ThreadInfo &thread_info, Position &position) {
     }
 
     else if (command == "uci") {
-      printf("id name Patricia 2.0.1\nid author Adam Kulju\n"
+      printf("id name Patricia 3\nid author Adam Kulju\n"
             "option name Hash type spin default 32 min 1 max 131072\n"
             "option name Threads type spin default 1 min 1 max 1024\n"
-            "option name UCI_Elo type spin default 3200 min 1000 max 3200\n"
+            "option name UCI_Elo type spin default 3200 min 1100 max 3200\n"
             "uciok\n");
     }
 
@@ -79,9 +81,27 @@ void uci(ThreadInfo &thread_info, Position &position) {
       }
 
       else if (name == "UCI_Elo"){
-        thread_info.max_nodes_searched = UINT64_MAX / 2;
-        
-        thread_info.max_nodes_searched = value;
+
+        if (value > 3000){
+          thread_info.max_nodes_searched = UINT64_MAX / 2;
+        }
+
+        else if (value >= 2700){
+          thread_info.max_nodes_searched = 64000 * std::pow(2, ((double) value - 2700) / 150);
+        }
+
+        else if (value >= 1950){
+          thread_info.max_nodes_searched = 8000 * std::pow(2, ((double) value - 1950) / 250);
+        }
+
+        else if (value >= 1400){
+          thread_info.max_nodes_searched = 1000 * std::pow(2, ((double) value - 1400) / 200);
+        }
+
+        else{
+          thread_info.max_nodes_searched = 250 * std::pow(2, ((double) value - 1100) / 150);
+        }
+        skill_level = value;
       }
     }
 
@@ -139,11 +159,13 @@ void uci(ThreadInfo &thread_info, Position &position) {
       if (s.joinable()) {
         s.join();
       }
-      
-      thread_info.max_nodes_searched = UINT64_MAX / 2;
       thread_info.max_iter_depth = MaxSearchDepth;
 
-      int color = position.color, time = 1000000000, increment = 0;
+      if (skill_level > 3000){
+        thread_info.max_nodes_searched = INT32_MAX / 2;
+      }
+
+      int color = position.color, time = INT32_MAX, increment = 0;
       std::string token;
       while (input_stream >> token) {
         if (token == "infinite") {

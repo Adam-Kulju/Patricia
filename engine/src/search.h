@@ -4,6 +4,7 @@
 #include "params.h"
 #include "position.h"
 #include "utils.h"
+
 #include <algorithm>
 
 void update_history(int16_t &entry, int score) { // Update history score
@@ -13,10 +14,18 @@ void update_history(int16_t &entry, int score) { // Update history score
 bool out_of_time(ThreadInfo &thread_info) {
   if (thread_info.stop) {
     return true;
-  } else if (thread_info.thread_id != 0) {
+  } else if (thread_info.thread_id != 0 || thread_info.current_iter == 1) {
     return false;
   }
   if (thread_info.nodes > thread_info.max_nodes_searched) {
+
+    if (thread_info.max_time < INT32_MAX / 3) {
+
+      std::this_thread::sleep_for(std::chrono::milliseconds(thread_info.opt_time - time_elapsed(thread_info.start_time)));
+      // If there's a max time limit and a node limit, it means we're using a skill level.
+      // In that case, we don't want the engine to move instantly.
+    }
+
     thread_info.stop = true;
     return true;
   }
@@ -924,7 +933,7 @@ void iterative_deepen(
 void search_position(Position &position, ThreadInfo &thread_info) {
   thread_info.position = position;
   thread_info.thread_id = 0;
-  
+
   int num_threads = thread_data.num_threads;
 
   for (int i = thread_data.thread_infos.size(); i < num_threads - 1; i++) {
@@ -937,8 +946,9 @@ void search_position(Position &position, ThreadInfo &thread_info) {
   }
 
   for (int i = 0; i < num_threads - 1; i++) {
-    thread_data.threads.emplace_back(iterative_deepen, std::ref(thread_data.thread_infos[i].position),
-                         std::ref(thread_data.thread_infos[i]));
+    thread_data.threads.emplace_back(
+        iterative_deepen, std::ref(thread_data.thread_infos[i].position),
+        std::ref(thread_data.thread_infos[i]));
   }
   iterative_deepen(position, thread_info);
 
@@ -947,7 +957,7 @@ void search_position(Position &position, ThreadInfo &thread_info) {
   }
 
   for (auto &th : thread_data.threads) {
-    if (th.joinable()){
+    if (th.joinable()) {
       th.join();
     }
   }

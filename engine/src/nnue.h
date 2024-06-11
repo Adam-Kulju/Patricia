@@ -25,11 +25,11 @@ constexpr size_t INPUT_SIZE = 768;
 constexpr size_t LAYER1_SIZE = 768;
 
 constexpr int SCRELU_MIN = 0;
-constexpr int SCRELU_MAX = 181;
+constexpr int SCRELU_MAX = 255;
 
 constexpr int SCALE = 400;
 
-constexpr int QA = 181;
+constexpr int QA = 255;
 constexpr int QB = 64;
 
 const auto SCRELU_MIN_VEC = get_int16_vec(SCRELU_MIN);
@@ -38,9 +38,9 @@ const auto QA_VEC = get_int16_vec(QA);
 constexpr int QAB = QA * QB;
 
 struct alignas(64) NNUE_Params {
-  std::array<int16_t, INPUT_SIZE * LAYER1_SIZE> feature_weights;
+  std::array<int16_t, INPUT_SIZE * LAYER1_SIZE> feature_v;
   std::array<int16_t, LAYER1_SIZE> feature_bias;
-  std::array<int16_t, LAYER1_SIZE * 2> output_weights;
+  std::array<int16_t, LAYER1_SIZE * 2> output_v;
   int16_t output_bias;
 };
 
@@ -63,18 +63,17 @@ constexpr int32_t screlu(int16_t x) {
   return clipped * clipped;
 }
 
-template <size_t size, size_t weights>
+template <size_t size, size_t v>
 inline void add_to_all(std::array<int16_t, size> &input,
-                       const std::array<int16_t, weights> &delta,
-                       size_t offset) {
+                       const std::array<int16_t, v> &delta, size_t offset) {
   for (size_t i = 0; i < size; ++i) {
     input[i] += delta[offset + i];
   }
 }
 
-template <size_t size, size_t weights>
+template <size_t size, size_t v>
 inline void subtract_from_all(std::array<int16_t, size> &input,
-                              const std::array<int16_t, weights> &delta,
+                              const std::array<int16_t, v> &delta,
                               size_t offset) {
   for (size_t i = 0; i < size; ++i) {
     input[i] -= delta[offset + i];
@@ -96,38 +95,42 @@ std::pair<size_t, size_t> feature_indices(int piece, int sq) {
   return {whiteIdx, blackIdx};
 }
 
-int32_t screlu_flatten(const std::array<int16_t, LAYER1_SIZE> &us,
+inline int32_t screlu_flatten(const std::array<int16_t, LAYER1_SIZE> &us,
                        const std::array<int16_t, LAYER1_SIZE> &them,
                        const std::array<int16_t, LAYER1_SIZE * 2> &weights) {
 
-#if defined(__AVX512F__) || defined(__AVX2__)
+/*#if defined(__AVX512F__) || defined(__AVX2__)
 
   auto sum = vec_int32_zero();
 
   for (size_t i = 0; i < LAYER1_SIZE; i += REGISTER_SIZE) {
 
-    auto weights_us = int16_load(&us[i]);
-    weights_us = vec_int16_clamp(weights_us, SCRELU_MIN_VEC, QA_VEC);
-    weights_us = vec_int16_multiply(weights_us, weights_us);
+    auto v_us = int16_load(&us[i]);
+    auto w_us = int16_load(&weights[i]);
 
-    auto out_weight_1 = int16_load(&weights[i]);
-    auto our_product = vec_int16_madd_int32(weights_us, out_weight_1);
+    v_us = vec_int16_clamp(v_us, SCRELU_MIN_VEC, QA_VEC);
 
-    sum = vec_int32_add(sum, our_product);
+    auto our_product = vec_int16_multiply(v_us, w_us);
 
-    auto weights_them = int16_load(&them[i]);
-    weights_them = vec_int16_clamp(weights_them, SCRELU_MIN_VEC, QA_VEC);
-    weights_them = vec_int16_multiply(weights_them, weights_them);
+    auto our_result = vec_int16_madd_int32(our_product, v_us);
 
-    auto out_weight_2 = int16_load(&weights[LAYER1_SIZE + i]);
-    auto them_product = vec_int16_madd_int32(weights_them, out_weight_2);
+    sum = vec_int32_add(sum, our_result);
 
-    sum = vec_int32_add(sum, them_product);
+    auto v_them = int16_load(&them[i]);
+    auto w_them = int16_load(&weights[LAYER1_SIZE + i]);
+
+    v_them = vec_int16_clamp(v_them, SCRELU_MIN_VEC, QA_VEC);
+
+    auto their_product = vec_int16_multiply(v_them, w_them);
+
+    auto their_result = vec_int16_madd_int32(their_product, v_them);
+
+    sum = vec_int32_add(sum, their_result);
   }
 
   return vec_int32_hadd(sum) / QA;
 
-#else
+#else*/
 
   int32_t sum = 0;
 
@@ -138,7 +141,7 @@ int32_t screlu_flatten(const std::array<int16_t, LAYER1_SIZE> &us,
 
   return sum / QA;
 
-#endif
+//#endif
 }
 
 class NNUE_State {
@@ -167,8 +170,8 @@ void NNUE_State::pop() {
 int NNUE_State::evaluate(int color) {
   const auto output =
       color == Colors::White
-          ? screlu_flatten(m_curr->white, m_curr->black, g_nnue.output_weights)
-          : screlu_flatten(m_curr->black, m_curr->white, g_nnue.output_weights);
+          ? screlu_flatten(m_curr->white, m_curr->black, g_nnue.output_v)
+          : screlu_flatten(m_curr->black, m_curr->white, g_nnue.output_v);
   return (output + g_nnue.output_bias) * SCALE / QAB;
 }
 
@@ -177,13 +180,11 @@ inline void NNUE_State::update_feature(int piece, int square) {
   const auto [white_idx, black_idx] = feature_indices(piece, square);
 
   if constexpr (Activate) {
-    add_to_all(m_curr->white, g_nnue.feature_weights, white_idx * LAYER1_SIZE);
-    add_to_all(m_curr->black, g_nnue.feature_weights, black_idx * LAYER1_SIZE);
+    add_to_all(m_curr->white, g_nnue.feature_v, white_idx * LAYER1_SIZE);
+    add_to_all(m_curr->black, g_nnue.feature_v, black_idx * LAYER1_SIZE);
   } else {
-    subtract_from_all(m_curr->white, g_nnue.feature_weights,
-                      white_idx * LAYER1_SIZE);
-    subtract_from_all(m_curr->black, g_nnue.feature_weights,
-                      black_idx * LAYER1_SIZE);
+    subtract_from_all(m_curr->white, g_nnue.feature_v, white_idx * LAYER1_SIZE);
+    subtract_from_all(m_curr->black, g_nnue.feature_v, black_idx * LAYER1_SIZE);
   }
 }
 

@@ -22,9 +22,9 @@ constexpr size_t REGISTER_SIZE = 0;
 auto inline int16_load(auto data) {
 
 #if defined(__AVX512F__)
-  return _mm512_loadu_si512(reinterpret_cast<const __m512i *>(data));
+  return _mm512_load_si512(reinterpret_cast<const __m512i *>(data));
 #elif defined(__AVX2__)
-  return _mm256_loadu_si256(reinterpret_cast<const __m256i *>(data));
+  return _mm256_load_si256(reinterpret_cast<const __m256i *>(data));
 #else
   return 0;
 #endif
@@ -42,13 +42,10 @@ auto inline get_int16_vec(auto data) {
 
 auto inline vec_int16_clamp(auto vec, auto min_vec, auto max_vec) {
 #if defined(__AVX512F__)
-  vec = _mm512_max_epi16(vec, min_vec);
-  vec = _mm512_min_epi16(vec, max_vec);
+  return _mm512_min_epi16(_mm512_max_epi16(vec, min_vec), max_vec);
   return vec;
 #elif defined(__AVX2__)
-  vec = _mm256_max_epi16(vec, min_vec);
-  vec = _mm256_min_epi16(vec, max_vec);
-  return vec;
+  return _mm256_min_epi16(_mm256_max_epi16(vec, min_vec), max_vec);
 #else
   return 0;
 #endif
