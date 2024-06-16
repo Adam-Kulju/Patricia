@@ -1,4 +1,5 @@
 #pragma once
+#include <array>
 #include <chrono>
 #include <cinttypes>
 #include <cstdint>
