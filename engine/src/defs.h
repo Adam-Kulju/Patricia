@@ -4,7 +4,6 @@
 #include <cinttypes>
 #include <cstdint>
 
-
 namespace Colors {
 constexpr uint8_t White = 0;
 constexpr uint8_t Black = 1;
