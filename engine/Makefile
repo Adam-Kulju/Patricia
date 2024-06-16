@@ -27,6 +27,21 @@ endif
 
 OUT := $(EXE)$(SUFFIX)
 
+.PHONY : clean build pgo-build
 
-$(EXE): $(SOURCES)
+build: $(SOURCES)
 	$(CXX) $^ $(CXXFLAGS) -o $(OUT) $(LINKER) 
+
+default: 
+	build
+
+clean : 
+	rm $(OUT)
+
+pgo-build: $(SOURCES)
+	$(CXX) $^ $(CXXFLAGS) -o $(OUT) $(LINKER) -fprofile-generate=patricia.profraw
+	./$(OUT) bench
+	llvm-profdata merge patricia.profraw -o patricia.profdata
+	$(CXX) $^ $(CXXFLAGS) -o $(OUT) $(LINKER) -fprofile-use=patricia.profdata
+	rm -rf patricia.profraw patricia.profdata
+
