@@ -9,9 +9,7 @@
 #include <memory>
 #include <stdio.h>
 
-std::thread s;
-
-void run_thread(Position &position, ThreadInfo &thread_info) {
+void run_thread(Position &position, ThreadInfo &thread_info, std::thread &s) {
 
   // This wrapper function makes you able to use the "stop" command to stop the
   // search immediately.
@@ -29,6 +27,8 @@ void uci(ThreadInfo &thread_info, Position &position) {
   std::string input;
 
   int skill_level = 3200;
+
+  std::thread s;
 
   while (getline(std::cin, input)) {
 
@@ -49,15 +49,15 @@ void uci(ThreadInfo &thread_info, Position &position) {
       if (s.joinable()) {
         s.join();
       }
-      exit(0);
+      std::exit(0);
     }
 
     else if (command == "uci") {
       printf("id name Patricia 3\nid author Adam Kulju\n"
-            "option name Hash type spin default 32 min 1 max 131072\n"
-            "option name Threads type spin default 1 min 1 max 1024\n"
-            "option name UCI_Elo type spin default 3200 min 1100 max 3200\n"
-            "uciok\n");
+             "option name Hash type spin default 32 min 1 max 131072\n"
+             "option name Threads type spin default 1 min 1 max 1024\n"
+             "option name UCI_Elo type spin default 3200 min 1100 max 3200\n"
+             "uciok\n");
     }
 
     else if (command == "isready") {
@@ -80,26 +80,30 @@ void uci(ThreadInfo &thread_info, Position &position) {
         thread_data.num_threads = value;
       }
 
-      else if (name == "UCI_Elo"){
+      else if (name == "UCI_Elo") {
 
-        if (value > 3000){
+        if (value > 3000) {
           thread_info.max_nodes_searched = UINT64_MAX / 2;
         }
 
-        else if (value >= 2700){
-          thread_info.max_nodes_searched = 64000 * std::pow(2, ((double) value - 2700) / 150);
+        else if (value >= 2700) {
+          thread_info.max_nodes_searched =
+              64000 * std::pow(2, ((double)value - 2700) / 150);
         }
 
-        else if (value >= 1950){
-          thread_info.max_nodes_searched = 8000 * std::pow(2, ((double) value - 1950) / 250);
+        else if (value >= 1950) {
+          thread_info.max_nodes_searched =
+              8000 * std::pow(2, ((double)value - 1950) / 250);
         }
 
-        else if (value >= 1400){
-          thread_info.max_nodes_searched = 1000 * std::pow(2, ((double) value - 1400) / 200);
+        else if (value >= 1400) {
+          thread_info.max_nodes_searched =
+              1000 * std::pow(2, ((double)value - 1400) / 200);
         }
 
-        else{
-          thread_info.max_nodes_searched = 250 * std::pow(2, ((double) value - 1100) / 150);
+        else {
+          thread_info.max_nodes_searched =
+              250 * std::pow(2, ((double)value - 1100) / 150);
         }
         skill_level = value;
       }
@@ -107,11 +111,16 @@ void uci(ThreadInfo &thread_info, Position &position) {
 
     else if (command == "stop") {
       thread_info.stop = true;
-      s.join();
-
+      if (s.joinable()) {
+        s.join();
+      }
     }
 
     else if (command == "ucinewgame") {
+      if (s.joinable()) {
+        s.join();
+      }
+
       new_game(thread_info);
       set_board(position, thread_info,
                 "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
@@ -161,7 +170,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
       }
       thread_info.max_iter_depth = MaxSearchDepth;
 
-      if (skill_level > 3000){
+      if (skill_level > 3000) {
         thread_info.max_nodes_searched = INT32_MAX / 2;
       }
 
@@ -178,13 +187,11 @@ void uci(ThreadInfo &thread_info, Position &position) {
           input_stream >> increment;
         } else if (token == "binc" && color == Colors::Black) {
           input_stream >> increment;
-        }
-        else if (token == "nodes"){
+        } else if (token == "nodes") {
           uint64_t nodes;
           input_stream >> nodes;
           thread_info.max_nodes_searched = nodes;
-        }
-        else if (token == "depth"){
+        } else if (token == "depth") {
           int depth;
           input_stream >> depth;
           thread_info.max_iter_depth = depth;
@@ -198,7 +205,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
       thread_info.opt_time = (time / 20 + increment * 8 / 10) * 6 / 10;
       thread_info.start_time = std::chrono::steady_clock::now();
 
-      run_thread(position, thread_info);
+      run_thread(position, thread_info, s);
     }
   }
 }

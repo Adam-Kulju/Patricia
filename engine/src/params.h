@@ -1,6 +1,6 @@
 #pragma once
 #include "defs.h"
-#include <math.h>
+#include <cmath>
 constexpr int NMPMinDepth = 3;
 constexpr int NMPBase = 3;
 constexpr int NMPDepthDiv = 6;
@@ -21,7 +21,7 @@ constexpr int SeePruningDepth = 8;
 constexpr int SeePruningQuietMargin = -80;
 constexpr int SeePruningNoisyMargin = -30;
 
-int LMRTable[MaxSearchDepth][ListSize];
+MultiArray<int, MaxSearchDepth, ListSize> LMRTable;
 
 void init_LMR() {
   for (int i = 0; i < MaxSearchDepth; i++) {

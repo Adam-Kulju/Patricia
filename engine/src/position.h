@@ -1,23 +1,29 @@
 #pragma once
 #include "utils.h"
+#include <cctype>
 #include <cstring>
-#include <ctype.h>
 #include <sstream>
 
+
 std::string
-internal_to_uci(Position position,
+internal_to_uci(const Position &position,
                 Move move) { // Converts an internal move into a uci move.
 
   int from = extract_from(move), to = extract_to(move),
       promo = extract_promo(move);
-  std::string uci = "     ";
-  uci[0] = get_file(from) + 'a', uci[1] = get_rank(from) + '1',
-  uci[2] = get_file(to) + 'a', uci[3] = get_rank(to) + '1', uci[4] = '\0';
+
+  std::string uci{};
+  uci += get_file(from) + 'a';
+  uci += get_rank(from) + '1';
+
+  uci += get_file(to) + 'a';
+  uci += get_rank(to) + '1';
+
   if (position.board[from] - position.color == Pieces::WPawn &&
       get_rank(to) == (position.color ? 0 : 7)) {
-    std::string promos = "nbrq";
-    uci[4] = promos[promo], uci[5] = '\0';
+    uci += "nbrq"[promo];
   }
+
   return uci;
 }
 
@@ -93,7 +99,7 @@ void print_board(
 
 void set_board(Position &position, ThreadInfo &thread_info,
                std::string f) { // Sets the board to a given fen.
-  memset(&position, 0, sizeof(Position));
+  std::memset(&position, 0, sizeof(Position));
   std::istringstream fen(f);
   std::string fen_pos;
   fen >> fen_pos;
@@ -105,7 +111,7 @@ void set_board(Position &position, ThreadInfo &thread_info,
                  // This needs to be at 0 next iteration for the first rank to
                  // be set up,
                  // so we subtract 0x19 and then the loop adds 1.
-    } else if (isdigit(fen_pos[indx])) {
+    } else if (std::isdigit(fen_pos[indx])) {
       i += fen_pos[indx] - '1';
     } else {
       switch (fen_pos[indx]) {
@@ -178,7 +184,11 @@ void set_board(Position &position, ThreadInfo &thread_info,
   indx = 0;
   for (char rights : "KQkq") { // Set castling rights
     if (castling_rights.find(rights) != std::string::npos) {
-      position.castling_rights[indx > 1][!(indx % 2)] = true;
+
+      int color = indx > 1 ? Colors::Black : Colors::White;
+      int side = indx % 2 == 0 ? Sides::Kingside : Sides::Queenside;
+
+      position.castling_rights[color][side] = true;
     }
     indx++;
   }
@@ -186,7 +196,7 @@ void set_board(Position &position, ThreadInfo &thread_info,
   std::string ep_square; // Set en passant square
   fen >> ep_square;
   if (ep_square[0] == '-') {
-    position.ep_square = 255;
+    position.ep_square = SquareNone;
   } else {
     uint8_t file = (ep_square[0] - 'a');
     uint8_t rank = (ep_square[1] - '1');
@@ -198,7 +208,7 @@ void set_board(Position &position, ThreadInfo &thread_info,
   thread_info.game_ply = 0;
 }
 
-bool attacks_square(Position position, int sq,
+bool attacks_square(const Position &position, int sq,
                     int color) { // Do we attack the square at position "sq"?
   int opp_color = color ^ 1, indx = -1;
 
@@ -248,7 +258,7 @@ bool attacks_square(Position position, int sq,
 
 bool is_queen_promo(Move move) { return extract_promo(move) == 3; }
 
-bool is_cap(Position &position, Move move) {
+bool is_cap(const Position &position, Move &move) {
   int to = extract_to(move);
   return (position.board[to] ||
           (to == position.ep_square && position.board[extract_from(move)] ==
@@ -257,7 +267,7 @@ bool is_cap(Position &position, Move move) {
 }
 
 void update_nnue_state(NNUE_State &nnue_state, Move move,
-                       Position &position) { // Updates the nnue state
+                       const Position &position) { // Updates the nnue state
 
   nnue_state.push();
 
@@ -271,7 +281,7 @@ void update_nnue_state(NNUE_State &nnue_state, Move move,
     to_piece = extract_promo(move) * 2 + 4 + color;
   }
 
-  int captured_piece = Pieces::Blank, captured_square = 255;
+  int captured_piece = Pieces::Blank, captured_square = SquareNone;
 
   if (position.board[to]) {
     captured_piece = position.board[to], captured_square = to;
@@ -294,6 +304,7 @@ void update_nnue_state(NNUE_State &nnue_state, Move move,
                                                  // captured if applicable
     nnue_state.update_feature<false>(captured_piece, captured_square);
   }
+
   if (from_piece - color == Pieces::WKing &&
       abs(to - from) ==
           Directions::East * 2) { // update the rook that moved if we castled
@@ -318,9 +329,9 @@ int make_move(Position &position, Move move, ThreadInfo &thread_info,
 
   if (move == MoveNone) {
     position.color ^= 1;
-    if (position.ep_square != 255) {
+    if (position.ep_square != SquareNone) {
       thread_info.zobrist_key ^= zobrist_keys[ep_index];
-      position.ep_square = 255;
+      position.ep_square = SquareNone;
     }
 
     thread_info.zobrist_key ^= zobrist_keys[side_index];
@@ -332,9 +343,9 @@ int make_move(Position &position, Move move, ThreadInfo &thread_info,
   position.halfmoves++;
   int from = extract_from(move), to = extract_to(move), color = position.color,
       opp_color = color ^ 1, captured_piece = Pieces::Blank,
-      captured_square = 255;
+      captured_square = SquareNone;
   int base_rank = (color ? 0x70 : 0);
-  int ep_square = 255;
+  int ep_square = SquareNone;
 
   int piece_from = position.board[from] - color;
 
@@ -464,9 +475,9 @@ int make_move(Position &position, Move move, ThreadInfo &thread_info,
 
   position.color ^= 1;
 
-  if ((position.ep_square == 255) ^
-      (ep_square ==
-       255)) { // has the position's ability to perform en passant been changed?
+  if ((position.ep_square == SquareNone) ^
+      (ep_square == SquareNone)) { // has the position's ability to perform en
+                                   // passant been changed?
     temp_hash ^= zobrist_keys[ep_index];
   }
   position.ep_square = ep_square;

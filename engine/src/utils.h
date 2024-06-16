@@ -1,16 +1,21 @@
 #pragma once
 #include "defs.h"
 #include "nnue.h"
-#include <vector>
 #include <thread>
+#include <vector>
+#include <stdio.h>
+
+
+using std::array;
 
 struct ThreadInfo {
-  uint64_t zobrist_key; // hash key of the position we're currently on
-  uint16_t thread_id = 0;   // ID of the thread
-  GameHistory game_hist[GameSize]; // all positions from earlier in the game
-  uint16_t game_ply;               // how far we're into the game
-  uint16_t search_ply;             // depth that we are in the search tree
-  uint64_t nodes;                  // Total nodes searched so far this search
+  uint64_t zobrist_key;   // hash key of the position we're currently on
+  uint16_t thread_id = 0; // ID of the thread
+  std::array<GameHistory, GameSize>
+      game_hist;       // all positions from earlier in the game
+  uint16_t game_ply;   // how far we're into the game
+  uint16_t search_ply; // depth that we are in the search tree
+  uint64_t nodes;      // Total nodes searched so far this search
   std::chrono::steady_clock::time_point start_time; // Start time of the search
 
   uint32_t max_time;
@@ -20,23 +25,23 @@ struct ThreadInfo {
   bool stop;
   NNUE_State nnue_state;
 
-  int16_t HistoryScores[12][0x80];
-  int16_t ContHistScores[2][12][0x80][12][0x80];
-  int16_t CapHistScores[12][0x80];
+  MultiArray<int16_t, 12, 0x80> HistoryScores;
+  MultiArray<int16_t, 2, 12, 0x80, 12, 0x80> ContHistScores;
+  MultiArray<int16_t, 12, 0x80> CapHistScores;
 
   uint8_t current_iter;
-  Move KillerMoves[MaxSearchDepth + 1];
+  std::array<Move, MaxSearchDepth + 1> KillerMoves;
   Move excluded_move;
 
   uint8_t max_iter_depth = MaxSearchDepth;
   uint64_t max_nodes_searched = UINT64_MAX / 2;
 
-  Move pv[MaxSearchDepth * MaxSearchDepth];
+  std::array<Move, MaxSearchDepth * MaxSearchDepth> pv;
 
   Position position;
 };
 
-struct ThreadData{
+struct ThreadData {
   std::vector<ThreadInfo> thread_infos;
   std::vector<std::thread> threads;
   int num_threads = 1;
@@ -52,15 +57,19 @@ void new_game(ThreadInfo &thread_info) {
   // Reset TT and other thread_info values for a new game
 
   thread_info.game_ply = 0;
-  memset(thread_info.HistoryScores, 0, sizeof(thread_info.HistoryScores));
-  memset(thread_info.ContHistScores, 0, sizeof(thread_info.ContHistScores));
-  memset(thread_info.CapHistScores, 0, sizeof(thread_info.CapHistScores));
-  memset(thread_info.game_hist, 0, sizeof(thread_info.game_hist));
-  memset(&TT[0], 0, TT_size * sizeof(TT[0]));
+  std::memset(&thread_info.HistoryScores, 0, sizeof(thread_info.HistoryScores));
+  printf("%lu\n", sizeof(thread_info.HistoryScores));
+  std::memset(&thread_info.ContHistScores, 0,
+              sizeof(thread_info.ContHistScores));
+  std::memset(&thread_info.CapHistScores, 0, sizeof(thread_info.CapHistScores));
+  std::memset(&thread_info.game_hist, 0, sizeof(thread_info.game_hist));
+  std::memset(&TT[0], 0, TT_size * sizeof(TT[0]));
+  std::memset(&thread_info.game_hist, 0, sizeof(thread_info.game_hist));
 }
 
 void resize_TT(int size) {
-  uint64_t target_size = static_cast<uint64_t>(size) * 1024 * 1024 / sizeof(TTEntry);
+  uint64_t target_size =
+      static_cast<uint64_t>(size) * 1024 * 1024 / sizeof(TTEntry);
   uint64_t tt_size = 1024;
   while (tt_size * 2 <= target_size) {
     tt_size *= 2;
@@ -68,7 +77,7 @@ void resize_TT(int size) {
   TT_size = tt_size;
   TT.reserve(TT_size);
   TT_mask = tt_size - 1;
-  memset(&TT[0], 0, TT_size * sizeof(TT[0]));
+  std::memset(&TT[0], 0, TT_size * sizeof(TT[0]));
 }
 
 void insert_entry(
@@ -76,16 +85,16 @@ void insert_entry(
     uint8_t bound_type) { // Inserts an entry into the transposition table.
   int indx = hash & TT_mask;
 
-  TT[indx].position_key = static_cast<uint32_t>(get_hash_upper_bits(hash)),
+  TT[indx].position_key = get_hash_upper_bits(hash),
   TT[indx].depth = static_cast<uint8_t>(depth), TT[indx].type = bound_type,
   TT[indx].score = score;
   TT[indx].best_move = best_move;
 }
 
-uint64_t calculate(
-    Position position) { // Calculates the zobrist key of a given position.
-                         // Useful when initializing positions, in search though
-                         // incremental updates are faster.
+uint64_t calculate(const Position &position) { // Calculates the zobrist key of
+                                               // a given position.
+  // Useful when initializing positions, in search though
+  // incremental updates are faster.
   uint64_t hash = 0;
   for (int indx : StandardToMailbox) {
     int piece = position.board[indx];

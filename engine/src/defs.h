@@ -1,7 +1,7 @@
 #pragma once
 #include <chrono>
 #include <cinttypes>
-#include <stdint.h>
+#include <cstdint>
 
 namespace Colors {
 constexpr uint8_t White = 0;
@@ -51,6 +51,17 @@ constexpr uint8_t Rook = 2;
 constexpr uint8_t Queen = 3;
 } // namespace Promos
 
+template <typename T, size_t N, size_t... Ns> struct MultiArrayImpl {
+  using Type = std::array<typename MultiArrayImpl<T, Ns...>::Type, N>;
+};
+
+template <typename T, size_t N> struct MultiArrayImpl<T, N> {
+  using Type = std::array<T, N>;
+};
+
+template <typename T, size_t... Ns>
+using MultiArray = typename MultiArrayImpl<T, Ns...>::Type;
+
 constexpr int16_t ListSize = 216;
 constexpr int16_t GameSize = 2000;
 constexpr int32_t Mate = -100000;
@@ -63,19 +74,20 @@ typedef uint16_t Move;
                                         */
 
 constexpr Move MoveNone = 0;
+constexpr int SquareNone = 255;
 
 struct MoveInfo {
-  Move moves[ListSize];
-  int scores[ListSize];
+  std::array<Move, ListSize> moves;
+  std::array<int, ListSize> scores;
 };
 
 struct Position {
-  uint8_t board[0x80];        // Stores the board itself
-  uint8_t material_count[10]; // Stores material
-  bool castling_rights[2][2]; // castling rights
-  uint8_t kingpos[2];         // Stores King positions
-  uint8_t ep_square;          // stores ep square
-  bool color;                 // whose side to move
+  std::array<uint8_t, 0x80> board;        // Stores the board itself
+  std::array<uint8_t, 10> material_count; // Stores material
+  MultiArray<bool, 2, 2> castling_rights; // castling rights
+  std::array<uint8_t, 2> kingpos;         // Stores King positions
+  uint8_t ep_square;                      // stores ep square
+  bool color;                             // whose side to move
   uint8_t halfmoves;
 };
 
@@ -100,7 +112,7 @@ struct TTEntry {
   uint8_t type;          // entry type
 };
 
-constexpr int StandardToMailbox[64] =
+constexpr std::array<uint8_t, 64> StandardToMailbox =
     { // Used to convert standard board position into mailbox position
         0x0,  0x1,  0x2,  0x3,  0x4,  0x5,  0x6,  0x7,  0x10, 0x11, 0x12,
         0x13, 0x14, 0x15, 0x16, 0x17, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25,
@@ -109,7 +121,7 @@ constexpr int StandardToMailbox[64] =
         0x54, 0x55, 0x56, 0x57, 0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66,
         0x67, 0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x76, 0x77};
 
-constexpr int MailboxToStandard_NNUE[0x80] = {
+constexpr std::array<uint8_t, 0x80> MailboxToStandard_NNUE = {
     // Needed for NNUE inference because trainers use 0 = a8, while my board has
     // 0 = a1.
     56, 57, 58, 59, 60, 61, 62, 63, 99, 99, 99, 99, 99, 99, 99, 99, 48, 49, 50,
@@ -121,7 +133,7 @@ constexpr int MailboxToStandard_NNUE[0x80] = {
     2,  3,  4,  5,  6,  7,  99, 99, 99, 99, 99, 99, 99, 99,
 };
 
-constexpr int MailboxToStandard[0x80] = {
+constexpr std::array<uint8_t, 0x80> MailboxToStandard = {
     // Used to convert mailbox position into standard position, useful for hash
     // keys etc.
     0,  1,  2,  3,  4,  5,  6,  7,  99, 99, 99, 99, 99, 99, 99, 99, 8,  9,  10,
@@ -133,12 +145,12 @@ constexpr int MailboxToStandard[0x80] = {
     58, 59, 60, 61, 62, 63, 99, 99, 99, 99, 99, 99, 99, 99,
 };
 
-constexpr int8_t AttackRays[8] = {
+constexpr std::array<int8_t, 8> AttackRays = {
     Directions::East,      Directions::West, // Directions sliders can move in
     Directions::South,     Directions::North,     Directions::Southeast,
     Directions::Southwest, Directions::Northeast, Directions::Northwest};
 
-constexpr int8_t KnightAttacks[8] = {
+constexpr std::array<int8_t, 8> KnightAttacks = {
     Directions::East * 2 + Directions::North, // Directions Knights can move in
     Directions::East * 2 + Directions::South,
     Directions::South * 2 + Directions::East,
@@ -148,44 +160,57 @@ constexpr int8_t KnightAttacks[8] = {
     Directions::North * 2 + Directions::West,
     Directions::North * 2 + Directions::East};
 
-constexpr int8_t SliderAttacks[4][8] =
-    { // Attack vectors for bishops through kings
-        {Directions::Southeast, Directions::Southwest, Directions::Northeast,
-         Directions::Northwest},
-        {Directions::East, Directions::West, Directions::South,
-         Directions::North},
-        {Directions::East, Directions::West, Directions::South,
-         Directions::North, Directions::Southeast, Directions::Southwest,
-         Directions::Northeast, Directions::Northwest},
-        {Directions::East, Directions::West, Directions::South,
-         Directions::North, Directions::Southeast, Directions::Southwest,
-         Directions::Northeast, Directions::Northwest}};
+constexpr MultiArray<int8_t, 4, 8> SliderAttacks = {
+    {// Attack vectors for bishops through kings
+     {Directions::Southeast, Directions::Southwest, Directions::Northeast,
+      Directions::Northwest},
+     {Directions::East, Directions::West, Directions::South, Directions::North},
+     {Directions::East, Directions::West, Directions::South, Directions::North,
+      Directions::Southeast, Directions::Southwest, Directions::Northeast,
+      Directions::Northwest},
+     {Directions::East, Directions::West, Directions::South, Directions::North,
+      Directions::Southeast, Directions::Southwest, Directions::Northeast,
+      Directions::Northwest}}
 
-constexpr int SeeValues[14] = {
+};
+
+constexpr std::array<int, 14> SeeValues = {
     0,   0,   100, 100,  450,  450,   450,
     450, 650, 650, 1250, 1250, 10000, 10000}; // SEE values for different pieces
 
-// Simple one liners
-#define out_of_board(x) (x & 0x88)
-#define get_rank(x) (x / 16)
-#define get_file(x) (x % 16)
-#define flip_sq(x) (x ^ 112)
-#define get_color(x) (x & 1)
-#define pack_move(from, to, promo) ((from << 9) + (to << 2) + promo)
-#define extract_from(move) (move >> 9)
-#define extract_to(move) ((move >> 2) & 127)
-#define extract_promo(move) (move & 3)
-#define friendly_square(color, piece) (piece && (piece & 1) == color)
-#define enemy_square(color, piece) (piece && (piece & 1) != color)
-#define get_zobrist_key(piece, sq) (((piece - 2) * 64) + sq)
-#define get_hash_upper_bits(hash) (static_cast<uint32_t>(hash >> 32))
-#define standard(mailbox) (MailboxToStandard[mailbox])
+// Some simple util functions for various purposes
+
+bool out_of_board(uint8_t sq) { return sq & 0x88; }
+uint8_t get_rank(uint8_t sq) { return sq / 16; }
+uint8_t get_file(uint8_t sq) { return sq % 16; }
+uint8_t flip_sq(uint8_t sq) { return sq ^ 112; }
+uint8_t get_color(uint8_t piece) { return piece & 1; }
+Move pack_move(uint8_t from, uint8_t to, uint8_t promo) {
+  return (from << 9) + (to << 2) + promo;
+}
+uint8_t extract_from(Move move) { return move >> 9; }
+uint8_t extract_to(Move move) { return (move >> 2) & 127; }
+uint8_t extract_promo(Move move) { return move & 3; }
+
+bool friendly_square(uint8_t color, uint8_t piece) {
+  return (piece && (piece & 1) == color);
+}
+bool enemy_square(uint8_t color, uint8_t piece) {
+  return (piece && (piece & 1) != color);
+}
+uint16_t get_zobrist_key(uint8_t piece, uint8_t sq) {
+  return ((piece - 2) * 64) + sq;
+}
+uint32_t get_hash_upper_bits(uint64_t hash) {
+  return static_cast<uint32_t>(hash >> 32);
+}
+uint8_t standard(uint8_t mailbox) { return MailboxToStandard[mailbox]; }
 
 constexpr int32_t side_index = 772;
 constexpr int32_t ep_index = 773;
 constexpr int32_t castling_index = 774;
 
-constexpr uint64_t zobrist_keys[778] = {
+constexpr std::array<uint64_t, 778> zobrist_keys = {
     // Zobrist hash keys taken from Willow.
     // Their usage:
     // 64 * piece (0-11) + sq

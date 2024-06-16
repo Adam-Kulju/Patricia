@@ -5,9 +5,8 @@
 #include <memory>
 #include <stdio.h>
 
-
 uint64_t
-perft(int depth, Position position, bool first,
+perft(int depth, Position &position, bool first,
       ThreadInfo &thread_info) // Performs a perft search to the desired depth,
                                // displaying results for each move at the root.
 {
@@ -19,8 +18,8 @@ perft(int depth, Position position, bool first,
     set_board(position, thread_info,
               "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
   }
-  Move list[ListSize];
-  uint64_t l = 0;
+  std::array<Move, ListSize> list;
+  uint64_t total_nodes = 0;
   int nmoves =
       movegen(position, list,
               attacks_square(position, position.kingpos[position.color],
@@ -33,19 +32,22 @@ perft(int depth, Position position, bool first,
       continue;
     }
 
-    uint64_t b = perft(depth - 1, new_position, false, thread_info);
+    uint64_t nodes = perft(depth - 1, new_position, false, thread_info);
     if (first) {
       char temp[6];
       printf("%s: %" PRIu64 "\n", internal_to_uci(position, list[i]).c_str(),
-             b);
+             nodes);
     }
-    l += b;
+    total_nodes += nodes;
   }
   if (first) {
-    printf("%" PRIu64 " nodes %" PRIu64 " nps\n", l,
-           (uint64_t)(l * 1000 / (time_elapsed(thread_info.start_time))));
+    printf("%" PRIu64 " nodes %" PRIu64 " nps\n", total_nodes,
+           (uint64_t)(total_nodes * 1000 /
+                      (time_elapsed(thread_info.start_time))));
+
+    std::exit(0);
   }
-  return l;
+  return total_nodes;
 }
 
 void bench(Position &position, ThreadInfo &thread_info) {
@@ -67,21 +69,25 @@ void bench(Position &position, ThreadInfo &thread_info) {
 
   printf("Bench: %" PRIu64 " nodes %" PRIi64 " nps\n", total_nodes,
          (int64_t)(total_nodes * 1000 / time_elapsed(thread_info.start_time)));
+
+  std::exit(0);
 }
 
 int main(int argc, char *argv[]) {
   Position position;
-  std::unique_ptr<ThreadInfo> thread_info(new ThreadInfo);
-  thread_info->nnue_state.m_accumulator_stack.reserve(100);
+  std::unique_ptr<ThreadInfo> thread_info = std::make_unique<ThreadInfo>();
+
   init_LMR();
   if (argc > 1) {
     if (std::string(argv[1]) == "perft") {
       perft(atoi(argv[2]), position, true, *thread_info);
-    } else if (std::string(argv[1]) == "bench") {
+    }
+
+    else if (std::string(argv[1]) == "bench") {
       bench(position, *thread_info);
     }
-  } else {
-    uci(*thread_info, position);
   }
+
+  uci(*thread_info, position);
   return 0;
 }

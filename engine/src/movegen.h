@@ -1,7 +1,8 @@
 #pragma once
 #include "defs.h"
 #include "position.h"
-#include <stdint.h>
+#include <cstdint>
+#include <span>
 
 constexpr int TTMoveScore = 10000000;
 constexpr int QueenPromoScore = 5000000;
@@ -9,12 +10,13 @@ constexpr int GoodCaptureBaseScore = 2000000;
 constexpr int BadCaptureBaseScore = -2000000;
 constexpr int KillerMoveScore = 100000;
 
-int movegen(Position position, Move *move_list, bool in_check) {
+int movegen(const Position &position, std::span<Move> move_list,
+            bool in_check) {
   uint8_t color = position.color;
   int pawn_dir = color ? Directions::South : Directions::North,
       promotion_rank = color ? 0 : 7, first_rank = color ? 6 : 1,
       opp_color = color ^ 1;
-  int indx = 0;
+  int idx = 0;
   for (uint8_t from : StandardToMailbox) {
 
     int piece = position.board[from];
@@ -33,16 +35,16 @@ int movegen(Position position, Move *move_list, bool in_check) {
       // A pawn push one square forward
       if (position.board[to] == Pieces::Blank) {
 
-        move_list[indx++] = pack_move(from, to, 0);
+        move_list[idx++] = pack_move(from, to, 0);
         if (get_rank(to) == promotion_rank) {
           for (int promo : {1, 2, 3}) {
-            move_list[indx++] = pack_move(from, to, promo);
+            move_list[idx++] = pack_move(from, to, promo);
           }
         }
         // two squares forwards
         else if (get_rank(from) == first_rank &&
                  position.board[to + pawn_dir] == Pieces::Blank) {
-          move_list[indx++] = pack_move(from, (to + pawn_dir), 0);
+          move_list[idx++] = pack_move(from, (to + pawn_dir), 0);
         }
       }
 
@@ -50,11 +52,11 @@ int movegen(Position position, Move *move_list, bool in_check) {
       if (!out_of_board(c_left) &&
           (c_left == position.ep_square ||
            enemy_square(color, position.board[c_left]))) {
-        move_list[indx++] = pack_move(from, c_left, 0);
+        move_list[idx++] = pack_move(from, c_left, 0);
         if (get_rank(to) == promotion_rank) {
           for (int promo : {Promos::Bishop, Promos::Rook,
                             Promos::Queen}) { // knight is implicit via zero
-            move_list[indx++] = pack_move(from, c_left, promo);
+            move_list[idx++] = pack_move(from, c_left, promo);
           }
         }
       }
@@ -62,10 +64,10 @@ int movegen(Position position, Move *move_list, bool in_check) {
       if (!out_of_board(c_right) &&
           (c_right == position.ep_square ||
            enemy_square(color, position.board[c_right]))) {
-        move_list[indx++] = pack_move(from, c_right, 0);
+        move_list[idx++] = pack_move(from, c_right, 0);
         if (get_rank(to) == promotion_rank) {
           for (int promo : {Promos::Bishop, Promos::Rook, Promos::Queen}) {
-            move_list[indx++] = pack_move(from, c_right, promo);
+            move_list[idx++] = pack_move(from, c_right, promo);
           }
         }
       }
@@ -76,7 +78,7 @@ int movegen(Position position, Move *move_list, bool in_check) {
       for (int moves : KnightAttacks) {
         int to = from + moves;
         if (!out_of_board(to) && !friendly_square(color, position.board[to])) {
-          move_list[indx++] = pack_move(from, to, 0);
+          move_list[idx++] = pack_move(from, to, 0);
         }
       }
     }
@@ -85,7 +87,7 @@ int movegen(Position position, Move *move_list, bool in_check) {
       for (int moves : SliderAttacks[3]) {
         int to = from + moves;
         if (!out_of_board(to) && !friendly_square(color, position.board[to])) {
-          move_list[indx++] = pack_move(from, to, 0);
+          move_list[idx++] = pack_move(from, to, 0);
         }
       }
     }
@@ -99,13 +101,13 @@ int movegen(Position position, Move *move_list, bool in_check) {
 
           int to_piece = position.board[to];
           if (!to_piece) {
-            move_list[indx++] = pack_move(from, to, 0);
+            move_list[idx++] = pack_move(from, to, 0);
             to += dirs;
             continue;
           } else if (get_color(to_piece) ==
                      opp_color) { // add the move for captures and immediately
                                   // break
-            move_list[indx++] = pack_move(from, to, 0);
+            move_list[idx++] = pack_move(from, to, 0);
           }
           break;
         }
@@ -114,7 +116,7 @@ int movegen(Position position, Move *move_list, bool in_check) {
   }
   if (in_check) { // If we're in check there's no point in
                   // seeing if we can castle (can be optimized)
-    return indx;
+    return idx;
   }
 
   // queenside castling
@@ -124,30 +126,33 @@ int movegen(Position position, Move *move_list, bool in_check) {
   // (It can't end up in check either, but that gets filtered just like any
   // illegal move.)
   if (position.castling_rights[color][Sides::Queenside] &&
-      !position.board[king_pos - 1] && !position.board[king_pos - 2] &&
-      !position.board[king_pos - 3] &&
+      position.board[king_pos - 1] == Pieces::Blank &&
+      position.board[king_pos - 2] == Pieces::Blank &&
+      position.board[king_pos - 3] == Pieces::Blank &&
       !attacks_square(position, king_pos - 1, opp_color)) {
-    move_list[indx++] = pack_move(king_pos, (king_pos - 2), 0);
+    move_list[idx++] = pack_move(king_pos, (king_pos - 2), 0);
   }
 
   // kingside castling
   if (position.castling_rights[color][Sides::Kingside] &&
-      !position.board[king_pos + 1] && !position.board[king_pos + 2] &&
+      position.board[king_pos + 1] == Pieces::Blank &&
+      position.board[king_pos + 2] == Pieces::Blank &&
       !attacks_square(position, king_pos + 1, opp_color)) {
-    move_list[indx++] = pack_move(king_pos, (king_pos + 2), 0);
+    move_list[idx++] = pack_move(king_pos, (king_pos + 2), 0);
   }
-  return indx;
+  return idx;
 }
 
-int cheapest_attacker(Position position, int sq, int color, int &attack_sq) {
+int cheapest_attacker(const Position &position, int sq, int color,
+                      int &attack_sq) {
   // Finds the cheapest attacker for a given square on a given board.
 
-  int opp_color = color ^ 1, indx = -1;
+  int opp_color = color ^ 1, idx = -1;
 
   int lowest = Pieces::Blank + 20;
 
   for (int dirs : AttackRays) {
-    indx++;
+    idx++;
     int temp_pos = sq + dirs;
 
     while (!out_of_board(temp_pos)) {
@@ -164,17 +169,17 @@ int cheapest_attacker(Position position, int sq, int color, int &attack_sq) {
       piece -= color; // This statement lets us get the piece type without
                       // needing to account for color.
 
-      if (piece == Pieces::WQueen || (piece == Pieces::WRook && indx < 4) ||
+      if (piece == Pieces::WQueen || (piece == Pieces::WRook && idx < 4) ||
           (piece == Pieces::WBishop &&
-           indx > 3)) { // A queen attack is a check from every direction, rooks
-                        // and bishops only from orthogonal/diagonal directions
-                        // respectively.
+           idx > 3)) { // A queen attack is a check from every direction, rooks
+                       // and bishops only from orthogonal/diagonal directions
+                       // respectively.
         attacker = true;
       } else if (piece == Pieces::WPawn) {
         // Pawns and kings are only attackers if they're right next to the
         // square. Pawns additionally have to be on the right vector.
         if (temp_pos == sq + dirs &&
-            (color ? (indx > 5) : (indx == 4 || indx == 5))) {
+            (color ? (idx > 5) : (idx == 4 || idx == 5))) {
 
           attack_sq = temp_pos;
           return piece;
@@ -190,7 +195,7 @@ int cheapest_attacker(Position position, int sq, int color, int &attack_sq) {
       break;
     }
 
-    temp_pos = sq + KnightAttacks[indx]; // Check for knight attacks
+    temp_pos = sq + KnightAttacks[idx]; // Check for knight attacks
     if (!out_of_board(temp_pos) &&
         position.board[temp_pos] - color == Pieces::WKnight) {
       lowest = Pieces::WKnight;
@@ -246,7 +251,7 @@ bool SEE(Position &position, Move move, int threshold) {
   return true;
 }
 
-void score_moves(Position position, ThreadInfo &thread_info,
+void score_moves(Position &position, ThreadInfo &thread_info,
                  MoveInfo &scored_moves, Move tt_move, int len) {
 
   // score the moves
@@ -254,29 +259,33 @@ void score_moves(Position position, ThreadInfo &thread_info,
   int ply = thread_info.search_ply;
 
   int their_last =
-      ply < 1 ? MoveNone
-                : extract_to(thread_info.game_hist[thread_info.game_ply - 1].played_move);
+      ply < 1
+          ? MoveNone
+          : extract_to(
+                thread_info.game_hist[thread_info.game_ply - 1].played_move);
   int their_piece =
       ply < 1 ? Pieces::Blank
-                : thread_info.game_hist[thread_info.game_ply - 1].piece_moved - 2;
+              : thread_info.game_hist[thread_info.game_ply - 1].piece_moved - 2;
 
   int our_last =
-      ply < 2 ? MoveNone
-                : extract_to(thread_info.game_hist[thread_info.game_ply - 2].played_move);
+      ply < 2
+          ? MoveNone
+          : extract_to(
+                thread_info.game_hist[thread_info.game_ply - 2].played_move);
   int our_piece =
       ply < 2 ? Pieces::Blank
-                : thread_info.game_hist[thread_info.game_ply - 2].piece_moved - 2;
+              : thread_info.game_hist[thread_info.game_ply - 2].piece_moved - 2;
 
-  for (int indx = 0; indx < len; indx++) {
-    Move move = scored_moves.moves[indx];
+  for (int idx = 0; idx < len; idx++) {
+    Move move = scored_moves.moves[idx];
     if (move == tt_move) {
-      scored_moves.scores[indx] = TTMoveScore;
+      scored_moves.scores[idx] = TTMoveScore;
       // TT move score;
     }
 
     else if (extract_promo(move) == Promos::Queen) {
       // Queen promo score
-      scored_moves.scores[indx] = QueenPromoScore;
+      scored_moves.scores[idx] = QueenPromoScore;
     }
 
     else if (is_cap(position, move)) {
@@ -284,47 +293,51 @@ void score_moves(Position position, ThreadInfo &thread_info,
       int from_piece = position.board[extract_from(move)],
           to_piece = position.board[extract_to(move)];
 
-      scored_moves.scores[indx] = GoodCaptureBaseScore + SeeValues[to_piece] * 100 -
-                                  SeeValues[from_piece] / 100 -
-                                  TTMoveScore * !SEE(position, move, -107);
+      scored_moves.scores[idx] = GoodCaptureBaseScore +
+                                 SeeValues[to_piece] * 100 -
+                                 SeeValues[from_piece] / 100 -
+                                 TTMoveScore * !SEE(position, move, -107);
 
       int piece = position.board[extract_from(move)] - 2, to = extract_to(move);
 
-      scored_moves.scores[indx] += thread_info.CapHistScores[piece][to];
+      scored_moves.scores[idx] += thread_info.CapHistScores[piece][to];
 
     }
 
     else if (move == thread_info.KillerMoves[thread_info.search_ply]) {
       // Killer move score
-      scored_moves.scores[indx] = KillerMoveScore;
+      scored_moves.scores[idx] = KillerMoveScore;
     }
 
     else {
       // Normal moves are scored using history
       int piece = position.board[extract_from(move)] - 2, to = extract_to(move);
-      scored_moves.scores[indx] = thread_info.HistoryScores[piece][to];
+      scored_moves.scores[idx] = thread_info.HistoryScores[piece][to];
 
-      if (ply > 0 && their_last != MoveNone){
-        scored_moves.scores[indx] += thread_info.ContHistScores[0][their_piece][their_last][piece][to];
+      if (ply > 0 && their_last != MoveNone) {
+        scored_moves.scores[idx] +=
+            thread_info.ContHistScores[0][their_piece][their_last][piece][to];
       }
-      if (ply > 1 && our_last != MoveNone){
-        scored_moves.scores[indx] += thread_info.ContHistScores[1][our_piece][our_last][piece][to];
+      if (ply > 1 && our_last != MoveNone) {
+        scored_moves.scores[idx] +=
+            thread_info.ContHistScores[1][our_piece][our_last][piece][to];
       }
     }
   }
 }
 
-Move get_next_move(Move *moves, int *scores, int start_indx, int len) {
+Move get_next_move(std::span<Move> moves, std::span<int> scores, int start_idx,
+                   int len) {
   // Performs a selection sort
-  int best_indx = start_indx, best_score = scores[start_indx];
-  for (int i = start_indx + 1; i < len; i++) {
+  int best_idx = start_idx, best_score = scores[start_idx];
+  for (int i = start_idx + 1; i < len; i++) {
     if (scores[i] > best_score) {
       best_score = scores[i];
-      best_indx = i;
+      best_idx = i;
     }
   }
-  std::swap(moves[start_indx], moves[best_indx]);
-  std::swap(scores[start_indx], scores[best_indx]);
+  std::swap(moves[start_idx], moves[best_idx]);
+  std::swap(scores[start_idx], scores[best_idx]);
 
-  return moves[start_indx];
+  return moves[start_idx];
 }

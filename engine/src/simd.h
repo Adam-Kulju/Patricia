@@ -6,7 +6,6 @@
 
 #include <cstdint>
 
-
 #if defined(__AVX512F__)
 #include <immintrin.h>
 constexpr size_t REGISTER_SIZE = 32;

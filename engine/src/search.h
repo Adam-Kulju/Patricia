@@ -17,13 +17,14 @@ bool out_of_time(ThreadInfo &thread_info) {
   } else if (thread_info.thread_id != 0 || thread_info.current_iter == 1) {
     return false;
   }
-  if (thread_info.nodes > thread_info.max_nodes_searched) {
+  if (thread_info.nodes >= thread_info.max_nodes_searched) {
 
     if (thread_info.max_time < INT32_MAX / 3) {
 
-      std::this_thread::sleep_for(std::chrono::milliseconds(thread_info.opt_time - time_elapsed(thread_info.start_time)));
-      // If there's a max time limit and a node limit, it means we're using a skill level.
-      // In that case, we don't want the engine to move instantly.
+      std::this_thread::sleep_for(std::chrono::milliseconds(
+          thread_info.opt_time - time_elapsed(thread_info.start_time)));
+      // If there's a max time limit and a node limit, it means we're using a
+      // skill level. In that case, we don't want the engine to move instantly.
     }
 
     thread_info.stop = true;
@@ -40,7 +41,7 @@ bool out_of_time(ThreadInfo &thread_info) {
   return false;
 }
 
-int16_t material_eval(Position &position) {
+int16_t material_eval(const Position &position) {
   int m = (position.material_count[0] - position.material_count[1]) * 100 +
           (position.material_count[2] - position.material_count[3]) * 300 +
           (position.material_count[4] - position.material_count[5]) * 300 +
@@ -49,7 +50,7 @@ int16_t material_eval(Position &position) {
 
   return position.color ? -m : m;
 }
-int16_t total_mat(Position &position) {
+int16_t total_mat(const Position &position) {
   int m = (position.material_count[0] + position.material_count[1]) * 100 +
           (position.material_count[2] + position.material_count[3]) * 300 +
           (position.material_count[4] + position.material_count[5]) * 300 +
@@ -59,7 +60,7 @@ int16_t total_mat(Position &position) {
   return m;
 }
 
-bool has_non_pawn_material(Position &position, int color) {
+bool has_non_pawn_material(const Position &position, int color) {
   int s_indx = 2 + color;
   return (position.material_count[s_indx] ||
           position.material_count[s_indx + 2] ||
@@ -67,7 +68,7 @@ bool has_non_pawn_material(Position &position, int color) {
           position.material_count[s_indx + 6]);
 }
 
-int16_t total_mat_color(Position &position, int color) {
+int16_t total_mat_color(const Position &position, int color) {
   // total material for one color
 
   int m = 0;
@@ -115,21 +116,25 @@ int sacrifice_scale(Position &position, ThreadInfo &thread_info, Move move) {
   return scale;
 }
 
-int eval(Position &position, ThreadInfo &thread_info, int alpha, int beta) {
+int eval(const Position &position, ThreadInfo &thread_info, int alpha,
+         int beta) {
   int color = position.color;
   int eval = thread_info.nnue_state.evaluate(color);
 
-  /*int m_eval = material_eval(position);
-  int m_threshold = std::max(200, abs(eval) * 2 / 3);
+  int m_eval = material_eval(position);
+  int m_threshold = std::max(250, abs(eval) * 2 / 3);
 
-  if (eval > -200 && eval > m_eval + m_threshold){
-    eval += std::min((eval - m_eval - 100) /10, 150);
-  }
-  else if (eval < 200 && eval < m_eval - m_threshold){
-    eval -= std::min((m_eval - eval - 100) / 10, 150);
+  if (eval > -200 && eval > m_eval + m_threshold) {
+
+    eval += 25 + (eval - m_eval - m_threshold) / 10;
+  } else if (eval < 200 && eval < m_eval - m_threshold) {
+
+    eval -= 25 + (m_eval - eval - m_threshold) / 10;
   }
 
-    eval = eval *(512 + total_mat(position) / 15 -
+  return eval;
+
+  /*  eval = eval *(512 + total_mat(position) / 15 -
           (position.material_count[0] + position.material_count[1]) * 20) /
          768;
 
@@ -144,8 +149,6 @@ int eval(Position &position, ThreadInfo &thread_info, int alpha, int beta) {
       eval += 30;
     }
   }*/
-
-  return eval;
 
   /*if (thread_info.search_ply == 0) {
     return eval;
@@ -274,8 +277,9 @@ void ss_pop(ThreadInfo &thread_info, uint64_t hash) {
   thread_info.nnue_state.pop();
 }
 
-bool material_draw(Position &position) { // Is there not enough material on the
-                                         // position for one side to win?
+bool material_draw(
+    const Position &position) { // Is there not enough material on the
+                                // position for one side to win?
   for (int i : {0, 1, 6, 7, 8,
                 9}) { // Do we have pawns, rooks, or queens on the position?
     if (position.material_count[i]) {
@@ -297,7 +301,7 @@ bool material_draw(Position &position) { // Is there not enough material on the
   return true;
 }
 
-bool is_draw(Position &position, ThreadInfo &thread_info,
+bool is_draw(const Position &position, ThreadInfo &thread_info,
              uint64_t hash) { // Detects if the position is a draw.
 
   int halfmoves = position.halfmoves, game_ply = thread_info.game_ply;
@@ -436,7 +440,7 @@ int search(int alpha, int beta, int depth, Position &position,
 
   if (!thread_info.search_ply) {
     thread_info.current_iter = depth;
-    memset(thread_info.pv, 0, sizeof(thread_info.pv));
+    std::memset(&thread_info.pv, 0, sizeof(thread_info.pv));
   }
 
   if (out_of_time(thread_info)) {
@@ -844,16 +848,48 @@ int search(int alpha, int beta, int depth, Position &position,
 }
 
 void print_pv(Position &position, ThreadInfo &thread_info) {
-  Position temp_position = position;
+  Position temp_pos = position;
   uint64_t hash = thread_info.zobrist_key;
 
   int indx = 0;
-  while (thread_info.pv[indx] != MoveNone && indx < thread_info.current_iter) {
+  int color = position.color;
+
+  while (thread_info.pv[indx] != MoveNone) {
     Move best_move = thread_info.pv[indx];
-    printf("%s ", internal_to_uci(temp_position, best_move).c_str());
-    make_move(temp_position, best_move, thread_info, false);
+
+    // Verify that the pv move is possible and legal by generating moves
+
+    MoveInfo moves;
+    int movelen =
+        movegen(temp_pos, moves.moves,
+                attacks_square(temp_pos, temp_pos.kingpos[color], color ^ 1));
+
+    bool found_move = false;
+
+    for (Move move : moves.moves) {
+      if (move == best_move) {
+        found_move = true;
+        break;
+      }
+    }
+
+    if (!found_move) {
+      break;
+    }
+
+    Position legality_check = temp_pos;
+    if (make_move(legality_check, best_move, thread_info, false)) {
+      break;
+    }
+
+    printf("%s ", internal_to_uci(temp_pos, best_move).c_str());
+
+    temp_pos = legality_check;
+
     indx++;
+    color ^= 1;
   }
+
   printf("\n");
 
   thread_info.zobrist_key = hash;
@@ -870,7 +906,7 @@ void iterative_deepen(
   thread_info.stop = false;
   thread_info.search_ply = 0; // reset all relevant thread_info
   thread_info.excluded_move = MoveNone;
-  memset(thread_info.KillerMoves, 0, sizeof(thread_info.KillerMoves));
+  std::memset(&thread_info.KillerMoves, 0, sizeof(thread_info.KillerMoves));
 
   Move best_move = MoveNone;
   int alpha = ScoreNone, beta = -ScoreNone;

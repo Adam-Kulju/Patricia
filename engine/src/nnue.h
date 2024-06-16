@@ -95,11 +95,12 @@ std::pair<size_t, size_t> feature_indices(int piece, int sq) {
   return {whiteIdx, blackIdx};
 }
 
-inline int32_t screlu_flatten(const std::array<int16_t, LAYER1_SIZE> &us,
-                       const std::array<int16_t, LAYER1_SIZE> &them,
-                       const std::array<int16_t, LAYER1_SIZE * 2> &weights) {
+inline int32_t
+screlu_flatten(const std::array<int16_t, LAYER1_SIZE> &us,
+               const std::array<int16_t, LAYER1_SIZE> &them,
+               const std::array<int16_t, LAYER1_SIZE * 2> &weights) {
 
-/*#if defined(__AVX512F__) || defined(__AVX2__)
+#if defined(__AVX512F__) || defined(__AVX2__)
 
   auto sum = vec_int32_zero();
 
@@ -130,7 +131,7 @@ inline int32_t screlu_flatten(const std::array<int16_t, LAYER1_SIZE> &us,
 
   return vec_int32_hadd(sum) / QA;
 
-#else*/
+#else
 
   int32_t sum = 0;
 
@@ -141,7 +142,7 @@ inline int32_t screlu_flatten(const std::array<int16_t, LAYER1_SIZE> &us,
 
   return sum / QA;
 
-//#endif
+#endif
 }
 
 class NNUE_State {
@@ -155,6 +156,8 @@ public:
   void reset_nnue(Position position);
 
   template <bool Activate> inline void update_feature(int piece, int square);
+
+  NNUE_State() { m_accumulator_stack.reserve(100); }
 };
 
 void NNUE_State::push() {
@@ -195,7 +198,7 @@ void NNUE_State::reset_nnue(Position position) {
   m_curr->init(g_nnue.feature_bias);
 
   for (int square : StandardToMailbox) {
-    if (position.board[square]) {
+    if (position.board[square] != Pieces::Blank) {
       update_feature<true>(position.board[square],
                            MailboxToStandard_NNUE[square]);
     }
