@@ -1,7 +1,9 @@
 #pragma once
+#include <array>
 #include <chrono>
 #include <cinttypes>
 #include <cstdint>
+
 
 namespace Colors {
 constexpr uint8_t White = 0;
