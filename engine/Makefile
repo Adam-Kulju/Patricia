@@ -33,7 +33,7 @@ build: $(SOURCES)
 	$(CXX) $^ $(CXXFLAGS) -o $(OUT) $(LINKER) 
 
 default: 
-	build
+	pgo-build
 
 clean : 
 	rm $(OUT)
