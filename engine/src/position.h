@@ -469,6 +469,11 @@ int make_move(Position &position, Move move, ThreadInfo &thread_info,
   piece_from += color;
 
   // Update hash key for piece that was moved and color
+  if (get_zobrist_key(piece_from, standard(from)) < 0 || get_zobrist_key(piece_from, standard(from)) > 777){
+    print_board(position);
+    printf("%x %x\n", from, to);
+    printf("whoops\n");
+  }
   temp_hash ^= zobrist_keys[get_zobrist_key(piece_from, standard(from))];
   temp_hash ^= zobrist_keys[get_zobrist_key(piece_to, standard(to))];
   temp_hash ^= zobrist_keys[side_index];

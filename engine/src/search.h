@@ -119,20 +119,62 @@ int sacrifice_scale(Position &position, ThreadInfo &thread_info, Move move) {
 int eval(const Position &position, ThreadInfo &thread_info, int alpha,
          int beta) {
   int color = position.color;
+  int root_color = thread_info.search_ply % 2 ? color ^ 1 : color;
+
   int eval = thread_info.nnue_state.evaluate(color);
 
   int m_eval = material_eval(position);
-  int m_threshold = std::max(250, abs(eval) * 2 / 3);
+  int m_threshold = std::max({300, abs(eval) * 2 / 3, abs(eval) - 700});
 
-  if (eval > -200 && eval > m_eval + m_threshold) {
+  int bonus1 = 0, bonus2 = 0;
 
-    eval += 25 + (eval - m_eval - m_threshold) / 10;
-  } else if (eval < 200 && eval < m_eval - m_threshold) {
+  // if our eval is +50 and material is "only" +10, we shouldn't give eval
+  // bonuses.
+  if (eval > 0 && eval > m_eval + m_threshold) {
 
-    eval -= 25 + (m_eval - eval - m_threshold) / 10;
+    bonus1 += 25 + (eval - m_eval - m_threshold) / 10;
+  } else if (eval < 0 && eval < m_eval - m_threshold) {
+
+    bonus1 -= 25 + (m_eval - eval - m_threshold) / 10;
   }
 
-  return eval;
+  bool our_side = (thread_info.search_ply % 2 == 0);
+
+  int start_index = std::max(thread_info.game_ply - thread_info.search_ply, 0);
+
+  int s_m = thread_info.game_hist[start_index].m_diff;
+  int s = 0;
+
+  for (int idx = start_index + 2; idx < thread_info.game_ply - 4; idx += 2) {
+
+    if (thread_info.game_hist[idx].m_diff < s_m &&
+        thread_info.game_hist[idx + 1].m_diff > s_m &&
+        thread_info.game_hist[idx + 2].m_diff < s_m &&
+        thread_info.game_hist[idx + 3].m_diff > s_m &&
+        thread_info.game_hist[idx + 4].m_diff < s_m) {
+      // indx = -200
+      // indx + 1 = 200
+      // indx + 2 = -200
+      s = s_m + thread_info.game_hist[idx + 4].m_diff;
+    }
+  }
+  if (s) {
+
+    if (thread_info.search_ply % 2) {
+      bonus2 = -20 * (eval < -500 ? 3 : eval < -150 ? 2 : 1);
+    } else {
+      bonus2 = 20 * (eval > 500 ? 3 : eval > 150 ? 2 : 1);
+    }
+
+  }
+
+  if (abs(eval) > 500){
+    eval = eval * (512 + total_mat_color(position, color ^ 1) / 8 -
+          (position.material_count[0] + position.material_count[1]) * 20) /
+         768;
+  }
+
+  return eval + bonus1 + bonus2;
 
   /*  eval = eval *(512 + total_mat(position) / 15 -
           (position.material_count[0] + position.material_count[1]) * 20) /
@@ -155,35 +197,6 @@ int eval(const Position &position, ThreadInfo &thread_info, int alpha,
   }
 
   int bonus1 = 0, bonus2 = 0, bonus3 = 0, bonus4 = 0, bonus5 = 0;
-
-  int start_index = std::max(thread_info.game_ply - thread_info.search_ply, 0);
-
-  int s_m = thread_info.game_hist[start_index].m_diff;
-  int s = 0;
-
-  // Agression bonus 1: Did we lose material during the moves played in search?
-
-  for (int idx = start_index + 2; idx < thread_info.game_ply - 3; idx += 2) {
-
-    if (thread_info.game_hist[idx].m_diff < s_m &&
-        thread_info.game_hist[idx + 1].m_diff > s_m &&
-        thread_info.game_hist[idx + 2].m_diff < s_m &&
-        thread_info.game_hist[idx + 3].m_diff > s_m) {
-      // indx = -200
-      // indx + 1 = 200
-      // indx + 2 = -200
-      s = s_m + thread_info.game_hist[idx + 3].m_diff;
-    }
-  }
-  if (s) {
-    bonus1 = (s > 800 ? 325 : s > 400 ? 220 : s > 100 ? 140 : 90);
-    if (thread_info.search_ply % 2) {
-      // We only hand the bonuses out for root side. We don't particularly care
-      // if we're under attack ourselves.
-      bonus1 *= -1;
-    }
-  }
-
   int m = material_eval(position), tm = total_mat_color(position, color ^ 1);
 
   // Aggression bonus 2: Is our eval better than material would suggest?
@@ -430,7 +443,7 @@ int qsearch(int alpha, int beta, Position &position,
                best_score > MateScore    ? best_score + ply
                : best_score < -MateScore ? best_score - ply
                                          : best_score,
-               entry_type);
+               entry_type, thread_info.searches);
 
   return best_score;
 }
@@ -475,13 +488,12 @@ int search(int alpha, int beta, int depth, Position &position,
 
   if (!root && is_draw(position, thread_info, hash)) { // Draw detection
     int draw_score = 2 - (thread_info.nodes & 3);
-    return draw_score;
 
     int m = material_eval(position);
     if (m < 0) {
       return draw_score;
-    } else if (m > 0 || total_mat(position) > 2500) {
-      // draw_score -= 20;
+    } else if (m > 0 || total_mat(position) > 3000) {
+      draw_score -= 30;
     }
     return ply % 2 ? -draw_score : draw_score;
     // We want to discourage draws at the root.
@@ -842,7 +854,7 @@ int search(int alpha, int beta, int depth, Position &position,
                  best_score > MateScore    ? best_score + ply
                  : best_score < -MateScore ? best_score - ply
                                            : best_score,
-                 entry_type);
+                 entry_type, thread_info.searches);
   }
   return best_score;
 }
@@ -866,8 +878,8 @@ void print_pv(Position &position, ThreadInfo &thread_info) {
 
     bool found_move = false;
 
-    for (Move move : moves.moves) {
-      if (move == best_move) {
+    for (int i = 0; i < movelen; i++) {
+      if (moves.moves[i] == best_move) {
         found_move = true;
         break;
       }
@@ -997,6 +1009,8 @@ void search_position(Position &position, ThreadInfo &thread_info) {
       th.join();
     }
   }
+
+  thread_info.searches++;
 
   thread_data.threads.clear();
 }

@@ -111,6 +111,7 @@ struct TTEntry {
   Move best_move;        // Best move in the position
   int32_t score;         // Score of the position
   uint8_t type;          // entry type
+  uint8_t age;
 };
 
 constexpr std::array<uint8_t, 64> StandardToMailbox =

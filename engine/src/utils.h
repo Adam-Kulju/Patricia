@@ -1,10 +1,9 @@
 #pragma once
 #include "defs.h"
 #include "nnue.h"
+#include <stdio.h>
 #include <thread>
 #include <vector>
-#include <stdio.h>
-
 
 using std::array;
 
@@ -39,6 +38,8 @@ struct ThreadInfo {
   std::array<Move, MaxSearchDepth * MaxSearchDepth> pv;
 
   Position position;
+
+  uint8_t searches = 0;
 };
 
 struct ThreadData {
@@ -65,6 +66,7 @@ void new_game(ThreadInfo &thread_info) {
   std::memset(&thread_info.game_hist, 0, sizeof(thread_info.game_hist));
   std::memset(&TT[0], 0, TT_size * sizeof(TT[0]));
   std::memset(&thread_info.game_hist, 0, sizeof(thread_info.game_hist));
+  thread_info.searches = 0;
 }
 
 void resize_TT(int size) {
@@ -81,14 +83,34 @@ void resize_TT(int size) {
 }
 
 void insert_entry(
-    uint64_t hash, int depth, Move best_move, int32_t score,
-    uint8_t bound_type) { // Inserts an entry into the transposition table.
-  int indx = hash & TT_mask;
+    uint64_t hash, int depth, Move best_move, int32_t score, uint8_t bound_type,
+    uint8_t searches) { // Inserts an entry into the transposition table.
 
-  TT[indx].position_key = get_hash_upper_bits(hash),
+  int indx = hash & TT_mask;
+  uint32_t hash_key = get_hash_upper_bits(hash);
+
+  if (TT[indx].position_key == hash_key &&
+      !(bound_type == EntryTypes::Exact &&
+        TT[indx].type != EntryTypes::Exact)) {
+
+          uint8_t age_diff = searches - TT[indx].age;
+
+          int new_bonus = depth + bound_type + (age_diff * age_diff / 4);
+          int old_bonus = TT[indx].depth + TT[indx].type;
+
+          if (old_bonus * 2 > new_bonus * 3){
+            return;
+          }
+  }
+
+  if (best_move != MoveNone || hash_key != TT[indx].position_key){
+    TT[indx].best_move = best_move;
+  }
+
+  TT[indx].position_key = hash_key,
   TT[indx].depth = static_cast<uint8_t>(depth), TT[indx].type = bound_type,
   TT[indx].score = score;
-  TT[indx].best_move = best_move;
+  TT[indx].age = searches;
 }
 
 uint64_t calculate(const Position &position) { // Calculates the zobrist key of
