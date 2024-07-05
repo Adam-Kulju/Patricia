@@ -116,8 +116,7 @@ int sacrifice_scale(Position &position, ThreadInfo &thread_info, Move move) {
   return scale;
 }
 
-int eval(const Position &position, ThreadInfo &thread_info, int alpha,
-         int beta) {
+int eval(const Position &position, ThreadInfo &thread_info) {
   int color = position.color;
   int root_color = thread_info.search_ply % 2 ? color ^ 1 : color;
 
@@ -165,13 +164,13 @@ int eval(const Position &position, ThreadInfo &thread_info, int alpha,
     } else {
       bonus2 = 20 * (eval > 500 ? 3 : eval > 150 ? 2 : 1);
     }
-
   }
 
-  if (abs(eval) > 500){
-    eval = eval * (512 + total_mat_color(position, color ^ 1) / 8 -
-          (position.material_count[0] + position.material_count[1]) * 20) /
-         768;
+  if (abs(eval) > 500) {
+    eval = eval *
+           (512 + total_mat_color(position, color ^ 1) / 8 -
+            (position.material_count[0] + position.material_count[1]) * 20) /
+           768;
   }
 
   return eval + bonus1 + bonus2;
@@ -351,8 +350,8 @@ int qsearch(int alpha, int beta, Position &position,
 
   int ply = thread_info.search_ply;
   if (ply > MaxSearchDepth) {
-    return eval(position, thread_info, alpha,
-                beta); // if we're about to overflow stack return
+    return eval(position,
+                thread_info); // if we're about to overflow stack return
   }
 
   uint64_t hash = thread_info.zobrist_key;
@@ -382,9 +381,19 @@ int qsearch(int alpha, int beta, Position &position,
   int best_score = ScoreNone, raised_alpha = false;
   Move best_move = MoveNone;
 
+  int static_eval = ScoreNone;
+
   if (!in_check) { // If we're not in check and static eval beats beta, we can
                    // immediately return
-    int static_eval = eval(position, thread_info, alpha, beta);
+    static_eval = eval(position, thread_info);
+
+    if (entry_type == EntryTypes::Exact ||
+        (entry_type == EntryTypes::UBound && tt_score < static_eval) ||
+        (entry_type == EntryTypes::LBound && tt_score > static_eval)) {
+
+      static_eval = tt_score;
+    }
+
     if (static_eval >= beta) {
       return static_eval;
     }
@@ -535,8 +544,31 @@ int search(int alpha, int beta, int depth, Position &position,
 
   // We can't do any eval-based pruning if in check.
 
-  int static_eval =
-      in_check ? ScoreNone : eval(position, thread_info, alpha, beta);
+  int static_eval;
+  if (in_check) {
+    static_eval = ScoreNone;
+  } else if (singular_search) {
+    static_eval = thread_info.game_hist[thread_info.game_ply - 1].static_eval;
+  } else {
+    static_eval = eval(position, thread_info);
+  }
+
+  thread_info.game_hist[thread_info.game_ply - 1].static_eval = static_eval;
+
+  bool improving = false;
+
+  if (ply > 1 && !in_check &&
+      static_eval >
+          thread_info.game_hist[thread_info.game_ply - 3].static_eval) {
+    improving = true;
+  }
+
+  if (entry_type == EntryTypes::Exact ||
+      (entry_type == EntryTypes::UBound && tt_score < static_eval) ||
+      (entry_type == EntryTypes::LBound && tt_score > static_eval)) {
+
+    static_eval = tt_score;
+  }
 
   if (!is_pv && !in_check && !singular_search) {
 

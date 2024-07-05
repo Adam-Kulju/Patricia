@@ -101,6 +101,7 @@ struct GameHistory { // keeps the state of the board at a particular point in
   int16_t sacrifice_scale;
   bool is_cap;
   int16_t m_diff;
+  int32_t static_eval;
 };
 
 constexpr int MaxSearchDepth = 127;
