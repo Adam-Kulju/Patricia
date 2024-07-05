@@ -95,10 +95,10 @@ void insert_entry(
 
           uint8_t age_diff = searches - TT[indx].age;
 
-          int new_bonus = depth + bound_type + (age_diff * age_diff / 4);
+          int new_bonus = depth + bound_type + (age_diff * age_diff * 10 / AgeDiffDiv);
           int old_bonus = TT[indx].depth + TT[indx].type;
 
-          if (old_bonus * 2 > new_bonus * 3){
+          if (old_bonus * OldBonusMult > new_bonus * NewBonusMult){
             return;
           }
   }

@@ -56,8 +56,10 @@ void uci(ThreadInfo &thread_info, Position &position) {
       printf("id name Patricia 3\nid author Adam Kulju\n"
              "option name Hash type spin default 32 min 1 max 131072\n"
              "option name Threads type spin default 1 min 1 max 1024\n"
-             "option name UCI_Elo type spin default 3200 min 1100 max 3200\n"
-             "uciok\n");
+             "option name UCI_Elo type spin default 3200 min 1100 max 3200\n");
+
+      //print_params_for_ob();
+      printf("uciok\n");
     }
 
     else if (command == "isready") {
@@ -106,6 +108,17 @@ void uci(ThreadInfo &thread_info, Position &position) {
               250 * std::pow(2, ((double)value - 1100) / 150);
         }
         skill_level = value;
+      }
+
+      else{
+        for (auto &param : params){
+          if (name == param.name){
+            param.value = value;
+            if (name == "LMRBase" || name == "LMRRatio"){
+              init_LMR();
+            }
+          }
+        }
       }
     }
 

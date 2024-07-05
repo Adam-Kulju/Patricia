@@ -575,7 +575,7 @@ int search(int alpha, int beta, int depth, Position &position,
     // Reverse Futility Pruning (RFP): If our position is way better than beta,
     // we're likely good to stop searching the node.
 
-    if (depth <= RFPMaxDepth && static_eval - RFPMargin * depth >= beta) {
+    if (depth <= RFPMaxDepth && static_eval - RFPMargin * (depth - improving) >= beta) {
       return static_eval;
     }
     if (static_eval >= beta && depth >= NMPMinDepth &&
@@ -609,7 +609,7 @@ int search(int alpha, int beta, int depth, Position &position,
     }
   }
 
-  if (is_pv && tt_move == MoveNone && depth > 3) {
+  if (is_pv && tt_move == MoveNone && depth > IIRMinDepth) {
     depth--;
   }
 
@@ -644,7 +644,7 @@ int search(int alpha, int beta, int depth, Position &position,
       // Late Move Pruning (LMP): If we've searched enough moves, we can skip
       // the rest.
 
-      if (depth < LMPDepth && moves_played >= LMPBase + depth * depth) {
+      if (depth < LMPDepth && moves_played >= LMPBase + depth * depth / (2 - improving)) {
         skip = true;
       }
 
@@ -735,6 +735,8 @@ int search(int alpha, int beta, int depth, Position &position,
       // Clamp reduction so we don't immediately go into qsearch
       R = std::clamp(R, 1, depth - 1);
 
+      R += !improving;
+
       // Reduced search, reduced window
       score = -search(-alpha - 1, -alpha, depth - R + extension, moved_position,
                       thread_info);
@@ -789,7 +791,7 @@ int search(int alpha, int beta, int depth, Position &position,
     int piece = position.board[extract_from(best_move)] - 2,
         sq = extract_to(best_move);
 
-    int bonus = std::min(300 * (depth - 1), 2500);
+    int bonus = std::min((int)HistBonus * (depth - 1), (int)HistMax);
 
     // Update history scores and the killer move.
 
