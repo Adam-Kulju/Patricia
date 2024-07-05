@@ -57,8 +57,13 @@ void uci(ThreadInfo &thread_info, Position &position) {
              "option name Hash type spin default 32 min 1 max 131072\n"
              "option name Threads type spin default 1 min 1 max 1024\n"
              "option name UCI_Elo type spin default 3200 min 1100 max 3200\n");
+             
+      for (auto &param : params) {
+        std::cout << "option name " << param.name << " type spin default "
+                  << param.value << " min " << param.min << " max " << param.max
+                  << "\n";
+      }
 
-      //print_params_for_ob();
       printf("uciok\n");
     }
 
@@ -110,11 +115,11 @@ void uci(ThreadInfo &thread_info, Position &position) {
         skill_level = value;
       }
 
-      else{
-        for (auto &param : params){
-          if (name == param.name){
+      else {
+        for (auto &param : params) {
+          if (name == param.name) {
             param.value = value;
-            if (name == "LMRBase" || name == "LMRRatio"){
+            if (name == "LMRBase" || name == "LMRRatio") {
               init_LMR();
             }
           }
