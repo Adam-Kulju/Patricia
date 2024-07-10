@@ -2,6 +2,7 @@
 #include "defs.h"
 #include <cmath>
 #include <iostream>
+#include <vector>
 
 MultiArray<int, MaxSearchDepth, ListSize> LMRTable;
 
