@@ -5,8 +5,6 @@
 #include "position.h"
 #include "utils.h"
 
-#include <algorithm>
-
 void update_history(int16_t &entry, int score) { // Update history score
   entry += score - entry * abs(score) / 16384;
 }
