@@ -76,44 +76,6 @@ int16_t total_mat_color(const Position &position, int color) {
   return m;
 }
 
-int sacrifice_scale(Position &position, ThreadInfo &thread_info, Move move) {
-  int scale = 0, threshold = 0;
-  while (!SEE(position, move, threshold) && scale < 4) {
-    scale++;
-    threshold -= 250;
-    // scale = 1: > -250
-    // scale = 2: > -500
-    // scale = 3: > -750
-    // scale = 4: < -750
-  }
-  if (scale) {
-    int opp_square = 0x99;
-    int color = position.color;
-    // opp_sq: the location of the piece that'll take your piece
-    // remove from_square and opp_sq and replace to_sq with opp_square.
-
-    Position temp_pos = position;
-    temp_pos.board[extract_from(move)] = Pieces::Blank;
-
-    int i =
-        cheapest_attacker(temp_pos, extract_to(move), color ^ 1, opp_square);
-    if (i == Pieces::WKing) {
-      return scale;
-    }
-
-    temp_pos.board[extract_to(move)] = i,
-    temp_pos.board[opp_square] = Pieces::Blank;
-
-    bool a = attacks_square(temp_pos, temp_pos.kingpos[color ^ 1], color);
-
-    if (a) {
-      // Make sure the "sacrifice" isn't just taking advantage of a pinned piece
-      return 0;
-    }
-  }
-  return scale;
-}
-
 int eval(const Position &position, ThreadInfo &thread_info) {
   int color = position.color;
   int root_color = thread_info.search_ply % 2 ? color ^ 1 : color;
@@ -172,111 +134,18 @@ int eval(const Position &position, ThreadInfo &thread_info) {
   }
 
   return eval + bonus1 + bonus2;
-
-  /*  eval = eval *(512 + total_mat(position) / 15 -
-          (position.material_count[0] + position.material_count[1]) * 20) /
-         768;
-
-  int sacrifice_at_root = thread_info.game_hist[std::max(thread_info.game_ply -
-  thread_info.search_ply, 0)].sacrifice_scale;
-
-  if (sacrifice_at_root){
-    if (thread_info.search_ply % 2){
-      eval -= 30;
-    }
-    else{
-      eval += 30;
-    }
-  }*/
-
-  /*if (thread_info.search_ply == 0) {
-    return eval;
-  }
-
-  int bonus1 = 0, bonus2 = 0, bonus3 = 0, bonus4 = 0, bonus5 = 0;
-  int m = material_eval(position), tm = total_mat_color(position, color ^ 1);
-
-  // Aggression bonus 2: Is our eval better than material would suggest?
-
-  if (thread_info.search_ply % 2) {
-    bonus2 = std::clamp((eval - m) / 6, -300, 0);
-  } else {
-    bonus2 = std::clamp((eval - m) / 6, 0, 300);
-  }
-
-  int is_sacrifice_at_root = thread_info.game_hist[start_index].sacrifice_scale;
-
-  // Aggression bonus 3: Was our first move a sacrifice?
-
-  bonus3 = 90 * is_sacrifice_at_root;
-  if (thread_info.search_ply % 2) {
-    bonus3 *= -1;
-  }
-
-  int root_color = thread_info.search_ply % 2 ? color ^ 1 : color;
-
-  // Aggression bonuses 4 and 5, both only applicable with lots of material:
-  // 4: Are we attacking the enemy king?
-  // 5: Are we in an opposite castling position? If so, do we have open lines
-  // towards the enemy king?
-
-  if (tm > 2500) {
-    float a =
-        (root_color ? in_danger_white(position) : in_danger_black(position));
-    // on even plies, color^1 is the opposing root side; on odd plies, color
-    // is the root side
-    if (a > 3) {
-      bonus4 = std::min(240, (int)((a - 3) * 40)) *
-               (thread_info.search_ply % 2 ? -1 : 1);
-    }
-
-    if (abs(get_file(position.kingpos[root_color]) -
-            get_file(position.kingpos[root_color ^ 1])) > 1 &&
-        !position.castling_rights[root_color ^ 1][0]) {
-      bonus5 = 50 * (thread_info.search_ply % 2 ? -1 : 1);
-
-      int opp_file = get_file(position.kingpos[root_color ^ 1]);
-      int dir, start;
-      if (root_color) {
-        start = 0x60, dir = Directions::South;
-      } else {
-        start = 0x10, dir = Directions::North;
-      }
-
-      for (int a = std::max(0, opp_file - 1); a <= std::max(7, opp_file + 1);
-           a++) {
-        if (position.board[start + a] == Pieces::Blank &&
-            position.board[start + dir + a] == Pieces::Blank &&
-            position.board[start + dir * 2 + a] == Pieces::Blank) {
-          bonus5 *= 2;
-          break;
-        }
-      }
-    }
-  }
-
-  int total_bonus = (bonus1 + bonus2 + bonus3 + bonus4 + bonus5);
-
-  // Scale for material and game length.
-
-  return (eval + total_bonus) *
-         (512 + tm / 15 -
-          (position.material_count[0] + position.material_count[1]) * 20) /
-         768 * 75 / std::clamp(static_cast<int>(thread_info.game_ply), 50,
-  100);*/
 }
 
 void ss_push(Position &position, ThreadInfo &thread_info, Move move,
-             uint64_t hash, int16_t s) {
+             uint64_t hash) {
   // update search stack after makemove
   thread_info.search_ply++;
+
   thread_info.game_hist[thread_info.game_ply++] = {
-      hash,
-      move,
-      position.board[extract_from(move)],
-      s,
-      is_cap(position, move),
-      material_eval(position)};
+      hash, move, position.board[extract_from(move)],
+      // 0,
+      is_cap(position, move), material_eval(position)};
+
 }
 
 void ss_pop(ThreadInfo &thread_info, uint64_t hash) {
@@ -417,7 +286,7 @@ int qsearch(int alpha, int beta, Position &position,
     }
     update_nnue_state(thread_info.nnue_state, move, position);
 
-    ss_push(position, thread_info, move, hash, 0);
+    ss_push(position, thread_info, move, hash);
     int score = -qsearch(-beta, -alpha, moved_position, thread_info);
     ss_pop(thread_info, hash);
 
@@ -542,22 +411,24 @@ int search(int alpha, int beta, int depth, Position &position,
 
   // We can't do any eval-based pruning if in check.
 
-  int static_eval;
+  int32_t static_eval;
   if (in_check) {
     static_eval = ScoreNone;
   } else if (singular_search) {
-    static_eval = thread_info.game_hist[thread_info.game_ply - 1].static_eval;
+    static_eval = thread_info.game_hist[thread_info.game_ply].static_eval;
   } else {
     static_eval = eval(position, thread_info);
   }
 
-  thread_info.game_hist[thread_info.game_ply - 1].static_eval = static_eval;
+
+  thread_info.game_hist[thread_info.game_ply].static_eval = static_eval;
+
 
   bool improving = false;
 
   if (ply > 1 && !in_check &&
       static_eval >
-          thread_info.game_hist[thread_info.game_ply - 3].static_eval) {
+          thread_info.game_hist[thread_info.game_ply - 2].static_eval) {
     improving = true;
   }
 
@@ -568,12 +439,15 @@ int search(int alpha, int beta, int depth, Position &position,
     static_eval = tt_score;
   }
 
+  
+
   if (!is_pv && !in_check && !singular_search) {
 
     // Reverse Futility Pruning (RFP): If our position is way better than beta,
     // we're likely good to stop searching the node.
 
-    if (depth <= RFPMaxDepth && static_eval - RFPMargin * (depth - improving) >= beta) {
+    if (depth <= RFPMaxDepth &&
+        static_eval - RFPMargin * (depth - improving) >= beta) {
       return static_eval;
     }
     if (static_eval >= beta && depth >= NMPMinDepth &&
@@ -588,7 +462,7 @@ int search(int alpha, int beta, int depth, Position &position,
 
       make_move(temp_pos, MoveNone, thread_info, false);
 
-      ss_push(position, thread_info, MoveNone, hash, 0);
+      ss_push(position, thread_info, MoveNone, hash);
 
       int R = NMPBase + depth / NMPDepthDiv +
               std::min(3, (static_eval - beta) / NMPEvalDiv);
@@ -629,20 +503,13 @@ int search(int alpha, int beta, int depth, Position &position,
     }
 
     is_capture = is_cap(position, move);
-    int is_sac = 0;
-    if (root) {
-
-      // Grab the "scale" of the sacrifice of the move at root, so we can use it
-      // for eval purposes.
-      is_sac = sacrifice_scale(position, thread_info, move);
-    }
-
-    else if (!is_capture && !is_pv) {
+    if (!is_capture && !is_pv) {
 
       // Late Move Pruning (LMP): If we've searched enough moves, we can skip
       // the rest.
 
-      if (depth < LMPDepth && moves_played >= LMPBase + depth * depth / (2 - improving)) {
+      if (depth < LMPDepth &&
+          moves_played >= LMPBase + depth * depth / (2 - improving)) {
         skip = true;
       }
 
@@ -707,7 +574,7 @@ int search(int alpha, int beta, int depth, Position &position,
 
     update_nnue_state(thread_info.nnue_state, move, position);
 
-    ss_push(position, thread_info, move, hash, is_sac);
+    ss_push(position, thread_info, move, hash);
 
     bool full_search = false;
 

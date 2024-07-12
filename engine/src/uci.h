@@ -56,7 +56,8 @@ void uci(ThreadInfo &thread_info, Position &position) {
       printf("id name Patricia 3\nid author Adam Kulju\n"
              "option name Hash type spin default 32 min 1 max 131072\n"
              "option name Threads type spin default 1 min 1 max 1024\n"
-             "option name UCI_Elo type spin default 3200 min 1100 max 3200\n");
+             "option name UCI_Elo type spin default 3200 min 1100 max 3200\n"
+             "option name UCI_Limit type spin default 3200 min 1100 max 3200\n");
              
       for (auto &param : params) {
         std::cout << "option name " << param.name << " type spin default "
@@ -87,7 +88,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
         thread_data.num_threads = value;
       }
 
-      else if (name == "UCI_Elo") {
+      else if (name == "UCI_Elo" || name == "UCI_Limit") {
 
         if (value > 3000) {
           thread_info.max_nodes_searched = UINT64_MAX / 2;
@@ -173,8 +174,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
         std::string moves;
         while (input_stream >> moves) {
           Move move = uci_to_internal(moves);
-          ss_push(position, thread_info, move, thread_info.zobrist_key,
-                  0); // fill the game hist stack as we go
+          ss_push(position, thread_info, move, thread_info.zobrist_key); // fill the game hist stack as we go
           update_nnue_state(thread_info.nnue_state, move, position);
           make_move(position, move, thread_info, false);
         }

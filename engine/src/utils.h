@@ -58,14 +58,13 @@ void new_game(ThreadInfo &thread_info) {
   // Reset TT and other thread_info values for a new game
 
   thread_info.game_ply = 0;
+  thread_info.thread_id = 0;
   std::memset(&thread_info.HistoryScores, 0, sizeof(thread_info.HistoryScores));
-  printf("%lu\n", sizeof(thread_info.HistoryScores));
   std::memset(&thread_info.ContHistScores, 0,
               sizeof(thread_info.ContHistScores));
   std::memset(&thread_info.CapHistScores, 0, sizeof(thread_info.CapHistScores));
   std::memset(&thread_info.game_hist, 0, sizeof(thread_info.game_hist));
   std::memset(&TT[0], 0, TT_size * sizeof(TT[0]));
-  std::memset(&thread_info.game_hist, 0, sizeof(thread_info.game_hist));
   thread_info.searches = 0;
 }
 

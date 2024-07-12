@@ -98,7 +98,7 @@ struct GameHistory { // keeps the state of the board at a particular point in
   Move played_move;      // The move that was played
   uint8_t piece_moved; // The piece that was moved (will be useful for histories
                        // later)
-  int16_t sacrifice_scale;
+  //int16_t sacrifice_scale;
   bool is_cap;
   int16_t m_diff;
   int32_t static_eval;
