@@ -19,30 +19,23 @@ The metric that Patricia's aggression claims are based off of is Stefan Pohl's [
 
 The average engine's EAS score generally falls between 50,000 and 100,000. The most aggressive top engine is Stockfish, due to its extreme tactical ability; it has an EAS score of 190,000. The most aggressive engine of any notable strength that Stephen Pohl has ever seen is Velvet 4.1.0, which topped out at a remarkable EAS Score of 280,000.
 
-Patricia, with an EAS score of 425,000 in gauntlet testing, is leaps and bounds above any engine that has ever existed in terms of attacking, sacrificing, and playing stylishly. 
+Patricia, with an EAS score of 420,000 in gauntlet testing, is leaps and bounds above any engine that has ever existed in terms of attacking, sacrificing, and playing stylishly. 
 
-It's worth noting that Patricia is still well into superhuman territory, with an estimated CCRL elo of 3100-3150; she'll lose badly to top engines, but will still crush any human.
+It's worth noting that Patricia is still well into superhuman territory, with an estimated CCRL elo of 3300-3350; she can put up a solid fight against top engines, and can crush any human or weak engine that dares to oppose her.
 
 <br/><br/>
 
 # What Patricia currently does to increase aggressiveness
-- Default contempt of 80 centipawns for draws deemed avoidable
-- Neural network retrained on "aggressive" positions filtered by a variety of criteria
+- Default contempt of 30 centipawns for draws deemed avoidable
+- Neural network using a custom training/retraining script over multiple filtered data sources that was developed over the course of a few months - this is the main source of Patricia 3's aggressiveness.
 - Asymmetrical evaluation; Patricia doesn't care if she gets sacrificed against, so all sacrifice bonuses apply to the original side to move only.
 - Bonuses for going down in material compared to original position being searched
 - Bonuses for being better off than what material would suggest
-- Bonuses for sacrifices at root
-- Bonuses for attacking the enemy king
-- Bonus for opposite side castling
-- If the above applies, bonus for open files towards enemy king
 - Material scaling
-- Game length evaluation scaling
-- Lack of search techniques that aggressively prune moves that lose material. Patricia has no SEE pruning, and she orders bad captures right behind good captures instead of right at the end.
 
 <br/><br/>
-
 # Search Features
-Patricia has a somewhat simple feature set of search features as of now. This is partly due to the aforementioned reason of not wanting to prune too many sacrifices away, and partly due to focusing more on increasing aggressiveness than strength.
+This is not a comprehensive list of search features that Patricia has.
 
 - Alpha-Beta search with Quiescence Search and Transposition Tables
 - Aspiration Windows
@@ -52,7 +45,25 @@ Patricia has a somewhat simple feature set of search features as of now. This is
 - Late Move Pruning
 - History Heuristic and Killer Move Heuristic
 - Singular Extensions
+- SEE pruning
+- Countermove History, Capture History, and Follow-up History tables
+- Improving
+- Internal Iterative Reductions
+- SIMD
+- TT Replacement Schema
 
+<br/><br/>
+# Customization Options
+
+Patricia supports a few options for users:
+`Hash`: The memory alloted to the transposition table.
+`Threads`: Number of threads to search with.
+`UCI_Elo` or `UCI_Limit`: Weakens Patricia's strength so that you can use her as a sparring partner. Don't worry, she still plays in a relatively principled manner.
+
+`go nodes`: Search a position for a given number of nodes.
+`go depth`: Search a position to a given depth.
+
+Patricia also supports customization of many search parameters for SPSA purposes. It is not recommended that you modify them unless you know what you are doing.
 <br/><br/>
 
 # Evaluation and Filtering
@@ -67,8 +78,9 @@ Code for filtering programs are found in the utils/ directory, and are indentifi
 - <b>position_filter_6:</b> Saves positions where one side can't castle and has an open king. This is somewhat similar to 2 but doesn't take into account attackers and uses a different method for calculating defensive strength.
 - <b>position_filter_7:</b> Saves positions where many pieces are able to move near, are near, or are pointing at the enemy king. This uses a simple but effective ray calculator instead of a full mobility calculation.
 - <b>position_filter_8:</b> Saves positions where one side has an extremely powerful minor piece that can't be traded off easily. Many such positions result from exchange sacrifices and even if they don't the dominant piece is a long term advantage that often leads to dynamics down the line.
+- <b>position_filter_9:</b> Currently Patricia's best filtering script. It is a fixed version of `position_filter_1` that saves positions where we are doing much better than material balance would suggest.
 
-Patricia currently uses positions that were filtered out by scripts 2, 6, and 8, with duplicates removed.
+Patricia currently uses positions that were filtered out by script 9.
 
 Additionally, the `converter.cpp` file allows you to transform bullet-format data into text data, so that you can then use the filtering scripts on the resulting file.
 
@@ -90,7 +102,7 @@ All filtering programs are run with the command `./[exe] [input.txt] [output.txt
 
 Instructions for downloading/building Patricia can be found in the Releases section. If you know UCI protocol, you can run Patricia directly, otherwise she will work with any major GUI ([Arena](http://www.playwitharena.de/), [BanksiaGUI](https://banksiagui.com/), etc.)
 
-If you think Patricia is a cool project, please spread the word of it! There are lots of people interested in an aggressive engine, whether it be for sparring or for other purposes, and greater awareness of what *should* be the undisputed queen of style would make their wish come true.
+If you think Patricia is a cool project, please spread the word of it! There are lots of people interested in an aggressive engine, whether it be for sparring or for other purposes, and greater awareness of the undisputed queen of style would make their wish come true.
 
 [license-badge]: https://img.shields.io/github/license/Adam-Kulju/Patricia?style=for-the-badge
 [release-badge]: https://img.shields.io/github/v/release/Adam-Kulju/Patricia?style=for-the-badge
