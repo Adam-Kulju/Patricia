@@ -905,6 +905,7 @@ void iterative_deepen(
 void search_position(Position &position, ThreadInfo &thread_info) {
   thread_info.position = position;
   thread_info.thread_id = 0;
+  thread_info.nodes = 0;
 
   int num_threads = thread_data.num_threads;
 
