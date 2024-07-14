@@ -1,4 +1,4 @@
-// This SIMD code draws from both
+// SIMD code draws from both
 // Altair(https://github.com/Alex2262/AltairChessEngine) and Midnight
 // (https://github.com/archishou/MidnightChessEngine).
 

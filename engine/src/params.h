@@ -17,6 +17,7 @@ std::vector<Parameter> params;
 
 // SPSA parameter code is based off Clover
 // (https://github.com/lucametehau/CloverEngine)
+
 struct CreateParam {
   int _value;
   CreateParam(std::string name, int value, int min, int max) : _value(value) {

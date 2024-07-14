@@ -5,6 +5,8 @@
 #include "position.h"
 #include "utils.h"
 
+constexpr int NormalizationFactor = 195;
+
 void update_history(int16_t &entry, int score) { // Update history score
   entry += score - entry * abs(score) / 16384;
 }
@@ -82,13 +84,17 @@ int eval(const Position &position, ThreadInfo &thread_info) {
 
   int eval = thread_info.nnue_state.evaluate(color);
 
+  // Patricia is much less dependent on explicit eval twiddling than before, but
+  // there are still a few things I do.
+
   int m_eval = material_eval(position);
   int m_threshold = std::max({300, abs(eval) * 2 / 3, abs(eval) - 700});
 
   int bonus1 = 0, bonus2 = 0;
 
-  // if our eval is +50 and material is "only" +10, we shouldn't give eval
-  // bonuses.
+  // Give a small bonus if the position is much better than what material would
+  // suggest
+
   if (eval > 0 && eval > m_eval + m_threshold) {
 
     bonus1 += 25 + (eval - m_eval - m_threshold) / 10;
@@ -104,6 +110,10 @@ int eval(const Position &position, ThreadInfo &thread_info) {
   int s_m = thread_info.game_hist[start_index].m_diff;
   int s = 0;
 
+  // Give a small bonus if we have sacrificed material at some point in the
+  // search tree If we are completely winning, give a bigger bonus to
+  // incentivize finding the most stylish move when everything wins
+
   for (int idx = start_index + 2; idx < thread_info.game_ply - 4; idx += 2) {
 
     if (thread_info.game_hist[idx].m_diff < s_m &&
@@ -111,9 +121,7 @@ int eval(const Position &position, ThreadInfo &thread_info) {
         thread_info.game_hist[idx + 2].m_diff < s_m &&
         thread_info.game_hist[idx + 3].m_diff > s_m &&
         thread_info.game_hist[idx + 4].m_diff < s_m) {
-      // indx = -200
-      // indx + 1 = 200
-      // indx + 2 = -200
+
       s = s_m + thread_info.game_hist[idx + 4].m_diff;
     }
   }
@@ -126,6 +134,9 @@ int eval(const Position &position, ThreadInfo &thread_info) {
     }
   }
 
+  // If we're winning, scale eval by material; we don't want to trade off to an
+  // easily won endgame, but instead should continue the attack.
+  
   if (abs(eval) > 500) {
     eval = eval *
            (512 + total_mat_color(position, color ^ 1) / 8 -
@@ -145,7 +156,6 @@ void ss_push(Position &position, ThreadInfo &thread_info, Move move,
       hash, move, position.board[extract_from(move)],
       // 0,
       is_cap(position, move), material_eval(position)};
-
 }
 
 void ss_pop(ThreadInfo &thread_info, uint64_t hash) {
@@ -420,11 +430,12 @@ int search(int alpha, int beta, int depth, Position &position,
     static_eval = eval(position, thread_info);
   }
 
-
   thread_info.game_hist[thread_info.game_ply].static_eval = static_eval;
 
-
   bool improving = false;
+
+  // Improving: Is our eval better than it was last turn? If so we can prune
+  // less in certain circumstances (or prune more if it's not)
 
   if (ply > 1 && !in_check &&
       static_eval >
@@ -438,8 +449,6 @@ int search(int alpha, int beta, int depth, Position &position,
 
     static_eval = tt_score;
   }
-
-  
 
   if (!is_pv && !in_check && !singular_search) {
 
@@ -482,6 +491,8 @@ int search(int alpha, int beta, int depth, Position &position,
   }
 
   if (is_pv && tt_move == MoveNone && depth > IIRMinDepth) {
+    // Internal Iterative Reduction: If we are in a PV node and have no TT move,
+    // reduce the depth.
     depth--;
   }
 
@@ -528,7 +539,8 @@ int search(int alpha, int beta, int depth, Position &position,
           is_capture ? SeePruningQuietMargin : (depth * SeePruningNoisyMargin);
 
       if (!SEE(position, move, depth * margin)) {
-
+        // SEE pruning: if we are hanging material, prune under certain
+        // conditions.
         thread_info.zobrist_key = hash;
         continue;
       }
@@ -600,6 +612,7 @@ int search(int alpha, int beta, int depth, Position &position,
       // Clamp reduction so we don't immediately go into qsearch
       R = std::clamp(R, 1, depth - 1);
 
+      // Increase reduction if not improving
       R += !improving;
 
       // Reduced search, reduced window
@@ -844,6 +857,18 @@ void iterative_deepen(
       score = search(alpha, beta, depth, position, thread_info);
     }
 
+    std::string eval_string;
+
+    if (abs(score) < MateScore){
+      eval_string = "cp " + std::to_string(score * 100 / NormalizationFactor);
+    }
+    else if (score > MateScore){
+      eval_string = "mate " + std::to_string((100000 - score + 1) / 2);
+    }
+    else{
+      eval_string = "mate " + std::to_string((-100000 - score) / 2);
+    }
+
     int64_t search_time = time_elapsed(thread_info.start_time);
     best_move = thread_info.pv[0];
 
@@ -854,9 +879,9 @@ void iterative_deepen(
       for (auto &td : thread_data.thread_infos) {
         nodes += td.nodes;
       }
-      printf("info depth %i seldepth %i score cp %i nodes %" PRIu64
+      printf("info depth %i seldepth %i score %s nodes %" PRIu64
              " time %" PRIi64 " pv ",
-             depth, depth, score, nodes, search_time);
+             depth, depth, eval_string.c_str(), nodes, search_time);
       print_pv(position, thread_info);
 
       if (search_time > thread_info.opt_time) {

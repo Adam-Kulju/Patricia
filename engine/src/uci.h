@@ -11,8 +11,8 @@
 
 void run_thread(Position &position, ThreadInfo &thread_info, std::thread &s) {
 
-  // This wrapper function makes you able to use the "stop" command to stop the
-  // search immediately.
+  // This wrapper function allows the user to call the "stop" command to stop
+  // the search immediately.
   s = std::thread(search_position, std::ref(position), std::ref(thread_info));
 }
 
@@ -22,11 +22,15 @@ void uci(ThreadInfo &thread_info, Position &position) {
 
   printf("Patricia Chess Engine, written by Adam Kulju\n\n\n");
 
+  new_game(thread_info);
+  set_board(position, thread_info,
+            "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+
   thread_info.nnue_state.m_accumulator_stack.reserve(100);
 
   std::string input;
 
-  int skill_level = 3200;
+  int skill_level = 3300;
 
   std::thread s;
 
@@ -53,12 +57,13 @@ void uci(ThreadInfo &thread_info, Position &position) {
     }
 
     else if (command == "uci") {
-      printf("id name Patricia 3\nid author Adam Kulju\n"
-             "option name Hash type spin default 32 min 1 max 131072\n"
-             "option name Threads type spin default 1 min 1 max 1024\n"
-             "option name UCI_Elo type spin default 3200 min 1100 max 3200\n"
-             "option name UCI_Limit type spin default 3200 min 1100 max 3200\n");
-             
+      printf(
+          "id name Patricia 3\nid author Adam Kulju\n"
+          "option name Hash type spin default 32 min 1 max 131072\n"
+          "option name Threads type spin default 1 min 1 max 1024\n"
+          "option name UCI_Elo type spin default 3300 min 1100 max 3200\n"
+          "option name UCI_Limit type spin default 3300 min 1100 max 3200\n");
+
       for (auto &param : params) {
         std::cout << "option name " << param.name << " type spin default "
                   << param.value << " min " << param.min << " max " << param.max
@@ -166,15 +171,18 @@ void uci(ThreadInfo &thread_info, Position &position) {
         set_board(position, thread_info,
                   "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
       }
+
       thread_info.nnue_state.reset_nnue(position);
       thread_info.zobrist_key = calculate(position);
       std::string has_moves;
       if (input_stream >>
           has_moves) { // we're at the "moves" part of the command now
+
         std::string moves;
         while (input_stream >> moves) {
           Move move = uci_to_internal(moves);
-          ss_push(position, thread_info, move, thread_info.zobrist_key); // fill the game hist stack as we go
+          ss_push(position, thread_info, move,
+                  thread_info.zobrist_key); // fill the game hist stack as we go
           update_nnue_state(thread_info.nnue_state, move, position);
           make_move(position, move, thread_info, false);
         }
