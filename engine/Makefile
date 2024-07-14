@@ -1,3 +1,5 @@
+.PHONY : build datagen
+
 EXE := patricia
 
 SOURCES := src/patricia.cpp
@@ -25,6 +27,15 @@ ifneq (,$(findstring clang,$(shell $(CXX) --version)))
     endif
 endif
 
+OUT := $(EXE)$(SUFFIX)
+
+build: $(SOURCES)
+	$(CXX) $^ $(CXXFLAGS) -o $(OUT) $(LINKER) 
+
+default: build
+
+datagen: datagen/datagen.cpp
+	$(CXX) $^ $(CXXFLAGS) -o data $(LINKER) 
 OUT := $(EXE)$(SUFFIX)
 
 
