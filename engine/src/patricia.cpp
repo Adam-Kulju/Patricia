@@ -1,5 +1,3 @@
-#include "params.h"
-#include "position.h"
 #include "search.h"
 #include "uci.h"
 #include <memory>
@@ -13,7 +11,7 @@ perft(int depth, Position &position, bool first,
   if (!depth) {
     return 1; // a terminal node
   } else if (first) {
-    new_game(thread_info);
+    new_game(thread_info, TT);
     thread_info.start_time = std::chrono::steady_clock::now();
     set_board(position, thread_info,
               "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
@@ -114,9 +112,9 @@ void bench(Position &position, ThreadInfo &thread_info) {
   thread_info.start_time = std::chrono::steady_clock::now();
 
   for (std::string fen : fens) {
-    new_game(thread_info);
+    new_game(thread_info, TT);
     set_board(position, thread_info, fen);
-    iterative_deepen(position, thread_info);
+    iterative_deepen(position, thread_info, TT);
     total_nodes += thread_info.nodes;
   }
 

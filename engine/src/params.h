@@ -4,7 +4,7 @@
 #include <iostream>
 #include <vector>
 
-MultiArray<int, MaxSearchDepth, ListSize> LMRTable;
+MultiArray<int, MaxSearchDepth + 1, ListSize> LMRTable;
 
 
 struct Parameter {
