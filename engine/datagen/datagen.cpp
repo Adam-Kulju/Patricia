@@ -233,10 +233,10 @@ void play_game(ThreadInfo &thread_info, uint64_t &num_fens, int id,
 
       num_fens++;
       if (num_fens % 1000 == 0 && id == 0) {
-        long int total_fens = num_fens * num_threads; // Approximation
-        printf("~%li positions written\n", total_fens);
+        uint64_t total_fens = num_fens * num_threads; // Approximation
+        printf("~%" PRIu64 " positions written\n", total_fens);
         printf("Approximate speed: %" PRIi64 " pos/s\n\n",
-               (int64_t)(num_fens * 1000 / time_elapsed(start_time)));
+               (int64_t)(total_fens * 1000 / time_elapsed(start_time)));
       }
     }
   }
