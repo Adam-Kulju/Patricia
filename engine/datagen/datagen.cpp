@@ -224,17 +224,28 @@ void play_game(ThreadInfo &thread_info, uint64_t &num_fens, int id,
 
     bool is_noisy = is_cap(position, best_move);
 
+    ss_push(position, thread_info, best_move,
+            thread_info.zobrist_key); // fill the game hist stack as we go
+
     make_move(position, best_move, thread_info, false);
 
     if (!(is_noisy ||
           in_check)) { // If the best move isn't a noisy move and we're not in
-                       // check, add the position to the ones to write to a file
+      // check, add the position to the ones to write to a file
+      if (fkey > 999) {
+        printf("%i %i\n", fkey, thread_info.game_ply);
+        exit(0);
+      }
+      if (thread_info.score < -100000 || thread_info.score > 100000) {
+        print_board(position);
+        exit(0);
+      }
       fens[fkey++] = fen + " | " + std::to_string(score) + " | ";
 
       num_fens++;
       if (num_fens % 1000 == 0 && id == 0) {
         uint64_t total_fens = num_fens * num_threads; // Approximation
-        printf("~%" PRIu64 " positions written\n", total_fens);
+        printf("~%li positions written\n", total_fens);
         printf("Approximate speed: %" PRIi64 " pos/s\n\n",
                (int64_t)(total_fens * 1000 / time_elapsed(start_time)));
       }
@@ -271,19 +282,19 @@ void run(int id) {
 
 int main(int argc, char *argv[]) {
 
-    init_LMR();
+  init_LMR();
 
   if (argc > 1) {
     num_threads = std::atoi(argv[1]);
   }
 
-   std::vector<std::thread> threads;
+  std::vector<std::thread> threads;
 
   for (int i = 0; i < num_threads; i++) {
     threads.emplace_back(run, i);
   }
 
-  for (auto &t : threads){
+  for (auto &t : threads) {
     t.join();
   }
 
