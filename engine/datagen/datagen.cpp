@@ -173,6 +173,9 @@ void play_game(ThreadInfo &thread_info, uint64_t &num_fens, int id,
     if (move == MoveNone) {
       return;
     }
+
+    ss_push(position, thread_info, move,
+            thread_info.zobrist_key); // fill the game hist stack as we go
     make_move(position, move, thread_info, false);
   }
 
