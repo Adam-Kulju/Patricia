@@ -213,7 +213,7 @@ void play_game(ThreadInfo &thread_info, uint64_t &num_fens, int id,
       if (score > 0) {
         result = 1;
       } else {
-        score = 0;
+        result = 0;
       }
       break;
     }
