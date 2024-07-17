@@ -1,6 +1,7 @@
 #pragma once
 #include "defs.h"
 #include "nnue.h"
+#include "params.h"
 #include <stdio.h>
 #include <thread>
 #include <vector>
@@ -34,6 +35,11 @@ struct ThreadInfo {
 
   uint8_t max_iter_depth = MaxSearchDepth;
   uint64_t max_nodes_searched = UINT64_MAX / 2;
+  uint64_t opt_nodes_searched = UINT64_MAX / 2;
+
+  int32_t score = ScoreNone;
+  Move best_move = MoveNone;
+  bool is_datagen = false;
 
   std::array<Move, MaxSearchDepth * MaxSearchDepth> pv;
 
@@ -54,7 +60,7 @@ uint64_t TT_size = (1 << 20);
 uint64_t TT_mask = TT_size - 1;
 std::vector<TTEntry> TT(TT_size);
 
-void new_game(ThreadInfo &thread_info) {
+void new_game(ThreadInfo &thread_info, std::vector<TTEntry> &TT) {
   // Reset TT and other thread_info values for a new game
 
   thread_info.game_ply = 0;
@@ -83,7 +89,7 @@ void resize_TT(int size) {
 
 void insert_entry(
     uint64_t hash, int depth, Move best_move, int32_t score, uint8_t bound_type,
-    uint8_t searches) { // Inserts an entry into the transposition table.
+    uint8_t searches, std::vector<TTEntry> &TT) { // Inserts an entry into the transposition table.
 
   int indx = hash & TT_mask;
   uint32_t hash_key = get_hash_upper_bits(hash);

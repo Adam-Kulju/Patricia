@@ -1,19 +1,13 @@
 #pragma once
-#include "defs.h"
-#include "movegen.h"
-#include "nnue.h"
-#include "position.h"
 #include "search.h"
-#include "utils.h"
 #include <iostream>
 #include <memory>
-#include <stdio.h>
 
 void run_thread(Position &position, ThreadInfo &thread_info, std::thread &s) {
 
   // This wrapper function allows the user to call the "stop" command to stop
   // the search immediately.
-  s = std::thread(search_position, std::ref(position), std::ref(thread_info));
+  s = std::thread(search_position, std::ref(position), std::ref(thread_info), std::ref(TT));
 }
 
 void uci(ThreadInfo &thread_info, Position &position) {
@@ -22,7 +16,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
 
   printf("Patricia Chess Engine, written by Adam Kulju\n\n\n");
 
-  new_game(thread_info);
+  new_game(thread_info, TT);
   set_board(position, thread_info,
             "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
 
@@ -61,7 +55,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
           "id name Patricia 3\nid author Adam Kulju\n"
           "option name Hash type spin default 32 min 1 max 131072\n"
           "option name Threads type spin default 1 min 1 max 1024\n"
-          "option name UCI_Elo type spin default 3300 min 1100 max 3300\n"
+          "option name Skill_Level type spin default 3300 min 1100 max 3300\n"
           "option name UCI_Limit type spin default 3300 min 1100 max 3300\n");
 
       for (auto &param : params) {
@@ -93,7 +87,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
         thread_data.num_threads = value;
       }
 
-      else if (name == "UCI_Elo" || name == "UCI_Limit") {
+      else if (name == "Skill_Level" || name == "UCI_Limit") {
 
         if (value > 3000) {
           thread_info.max_nodes_searched = UINT64_MAX / 2;
@@ -145,7 +139,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
         s.join();
       }
 
-      new_game(thread_info);
+      new_game(thread_info, TT);
       set_board(position, thread_info,
                 "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
     }
@@ -183,7 +177,6 @@ void uci(ThreadInfo &thread_info, Position &position) {
           Move move = uci_to_internal(moves);
           ss_push(position, thread_info, move,
                   thread_info.zobrist_key); // fill the game hist stack as we go
-          update_nnue_state(thread_info.nnue_state, move, position);
           make_move(position, move, thread_info, false);
         }
       }

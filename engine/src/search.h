@@ -136,7 +136,7 @@ int eval(const Position &position, ThreadInfo &thread_info) {
 
   // If we're winning, scale eval by material; we don't want to trade off to an
   // easily won endgame, but instead should continue the attack.
-  
+
   if (abs(eval) > 500) {
     eval = eval *
            (512 + total_mat_color(position, color ^ 1) / 8 -
@@ -190,8 +190,10 @@ bool material_draw(
   return true;
 }
 
-bool is_draw(const Position &position, ThreadInfo &thread_info,
-             uint64_t hash) { // Detects if the position is a draw.
+bool is_draw(const Position &position,
+             ThreadInfo &thread_info) { // Detects if the position is a draw.
+
+  uint64_t hash = thread_info.zobrist_key;
 
   int halfmoves = position.halfmoves, game_ply = thread_info.game_ply;
   if (halfmoves >= 100) {
@@ -213,8 +215,8 @@ bool is_draw(const Position &position, ThreadInfo &thread_info,
   return false;
 }
 
-int qsearch(int alpha, int beta, Position &position,
-            ThreadInfo &thread_info) { // Performs a quiescence search on the
+int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
+            std::vector<TTEntry> &TT) { // Performs a quiescence search on the
                                        // given position.
 
   if (out_of_time(thread_info)) {
@@ -297,7 +299,7 @@ int qsearch(int alpha, int beta, Position &position,
     update_nnue_state(thread_info.nnue_state, move, position);
 
     ss_push(position, thread_info, move, hash);
-    int score = -qsearch(-beta, -alpha, moved_position, thread_info);
+    int score = -qsearch(-beta, -alpha, moved_position, thread_info, TT);
     ss_pop(thread_info, hash);
 
     if (score > best_score) {
@@ -329,13 +331,14 @@ int qsearch(int alpha, int beta, Position &position,
                best_score > MateScore    ? best_score + ply
                : best_score < -MateScore ? best_score - ply
                                          : best_score,
-               entry_type, thread_info.searches);
+               entry_type, thread_info.searches, TT);
 
   return best_score;
 }
 
 int search(int alpha, int beta, int depth, Position &position,
-           ThreadInfo &thread_info) { // Performs an alpha-beta search.
+           ThreadInfo &thread_info,
+           std::vector<TTEntry> &TT) { // Performs an alpha-beta search.
 
   if (!thread_info.search_ply) {
     thread_info.current_iter = depth;
@@ -347,8 +350,8 @@ int search(int alpha, int beta, int depth, Position &position,
     return thread_info.nnue_state.evaluate(position.color);
   }
   if (depth <= 0) {
-    return qsearch(alpha, beta, position,
-                   thread_info); // drop into qsearch if depth is too low.
+    return qsearch(alpha, beta, position, thread_info,
+                   TT); // drop into qsearch if depth is too low.
   }
   thread_info.nodes++;
 
@@ -372,7 +375,7 @@ int search(int alpha, int beta, int depth, Position &position,
 
   uint64_t hash = thread_info.zobrist_key;
 
-  if (!root && is_draw(position, thread_info, hash)) { // Draw detection
+  if (!root && is_draw(position, thread_info)) { // Draw detection
     int draw_score = 2 - (thread_info.nodes & 3);
 
     int m = material_eval(position);
@@ -475,7 +478,7 @@ int search(int alpha, int beta, int depth, Position &position,
 
       int R = NMPBase + depth / NMPDepthDiv +
               std::min(3, (static_eval - beta) / NMPEvalDiv);
-      score = -search(-alpha - 1, -alpha, depth - R, temp_pos, thread_info);
+      score = -search(-alpha - 1, -alpha, depth - R, temp_pos, thread_info, TT);
 
       thread_info.search_ply--, thread_info.game_ply--;
       thread_info.zobrist_key = hash;
@@ -561,8 +564,8 @@ int search(int alpha, int beta, int depth, Position &position,
 
         int sBeta = entry.score - depth * 3;
         thread_info.excluded_move = move;
-        int sScore =
-            search(sBeta - 1, sBeta, (depth - 1) / 2, position, thread_info);
+        int sScore = search(sBeta - 1, sBeta, (depth - 1) / 2, position,
+                            thread_info, TT);
 
         if (sScore < sBeta) {
           if (!is_pv && sScore + SEDoubleExtMargin < sBeta &&
@@ -598,7 +601,6 @@ int search(int alpha, int beta, int depth, Position &position,
     // If that also beats alpha, we search at normal depth with full window.
 
     if (depth >= 3 && moves_played > is_pv) {
-
       int R = LMRTable[depth][moves_played];
       if (is_capture) {
         // Captures get LMRd less because they're the most likely moves to beat
@@ -617,7 +619,7 @@ int search(int alpha, int beta, int depth, Position &position,
 
       // Reduced search, reduced window
       score = -search(-alpha - 1, -alpha, depth - R + extension, moved_position,
-                      thread_info);
+                      thread_info, TT);
       if (score > alpha) {
         full_search = R > 1;
       }
@@ -627,12 +629,12 @@ int search(int alpha, int beta, int depth, Position &position,
     if (full_search) {
       // Full search, null window
       score = -search(-alpha - 1, -alpha, depth - 1 + extension, moved_position,
-                      thread_info);
+                      thread_info, TT);
     }
     if (score > alpha || (!moves_played && is_pv)) {
       // Full search, full window
       score = -search(-beta, -alpha, depth - 1 + extension, moved_position,
-                      thread_info);
+                      thread_info, TT);
     }
 
     ss_pop(thread_info, hash);
@@ -766,7 +768,7 @@ int search(int alpha, int beta, int depth, Position &position,
                  best_score > MateScore    ? best_score + ply
                  : best_score < -MateScore ? best_score - ply
                                            : best_score,
-                 entry_type, thread_info.searches);
+                 entry_type, thread_info.searches, TT);
   }
   return best_score;
 }
@@ -820,8 +822,8 @@ void print_pv(Position &position, ThreadInfo &thread_info) {
 }
 
 void iterative_deepen(
-    Position &position,
-    ThreadInfo &thread_info) { // Performs an iterative deepening search.
+    Position &position, ThreadInfo &thread_info,
+    std::vector<TTEntry> &TT) { // Performs an iterative deepening search.
 
   thread_info.nnue_state.reset_nnue(position);
   thread_info.zobrist_key = calculate(position);
@@ -830,6 +832,8 @@ void iterative_deepen(
   thread_info.stop = false;
   thread_info.search_ply = 0; // reset all relevant thread_info
   thread_info.excluded_move = MoveNone;
+  thread_info.best_move = MoveNone;
+  thread_info.score = ScoreNone;
   std::memset(&thread_info.KillerMoves, 0, sizeof(thread_info.KillerMoves));
 
   Move best_move = MoveNone;
@@ -839,7 +843,7 @@ void iterative_deepen(
 
     int score, delta = 20;
 
-    score = search(alpha, beta, depth, position, thread_info);
+    score = search(alpha, beta, depth, position, thread_info, TT);
 
     // Aspiration Windows: We search the position with a narrow window around
     // the last search score in order to get cutoffs faster. If our search lands
@@ -848,24 +852,22 @@ void iterative_deepen(
     while (score <= alpha || score >= beta || thread_info.stop) {
 
       if (thread_info.stop) {
-        if (thread_info.thread_id == 0) {
+        if (thread_info.thread_id == 0 && !thread_info.is_datagen) {
           printf("bestmove %s\n", internal_to_uci(position, best_move).c_str());
         }
         return;
       }
       alpha -= delta, beta += delta, delta = delta * 3 / 2;
-      score = search(alpha, beta, depth, position, thread_info);
+      score = search(alpha, beta, depth, position, thread_info, TT);
     }
 
     std::string eval_string;
 
-    if (abs(score) < MateScore){
+    if (abs(score) < MateScore) {
       eval_string = "cp " + std::to_string(score * 100 / NormalizationFactor);
-    }
-    else if (score > MateScore){
+    } else if (score > MateScore) {
       eval_string = "mate " + std::to_string((100000 - score + 1) / 2);
-    }
-    else{
+    } else {
       eval_string = "mate " + std::to_string((-100000 - score) / 2);
     }
 
@@ -879,12 +881,21 @@ void iterative_deepen(
       for (auto &td : thread_data.thread_infos) {
         nodes += td.nodes;
       }
-      printf("info depth %i seldepth %i score %s nodes %" PRIu64
-             " time %" PRIi64 " pv ",
-             depth, depth, eval_string.c_str(), nodes, search_time);
-      print_pv(position, thread_info);
 
-      if (search_time > thread_info.opt_time) {
+      if (!thread_info.is_datagen) {
+        printf("info depth %i seldepth %i score %s nodes %" PRIu64
+               " time %" PRIi64 " pv ",
+               depth, depth, eval_string.c_str(), nodes, search_time);
+        print_pv(position, thread_info);
+      }
+
+      else {
+        thread_info.best_move = best_move;
+        thread_info.score = score * 100 / NormalizationFactor;
+      }
+
+      if (search_time > thread_info.opt_time ||
+          nodes > thread_info.opt_nodes_searched) {
         break;
       }
     }
@@ -897,12 +908,12 @@ void iterative_deepen(
       alpha = score - 20, beta = score + 20;
     }
   }
-  if (thread_info.thread_id == 0) {
+  if (thread_info.thread_id == 0 && !thread_info.is_datagen) {
     printf("bestmove %s\n", internal_to_uci(position, best_move).c_str());
   }
 }
 
-void search_position(Position &position, ThreadInfo &thread_info) {
+void search_position(Position &position, ThreadInfo &thread_info, std::vector<TTEntry> &TT) {
   thread_info.position = position;
   thread_info.thread_id = 0;
   thread_info.nodes = 0;
@@ -921,9 +932,9 @@ void search_position(Position &position, ThreadInfo &thread_info) {
   for (int i = 0; i < num_threads - 1; i++) {
     thread_data.threads.emplace_back(
         iterative_deepen, std::ref(thread_data.thread_infos[i].position),
-        std::ref(thread_data.thread_infos[i]));
+        std::ref(thread_data.thread_infos[i]), std::ref(TT));
   }
-  iterative_deepen(position, thread_info);
+  iterative_deepen(position, thread_info, TT);
 
   for (auto &th : thread_data.thread_infos) {
     th.stop = true;
