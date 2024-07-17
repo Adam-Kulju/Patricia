@@ -28,7 +28,7 @@ It's worth noting that Patricia is still well into superhuman territory, with an
 # What Patricia currently does to increase aggressiveness
 - Default contempt of 30 centipawns for draws deemed avoidable
 - Neural network using a custom training/retraining script over multiple filtered data sources that was developed over the course of a few months - this is the main source of Patricia 3's aggressiveness.
-- Asymmetrical evaluation; Patricia doesn't care if she gets sacrificed against, so all sacrifice bonuses apply to the original side to move only.
+- Partially asymmetrical evaluation; Patricia doesn't care if she gets sacrificed against, so all sacrifice bonuses apply to the original side to move only.
 - Bonuses for going down in material compared to original position being searched
 - Bonuses for being better off than what material would suggest
 - Material scaling
@@ -85,6 +85,12 @@ Patricia currently uses positions that were filtered out by script 9.
 Additionally, the `converter.cpp` file allows you to transform bullet-format data into text data, so that you can then use the filtering scripts on the resulting file.
 
 All filtering programs are run with the command `./[exe] [input.txt] [output.txt]`. You'll have to compile the particular program that you want to run yourself, or you can ask me for a binary for a specific filtering method.
+
+<br/><br/>
+
+# Datagen
+
+Patricia has support for data generation; in order to compile the datagen script, run `make datagen` in the `engines` directory. This will give you an executable named `data`; run `./data [number of threads]` to start datagen, and exit the process whenever you want with Ctr-C.
 
 <br/><br/>
 
