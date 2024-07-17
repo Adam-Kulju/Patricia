@@ -58,7 +58,7 @@ This is not a comprehensive list of search features that Patricia has.
 Patricia supports a few options for users:
 `Hash`: The memory alloted to the transposition table.
 `Threads`: Number of threads to search with.
-`UCI_Elo` or `UCI_Limit`: Weakens Patricia's strength so that you can use her as a sparring partner. Don't worry, she still plays in a relatively principled manner.
+`Skill_Level` or `UCI_Limit`: Weakens Patricia's strength so that you can use her as a sparring partner. Don't worry, she still plays in a relatively principled manner.
 
 `go nodes`: Search a position for a given number of nodes.
 `go depth`: Search a position to a given depth.
