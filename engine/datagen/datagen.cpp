@@ -1,5 +1,27 @@
 #include "../src/search.h"
 #include <fstream>
+#include <random>
+
+int OpeningsSize;
+std::vector<std::string> openings;
+bool use_openings = false;
+
+std::random_device rd;
+std::uniform_int_distribution<int> dist(0, INT32_MAX);
+
+void fill(std::string filename) {
+  std::ifstream in(filename);
+  std::string line;
+  int i = 0;
+  while (std::getline(in, line)) {
+    openings.push_back(line);
+    i++;
+  }
+
+  OpeningsSize = i;
+  printf("%i openings found.\n", OpeningsSize);
+  use_openings = true;
+}
 
 int num_threads = 1;
 std::chrono::steady_clock::time_point start_time;
@@ -152,7 +174,7 @@ Move random_move(Position &position,
   if (!num_legal) {
     return MoveNone;
   }
-  int rand_index = rand() % (num_legal);
+  int rand_index = dist(rd) % (num_legal);
   return legal_moves.moves[rand_index];
 }
 
@@ -161,25 +183,35 @@ void play_game(ThreadInfo &thread_info, uint64_t &num_fens, int id,
                                            // FENs to a file.
 
   new_game(thread_info, TT);
+  std::vector<TTEntry> TT2(TT_size);
+  new_game(thread_info, TT2);
+
   Position position;
-  set_board(position, thread_info,
-            "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
 
-  int moves = 6 + (rand() % 2);
-
-  for (int i = 0; i < moves;
-       i++) { // Perform 6-7 random moves to increase the scope of the data
-    Move move = random_move(position, thread_info);
-    if (move == MoveNone) {
-      return;
-    }
-
-    ss_push(position, thread_info, move,
-            thread_info.zobrist_key); // fill the game hist stack as we go
-    make_move(position, move, thread_info, false);
+  int opening_num = dist(rd) % 10;
+  if (opening_num == 9 && use_openings) {
+    set_board(position, thread_info, openings[dist(rd) % (OpeningsSize - 1)]);
   }
 
-  int decisive_flag = 0;
+  else {
+    set_board(position, thread_info,
+              "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+
+    int moves = 10 + (dist(rd) % 2);
+
+    for (int i = 0; i < moves;
+         i++) { // Perform 10-11 random moves to increase the scope of the data
+      Move move = random_move(position, thread_info);
+      if (move == MoveNone) {
+        return;
+      }
+
+      ss_push(position, thread_info, move,
+              thread_info.zobrist_key); // fill the game hist stack as we go
+      make_move(position, move, thread_info, false);
+    }
+  }
+
   std::string fens[1000] = {""};
   int fkey = 0;
   float result = 0.5;
@@ -188,8 +220,12 @@ void play_game(ThreadInfo &thread_info, uint64_t &num_fens, int id,
   std::ofstream fr;
   fr.open(filename, std::ios::out | std::ios::app);
 
+  int handicap = dist(rd) % 2;
+
   while (result == 0.5 && thread_info.game_ply < 900 &&
          !is_draw(position, thread_info)) {
+
+    int repeats = 1;
 
     bool color = position.color;
     std::string fen = export_fen(position, thread_info);
@@ -200,10 +236,33 @@ void play_game(ThreadInfo &thread_info, uint64_t &num_fens, int id,
       break;
     }
 
+    if (color == handicap) {
+      thread_info.opt_nodes_searched = 1000;
+      thread_info.max_nodes_searched = 10000;
+    }
+
+    else {
+      thread_info.opt_nodes_searched = 9000;
+      thread_info.max_nodes_searched = 90000;
+    }
+
     thread_info.start_time = std::chrono::steady_clock::now();
-    search_position(position, thread_info, TT);
+    search_position(position, thread_info, color ? TT : TT2);
 
     int score = thread_info.score;
+
+    int s = score;
+
+    int s_eval = qsearch(ScoreNone, -ScoreNone, position, thread_info, color ? TT : TT2);
+    int diff = abs(score - s_eval);
+
+    if (diff > std::max(200, abs(s_eval / 2))) {
+      repeats = 3;
+      if (diff > std::max(300, abs(s_eval * 2 / 3))) {
+        repeats = 6;
+      }
+    }
+
     Move best_move = thread_info.best_move;
 
     if (color) {
@@ -243,7 +302,10 @@ void play_game(ThreadInfo &thread_info, uint64_t &num_fens, int id,
         print_board(position);
         exit(0);
       }
-      fens[fkey++] = fen + " | " + std::to_string(score) + " | ";
+
+      for (int i = 0; i < repeats; i++) {
+        fens[fkey++] = fen + " | " + std::to_string(score) + " | ";
+      }
 
       num_fens++;
       if (num_fens % 1000 == 0 && id == 0) {
@@ -251,6 +313,11 @@ void play_game(ThreadInfo &thread_info, uint64_t &num_fens, int id,
         printf("~%li positions written\n", total_fens);
         printf("Approximate speed: %" PRIi64 " pos/s\n\n",
                (int64_t)(total_fens * 1000 / time_elapsed(start_time)));
+
+        if (total_fens >= 51000000) {
+          fr.close();
+          exit(0);
+        }
       }
     }
   }
@@ -271,8 +338,6 @@ void run(int id) {
 
   uint64_t num_fens = 0;
   thread_info->is_datagen = true;
-  thread_info->opt_nodes_searched = 5000;
-  thread_info->max_nodes_searched = 50000;
   thread_info->opt_time = UINT32_MAX / 2;
   thread_info->max_time = UINT32_MAX / 2;
 
@@ -289,6 +354,10 @@ int main(int argc, char *argv[]) {
 
   if (argc > 1) {
     num_threads = std::atoi(argv[1]);
+  }
+
+  if (argc > 2) {
+    fill(std::string(argv[2]));
   }
 
   std::vector<std::thread> threads;
