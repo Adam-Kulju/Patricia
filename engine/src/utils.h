@@ -23,15 +23,20 @@ struct ThreadInfo {
 
   uint16_t time_checks;
   bool stop;
+
   NNUE_State nnue_state;
 
   MultiArray<int16_t, 12, 0x80> HistoryScores;
   MultiArray<int16_t, 2, 12, 0x80, 12, 0x80> ContHistScores;
   MultiArray<int16_t, 12, 0x80> CapHistScores;
+  std::array<Move, MaxSearchDepth + 1> KillerMoves;
 
   uint8_t current_iter;
-  std::array<Move, MaxSearchDepth + 1> KillerMoves;
+  uint16_t multipv = 1;
+  uint16_t multipv_index;
+
   Move excluded_move;
+  std::array<Move, ListSize> best_moves;
 
   uint8_t max_iter_depth = MaxSearchDepth;
   uint64_t max_nodes_searched = UINT64_MAX / 2;

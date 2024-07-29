@@ -63,7 +63,7 @@ template <typename T, size_t N> struct MultiArrayImpl<T, N> {
 template <typename T, size_t... Ns>
 using MultiArray = typename MultiArrayImpl<T, Ns...>::Type;
 
-constexpr int16_t ListSize = 216;
+constexpr int16_t ListSize = 256;
 constexpr int16_t GameSize = 2000;
 constexpr int32_t Mate = -100000;
 constexpr int32_t MateScore = 80000;

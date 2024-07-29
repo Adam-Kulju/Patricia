@@ -56,7 +56,8 @@ void uci(ThreadInfo &thread_info, Position &position) {
           "option name Hash type spin default 32 min 1 max 131072\n"
           "option name Threads type spin default 1 min 1 max 1024\n"
           "option name Skill_Level type spin default 3300 min 1100 max 3300\n"
-          "option name UCI_Limit type spin default 3300 min 1100 max 3300\n");
+          "option name UCI_Limit type spin default 3300 min 1100 max 3300\n"
+          "option name MultiPV type spin default 1 min 1 max 255\n");
 
       for (auto &param : params) {
         std::cout << "option name " << param.name << " type spin default "
@@ -113,6 +114,10 @@ void uci(ThreadInfo &thread_info, Position &position) {
               250 * std::pow(2, ((double)value - 1100) / 150);
         }
         skill_level = value;
+      }
+
+      else if (name == "MultiPV"){
+        thread_info.multipv = value;
       }
 
       else {
