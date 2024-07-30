@@ -325,7 +325,7 @@ void update_nnue_state(NNUE_State &nnue_state, Move move,
 }
 
 int make_move(Position &position, Move move, ThreadInfo &thread_info,
-              bool update_nnue) { // Perform a move on the board.
+              int update_flag) { // Perform a move on the board.
 
   if (move == MoveNone) {
     position.color ^= 1;
@@ -381,6 +381,11 @@ int make_move(Position &position, Move move, ThreadInfo &thread_info,
 
   if (attacks_square(position, position.kingpos[color], opp_color)) {
     return 1;
+  }
+  else if (update_flag == Updates::UpdateNone){
+    position.color ^= 1;
+    position.ep_square = ep_square;
+    return 0;
   }
 
   int piece_to = position.board[to];

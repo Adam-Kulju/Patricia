@@ -10,12 +10,7 @@ perft(int depth, Position &position, bool first,
 {
   if (!depth) {
     return 1; // a terminal node
-  } else if (first) {
-    new_game(thread_info, TT);
-    thread_info.start_time = std::chrono::steady_clock::now();
-    set_board(position, thread_info,
-              "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
-  }
+  } 
   std::array<Move, ListSize> list;
   uint64_t total_nodes = 0;
   int nmoves =
@@ -26,25 +21,19 @@ perft(int depth, Position &position, bool first,
        i++) // Loop through all of the moves, skipping illegal ones.
   {
     Position new_position = position;
-    if (make_move(new_position, list[i], thread_info, false)) {
+    if (make_move(new_position, list[i], thread_info, Updates::UpdateNone)) {
       continue;
     }
 
     uint64_t nodes = perft(depth - 1, new_position, false, thread_info);
+    
     if (first) {
-      char temp[6];
       printf("%s: %" PRIu64 "\n", internal_to_uci(position, list[i]).c_str(),
              nodes);
     }
     total_nodes += nodes;
   }
-  if (first) {
-    printf("%" PRIu64 " nodes %" PRIu64 " nps\n", total_nodes,
-           (uint64_t)(total_nodes * 1000 /
-                      (time_elapsed(thread_info.start_time))));
 
-    std::exit(0);
-  }
   return total_nodes;
 }
 
@@ -62,13 +51,13 @@ void bench(Position &position, ThreadInfo &thread_info) {
       "8/8/1p2k1p1/3p3p/1p1P1P1P/1P2PK2/8/8 w - - 3 54\0",
       "7r/2p3k1/1p1p1qp1/1P1Bp3/p1P2r1P/P7/4R3/Q4RK1 w - - 0 36\0",
       "r1bq1rk1/pp2b1pp/n1pp1n2/3P1p2/2P1p3/2N1P2N/PP2BPPP/R1BQ1RK1 b - - 2 "
-       "10\0",
+      "10\0",
       "3r3k/2r4p/1p1b3q/p4P2/P2Pp3/1B2P3/3BQ1RP/6K1 w - - 3 87\0",
       "4q1bk/6b1/7p/p1p4p/PNPpP2P/KN4P1/3Q4/4R3 b - - 0 37\0",
       "2q3r1/1r2pk2/pp3pp1/2pP3p/P1Pb1BbP/1P4Q1/R3NPP1/4R1K1 w - - 2 34\0",
       "1r2r2k/1b4q1/pp5p/2pPp1p1/P3Pn2/1P1B1Q1P/2R3P1/4BR1K b - - 1 37\0",
       "r3kbbr/pp1n1p1P/3ppnp1/q5N1/1P1pP3/P1N1B3/2P1QP2/R3KB1R b KQkq b3 0 "
-       "17\0",
+      "17\0",
       "8/6pk/2b1Rp2/3r4/1R1B2PP/P5K1/8/2r5 b - - 16 42\0",
       "1r4k1/4ppb1/2n1b1qp/pB4p1/1n1BP1P1/7P/2PNQPK1/3RN3 w - - 8 29\0",
       "8/p2B4/PkP5/4p1pK/4Pb1p/5P2/8/8 w - - 29 68\0",
@@ -97,13 +86,12 @@ void bench(Position &position, ThreadInfo &thread_info) {
       "1rb1rn1k/p3q1bp/2p3p1/2p1p3/2P1P2N/PP1RQNP1/1B3P2/4R1K1 b - - 4 23\0",
       "4rrk1/pp1n1pp1/q5p1/P1pP4/2n3P1/7P/1P3PB1/R1BQ1RK1 w - - 3 22\0",
       "r2qr1k1/pb1nbppp/1pn1p3/2ppP3/3P4/2PB1NN1/PP3PPP/R1BQR1K1 w - - 4 "
-       "12\0",
+      "12\0",
       "2rqr1k1/1p3p1p/p2p2p1/P1nPb3/2B1P3/5P2/1PQ2NPP/R1R4K w - - 3 25\0",
       "r1b2rk1/p1q1ppbp/6p1/2Q5/8/4BP2/PPP3PP/2KR1B1R b - - 2 14\0",
       "rnbqkb1r/pppppppp/5n2/8/2PP4/8/PP2PPPP/RNBQKBNR b KQkq c3 0 2\0",
       "2rr2k1/1p4bp/p1q1p1p1/4Pp1n/2PB4/1PN3P1/P3Q2P/2RR2K1 w - f6 0 20\0",
-      "2r2b2/5p2/5k2/p1r1pP2/P2pB3/1P3P2/K1P3R1/7R w - - 23 93\0"
-      };
+      "2r2b2/5p2/5k2/p1r1pP2/P2pB3/1P3P2/K1P3R1/7R w - - 23 93\0"};
 
   thread_info.max_time = INT32_MAX / 2, thread_info.opt_time = INT32_MAX / 2;
   thread_info.max_iter_depth = 12;
@@ -121,7 +109,7 @@ void bench(Position &position, ThreadInfo &thread_info) {
 
   printf("Bench: %" PRIu64 " nodes %" PRIi64 " nps\n", total_nodes,
          (int64_t)(total_nodes * 1000 / time_elapsed(start)));
-  
+
   std::exit(0);
 }
 
@@ -132,7 +120,18 @@ int main(int argc, char *argv[]) {
   init_LMR();
   if (argc > 1) {
     if (std::string(argv[1]) == "perft") {
-      perft(atoi(argv[2]), position, true, *thread_info);
+      new_game(*thread_info, TT);
+      set_board(position, *thread_info,
+                "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+      thread_info->start_time = std::chrono::steady_clock::now();
+
+      uint64_t nodes = perft(atoi(argv[2]), position, true, *thread_info);
+
+      printf("%" PRIu64 " nodes %" PRIu64 " nps\n", nodes,
+           (uint64_t)(nodes * 1000 /
+                      (time_elapsed(thread_info->start_time))));
+
+      std::exit(0);
     }
 
     else if (std::string(argv[1]) == "bench") {

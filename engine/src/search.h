@@ -293,7 +293,7 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
       break;
     }
     Position moved_position = position;
-    if (make_move(moved_position, move, thread_info, true)) {
+    if (make_move(moved_position, move, thread_info, Updates::UpdateAll)) {
       continue;
     }
     update_nnue_state(thread_info.nnue_state, move, position);
@@ -473,7 +473,7 @@ int search(int alpha, int beta, int depth, Position &position,
 
       Position temp_pos = position;
 
-      make_move(temp_pos, MoveNone, thread_info, false);
+      make_move(temp_pos, MoveNone, thread_info, Updates::UpdateHash);
 
       ss_push(position, thread_info, MoveNone, hash);
 
@@ -528,7 +528,7 @@ int search(int alpha, int beta, int depth, Position &position,
 
     Position moved_position = position;
     if (move == excluded_move ||
-        make_move(moved_position, move, thread_info, false)) {
+        make_move(moved_position, move, thread_info, Updates::UpdateHash)) {
       continue;
     }
 
@@ -834,7 +834,7 @@ void print_pv(Position &position, ThreadInfo &thread_info) {
     }
 
     Position legality_check = temp_pos;
-    if (make_move(legality_check, best_move, thread_info, false)) {
+    if (make_move(legality_check, best_move, thread_info, Updates::UpdateHash)) {
       break;
     }
 

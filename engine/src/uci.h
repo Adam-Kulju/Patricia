@@ -182,7 +182,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
           Move move = uci_to_internal(moves);
           ss_push(position, thread_info, move,
                   thread_info.zobrist_key); // fill the game hist stack as we go
-          make_move(position, move, thread_info, false);
+          make_move(position, move, thread_info, Updates::UpdateHash);
         }
       }
 
@@ -190,7 +190,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
 
     else if (command == "go") {
       thread_info.start_time = std::chrono::steady_clock::now();
-      
+
       if (s.joinable()) {
         s.join();
       }

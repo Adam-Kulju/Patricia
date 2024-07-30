@@ -52,6 +52,12 @@ constexpr uint8_t Rook = 2;
 constexpr uint8_t Queen = 3;
 } // namespace Promos
 
+namespace Updates{
+  constexpr uint8_t UpdateNone = 0;
+  constexpr uint8_t UpdateHash = 1;
+  constexpr uint8_t UpdateAll = 2;
+}
+
 template <typename T, size_t N, size_t... Ns> struct MultiArrayImpl {
   using Type = std::array<typename MultiArrayImpl<T, Ns...>::Type, N>;
 };
