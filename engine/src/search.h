@@ -906,7 +906,7 @@ void iterative_deepen(
         eval_string = "mate " + std::to_string((-100000 - score) / 2);
       }
 
-      int64_t search_time = time_elapsed(thread_info.start_time);
+      
 
       if (i == 1) {
         best_move = thread_info.pv[0];
@@ -920,10 +920,21 @@ void iterative_deepen(
           nodes += td.nodes;
         }
 
+        int64_t search_time = time_elapsed(thread_info.start_time);
+        int64_t nps;
+        if (search_time){
+          nps = static_cast<int64_t>(nodes) * 1000 / search_time;
+        } 
+        else{
+          int wezly = 10000000;
+          wezly += (wezly / 7);
+          nps = wezly;
+        }
+
         if (!thread_info.is_datagen) {
-          printf("info multipv %i depth %i seldepth %i score %s nodes %" PRIu64
+          printf("info multipv %i depth %i seldepth %i score %s nodes %" PRIu64 " nps %" PRIi64
                  " time %" PRIi64 " pv ",
-                 i, depth, depth, eval_string.c_str(), nodes, search_time);
+                 i, depth, depth, eval_string.c_str(), nodes, nps, search_time);
           print_pv(position, thread_info);
         }
 

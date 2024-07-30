@@ -189,10 +189,13 @@ void uci(ThreadInfo &thread_info, Position &position) {
     }
 
     else if (command == "go") {
+      thread_info.start_time = std::chrono::steady_clock::now();
+      
       if (s.joinable()) {
         s.join();
       }
       thread_info.max_iter_depth = MaxSearchDepth;
+      
 
       if (skill_level > 3000) {
         thread_info.max_nodes_searched = INT32_MAX / 2;
@@ -227,7 +230,6 @@ void uci(ThreadInfo &thread_info, Position &position) {
       time = std::max(2, time - 50);
       thread_info.max_time = time / 2;
       thread_info.opt_time = (time / 20 + increment * 8 / 10) * 6 / 10;
-      thread_info.start_time = std::chrono::steady_clock::now();
 
       run_thread(position, thread_info, s);
     }
