@@ -37,6 +37,7 @@ struct ThreadInfo {
 
   Move excluded_move;
   std::array<Move, ListSize> best_moves;
+  std::array<int, ListSize> best_scores;
 
   uint8_t max_iter_depth = MaxSearchDepth;
   uint64_t max_nodes_searched = UINT64_MAX / 2;
@@ -44,7 +45,9 @@ struct ThreadInfo {
 
   int32_t score = ScoreNone;
   Move best_move = MoveNone;
-  bool is_datagen = false;
+  bool disable_print = false;
+  bool is_human = false;
+  int skill_level = 3300;
 
   std::array<Move, MaxSearchDepth * MaxSearchDepth> pv;
 

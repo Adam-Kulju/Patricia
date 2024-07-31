@@ -681,6 +681,7 @@ int search(int alpha, int beta, int depth, Position &position,
 
           if (root) {
             thread_info.best_moves[thread_info.multipv_index] = best_move;
+            thread_info.best_scores[thread_info.multipv_index] = best_score;
           }
         }
       }
@@ -864,6 +865,8 @@ void iterative_deepen(
   thread_info.excluded_move = MoveNone;
   thread_info.best_move = MoveNone;
   thread_info.score = ScoreNone;
+  thread_info.best_moves = {0};
+  thread_info.best_scores = {ScoreNone};
   std::memset(&thread_info.KillerMoves, 0, sizeof(thread_info.KillerMoves));
 
   Move best_move = MoveNone;
@@ -931,7 +934,7 @@ void iterative_deepen(
           nps = wezly;
         }
 
-        if (!thread_info.is_datagen) {
+        if (!thread_info.disable_print) {
           printf("info multipv %i depth %i seldepth %i score %s nodes %" PRIu64 " nps %" PRIi64
                  " time %" PRIi64 " pv ",
                  i, depth, depth, eval_string.c_str(), nodes, nps, search_time);
@@ -960,7 +963,7 @@ void iterative_deepen(
   }
 
 finish:
-  if (thread_info.thread_id == 0 && !thread_info.is_datagen) {
+  if (thread_info.thread_id == 0 && !thread_info.disable_print) {
     printf("bestmove %s\n", internal_to_uci(position, best_move).c_str());
   }
 }

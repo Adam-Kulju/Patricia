@@ -1,13 +1,22 @@
 #pragma once
+#include "human.h"
 #include "search.h"
 #include <iostream>
 #include <memory>
+
 
 void run_thread(Position &position, ThreadInfo &thread_info, std::thread &s) {
 
   // This wrapper function allows the user to call the "stop" command to stop
   // the search immediately.
-  s = std::thread(search_position, std::ref(position), std::ref(thread_info), std::ref(TT));
+  if (thread_info.is_human) {
+    s = std::thread(search_human, std::ref(position), std::ref(thread_info));
+  } 
+  
+  else {
+    s = std::thread(search_position, std::ref(position), std::ref(thread_info),
+                    std::ref(TT));
+  }
 }
 
 void uci(ThreadInfo &thread_info, Position &position) {
@@ -23,8 +32,6 @@ void uci(ThreadInfo &thread_info, Position &position) {
   thread_info.nnue_state.m_accumulator_stack.reserve(100);
 
   std::string input;
-
-  int skill_level = 3300;
 
   std::thread s;
 
@@ -57,7 +64,8 @@ void uci(ThreadInfo &thread_info, Position &position) {
           "option name Threads type spin default 1 min 1 max 1024\n"
           "option name Skill_Level type spin default 3300 min 1100 max 3300\n"
           "option name UCI_Limit type spin default 3300 min 1100 max 3300\n"
-          "option name MultiPV type spin default 1 min 1 max 255\n");
+          "option name MultiPV type spin default 1 min 1 max 255\n"
+          "option name HumanMode type spin default 0 min 0 max 1\n");
 
       for (auto &param : params) {
         std::cout << "option name " << param.name << " type spin default "
@@ -90,34 +98,15 @@ void uci(ThreadInfo &thread_info, Position &position) {
 
       else if (name == "Skill_Level" || name == "UCI_Limit") {
 
-        if (value > 3000) {
-          thread_info.max_nodes_searched = UINT64_MAX / 2;
-        }
-
-        else if (value >= 2700) {
-          thread_info.max_nodes_searched =
-              64000 * std::pow(2, ((double)value - 2700) / 150);
-        }
-
-        else if (value >= 1950) {
-          thread_info.max_nodes_searched =
-              8000 * std::pow(2, ((double)value - 1950) / 250);
-        }
-
-        else if (value >= 1400) {
-          thread_info.max_nodes_searched =
-              1000 * std::pow(2, ((double)value - 1400) / 200);
-        }
-
-        else {
-          thread_info.max_nodes_searched =
-              250 * std::pow(2, ((double)value - 1100) / 150);
-        }
-        skill_level = value;
+        thread_info.skill_level = value;
       }
 
-      else if (name == "MultiPV"){
+      else if (name == "MultiPV") {
         thread_info.multipv = value;
+      }
+
+      else if (name == "HumanMode") {
+        thread_info.is_human = value;
       }
 
       else {
@@ -195,11 +184,6 @@ void uci(ThreadInfo &thread_info, Position &position) {
         s.join();
       }
       thread_info.max_iter_depth = MaxSearchDepth;
-      
-
-      if (skill_level > 3000) {
-        thread_info.max_nodes_searched = INT32_MAX / 2;
-      }
 
       int color = position.color, time = INT32_MAX, increment = 0;
       std::string token;
