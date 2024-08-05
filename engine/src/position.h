@@ -295,7 +295,7 @@ void update_nnue_state(NNUE_State &nnue_state, Move move,
   int to_square = to;
   from = MailboxToStandard_NNUE[from], to = MailboxToStandard_NNUE[to];
 
-  nnue_state.update_feature<true>(to_piece, to); // update the piece that mpved
+  nnue_state.update_feature<true>(to_piece, to); // update the piece that moved
   nnue_state.update_feature<false>(from_piece, from);
 
   if (captured_piece) {
