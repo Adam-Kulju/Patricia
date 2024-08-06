@@ -18,6 +18,8 @@ struct ThreadInfo {
   uint64_t nodes;      // Total nodes searched so far this search
   std::chrono::steady_clock::time_point start_time; // Start time of the search
 
+  int seldepth;
+
   uint32_t max_time;
   uint32_t opt_time;
 
@@ -37,6 +39,7 @@ struct ThreadInfo {
 
   Move excluded_move;
   std::array<Move, ListSize> best_moves;
+  std::array<int, ListSize> best_scores;
 
   uint8_t max_iter_depth = MaxSearchDepth;
   uint64_t max_nodes_searched = UINT64_MAX / 2;
@@ -44,9 +47,14 @@ struct ThreadInfo {
 
   int32_t score = ScoreNone;
   Move best_move = MoveNone;
-  bool is_datagen = false;
+  bool disable_print = false;
+
+  bool is_human = false;
+  int cp_accum_loss = 0;
+  int cp_loss = 0;
 
   std::array<Move, MaxSearchDepth * MaxSearchDepth> pv;
+  std::array<int, 5> pv_material;
 
   Position position;
 
@@ -77,6 +85,7 @@ void new_game(ThreadInfo &thread_info, std::vector<TTEntry> &TT) {
   std::memset(&thread_info.game_hist, 0, sizeof(thread_info.game_hist));
   std::memset(&TT[0], 0, TT_size * sizeof(TT[0]));
   thread_info.searches = 0;
+  thread_info.cp_accum_loss = 0;
 }
 
 void resize_TT(int size) {
@@ -92,9 +101,10 @@ void resize_TT(int size) {
   std::memset(&TT[0], 0, TT_size * sizeof(TT[0]));
 }
 
-void insert_entry(
-    uint64_t hash, int depth, Move best_move, int32_t score, uint8_t bound_type,
-    uint8_t searches, std::vector<TTEntry> &TT) { // Inserts an entry into the transposition table.
+void insert_entry(uint64_t hash, int depth, Move best_move, int32_t score,
+                  uint8_t bound_type, uint8_t searches,
+                  std::vector<TTEntry>
+                      &TT) { // Inserts an entry into the transposition table.
 
   int indx = hash & TT_mask;
   uint32_t hash_key = get_hash_upper_bits(hash);
@@ -103,17 +113,18 @@ void insert_entry(
       !(bound_type == EntryTypes::Exact &&
         TT[indx].type != EntryTypes::Exact)) {
 
-          uint8_t age_diff = searches - TT[indx].age;
+    uint8_t age_diff = searches - TT[indx].age;
 
-          int new_bonus = depth + bound_type + (age_diff * age_diff * 10 / AgeDiffDiv);
-          int old_bonus = TT[indx].depth + TT[indx].type;
+    int new_bonus =
+        depth + bound_type + (age_diff * age_diff * 10 / AgeDiffDiv);
+    int old_bonus = TT[indx].depth + TT[indx].type;
 
-          if (old_bonus * OldBonusMult > new_bonus * NewBonusMult){
-            return;
-          }
+    if (old_bonus * OldBonusMult > new_bonus * NewBonusMult) {
+      return;
+    }
   }
 
-  if (best_move != MoveNone || hash_key != TT[indx].position_key){
+  if (best_move != MoveNone || hash_key != TT[indx].position_key) {
     TT[indx].best_move = best_move;
   }
 

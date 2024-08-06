@@ -153,7 +153,6 @@ Move random_move(Position &position,
                  ThreadInfo &thread_info) { // Get a random legal move
 
   bool color = position.color;
-  uint64_t hash = thread_info.zobrist_key;
 
   bool in_check = attacks_square(position, position.kingpos[color], color ^ 1);
   MoveInfo moves;
@@ -166,8 +165,7 @@ Move random_move(Position &position,
     Position moved_position = position;
     Move move = moves.moves[i];
 
-    if (!make_move(moved_position, move, thread_info, false)) {
-      thread_info.zobrist_key = hash;
+    if (!make_move(moved_position, move, thread_info, Updates::UpdateNone)) {
       legal_moves.moves[num_legal++] = move;
     }
   }
@@ -208,7 +206,7 @@ void play_game(ThreadInfo &thread_info, uint64_t &num_fens, int id,
 
       ss_push(position, thread_info, move,
               thread_info.zobrist_key); // fill the game hist stack as we go
-      make_move(position, move, thread_info, false);
+      make_move(position, move, thread_info, Updates::UpdateHash);
     }
   }
 
@@ -279,7 +277,7 @@ void play_game(ThreadInfo &thread_info, uint64_t &num_fens, int id,
 
     if (best_move == MoveNone) {
       print_board(position);
-      thread_info.is_datagen = false;
+      thread_info.disable_print = false;
       search_position(position, thread_info, TT);
       std::exit(1);
     }
@@ -289,7 +287,7 @@ void play_game(ThreadInfo &thread_info, uint64_t &num_fens, int id,
     ss_push(position, thread_info, best_move,
             thread_info.zobrist_key); // fill the game hist stack as we go
 
-    make_move(position, best_move, thread_info, false);
+    make_move(position, best_move, thread_info, Updates::UpdateHash);
 
     if (!(is_noisy ||
           in_check)) { // If the best move isn't a noisy move and we're not in
@@ -337,7 +335,7 @@ void run(int id) {
   std::unique_ptr<ThreadInfo> thread_info = std::make_unique<ThreadInfo>();
 
   uint64_t num_fens = 0;
-  thread_info->is_datagen = true;
+  thread_info->disable_print = true;
   thread_info->opt_time = UINT32_MAX / 2;
   thread_info->max_time = UINT32_MAX / 2;
 
