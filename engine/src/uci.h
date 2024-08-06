@@ -45,6 +45,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
     std::string command;
 
     input_stream >> std::skipws >> command; // write into command
+    
     if (command == "d") {
       input_stream.clear();
       input_stream.str("position fen "
@@ -89,7 +90,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
       input_stream >> name;
       input_stream >> command;
 
-      if (name == "HumanMode") {
+      if (name == "UCI_LimitStrength") {
         std::string value;
         input_stream >> value;
         if (value == "true") {
@@ -99,6 +100,8 @@ void uci(ThreadInfo &thread_info, Position &position) {
         else {
           thread_info.is_human = false;
         }
+
+        continue;
       }
 
       input_stream >> value;
@@ -113,11 +116,13 @@ void uci(ThreadInfo &thread_info, Position &position) {
 
       else if (name == "UCI_Elo") {
         thread_info.cp_loss = 200 - (value / 15);
+        thread_info.is_human = true;
       }
 
       else if (name == "Skill_Level") {
-        int to_elo = skill_levels[value];
+        int to_elo = skill_levels[value - 1];
         thread_info.cp_loss = 200 - (to_elo / 15);
+        thread_info.is_human = true;
       }
 
       else if (name == "MultiPV") {

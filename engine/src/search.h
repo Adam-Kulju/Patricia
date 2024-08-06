@@ -522,7 +522,6 @@ int search(int alpha, int beta, int depth, Position &position,
         continue;
       }
     }
-    searched_move = true;
 
     int move_score = moves.scores[indx];
 
@@ -531,6 +530,8 @@ int search(int alpha, int beta, int depth, Position &position,
         make_move(moved_position, move, thread_info, Updates::UpdateHash)) {
       continue;
     }
+
+    searched_move = true;
 
     is_capture = is_cap(position, move);
     if (!is_capture && !is_pv) {
