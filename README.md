@@ -57,13 +57,47 @@ This is not a comprehensive list of search features that Patricia has.
 
 Patricia supports a few options for users:
 `Hash`: The memory alloted to the transposition table.
+
 `Threads`: Number of threads to search with.
-`Skill_Level` or `UCI_Limit`: Weakens Patricia's strength so that you can use her as a sparring partner. Don't worry, she still plays in a relatively principled manner.
+
+`UCI_LimitStrength`: Enables Patricia to be weakened using `UCI_Elo`.
+
+`UCI_Elo`: Sets Patricia to play at a given strength range, anywhere from 500 to 3000. These ratings were calibrated by playing many matches against engines of all strengths.
+
+`MultiPV`: Patricia searches the best X moves instead of only looking for the best line.
+
+`Skill_Level`: Sets Patricia to play at one of 20 possible strength levels. They are:
+```
+Skill Level         ELO
+     1              500
+     2              800
+     3              1000
+     4              1200
+     5              1300
+     6              1400
+     7              1500
+     8              1600
+     9              1700
+     10             1800
+     11             1900
+     12             2000
+     13             2100
+     14             2200
+     15             2300
+     16             2400
+     17             2500
+     18             2650
+     19             2800
+     20             3000
+```
+
 
 `go nodes`: Search a position for a given number of nodes.
+
 `go depth`: Search a position to a given depth.
 
-Patricia also supports customization of many search parameters for SPSA purposes. It is not recommended that you modify them unless you know what you are doing.
+`go movetime`: Search a position for a given number of milliseconds.
+
 <br/><br/>
 
 # Evaluation and Filtering
@@ -90,7 +124,7 @@ All filtering programs are run with the command `./[exe] [input.txt] [output.txt
 
 # Datagen
 
-Patricia has support for data generation; in order to compile the datagen script, run `make datagen` in the `engines` directory. This will give you an executable named `data`; run `./data [number of threads]` to start datagen, and exit the process whenever you want with Ctr-C.
+Patricia has support for data generation; in order to compile the datagen script, run `make datagen` in the `engines` directory. This will give you an executable named `data`; run `./data [number of threads] [optional EPD opening book]` to start datagen, and exit the process whenever you want with Ctr-C.
 
 <br/><br/>
 
@@ -98,7 +132,7 @@ Patricia has support for data generation; in order to compile the datagen script
 
 - A huge shoutout to Stefan Pohl. His EAS Tool works wonderfully, makes properly and objectively testing for increase aggression possible, and is the measure by which Patricia development progressed. He was also very invested in Patricia's development and explained many features of the EAS tool to me so that I had a better understanding of what was a sacrifice and what wasn't. He has put a lot of time into quantifying style, and I am happy to have Patricia be a proof-of-concept and culmination of his ideas.
 
-- Thanks to my friends at SweHosting as usual, for being supportive, for suggesting ideas, and for spreading Patricia propaganda in the Stockfish Discord server :crabgrab:
+- Thanks to my friends at SweHosting as usual, for being supportive, for suggesting ideas, and for spreading Patricia propaganda in the Stockfish Discord server.
 
 - Thanks to all the people interested in an aggressive chess engine. The support I got in my developer log on Talkchess is really nice to see. I'm glad people care about style in chess too, rather than just ELO!
 
@@ -108,7 +142,7 @@ Patricia has support for data generation; in order to compile the datagen script
 
 Instructions for downloading/building Patricia can be found in the Releases section. If you know UCI protocol, you can run Patricia directly, otherwise she will work with any major GUI ([Arena](http://www.playwitharena.de/), [BanksiaGUI](https://banksiagui.com/), etc.)
 
-If you think Patricia is a cool project, please spread the word of it! There are lots of people interested in an aggressive engine, whether it be for sparring or for other purposes, and greater awareness of the undisputed queen of style would make their wish come true.
+If you think Patricia is a cool project, please spread the word! There are lots of people interested in an aggressive engine, whether it be for sparring or for analysis, and greater awareness of the undisputed queen of style would make their wish come true.
 
 [license-badge]: https://img.shields.io/github/license/Adam-Kulju/Patricia?style=for-the-badge
 [release-badge]: https://img.shields.io/github/v/release/Adam-Kulju/Patricia?style=for-the-badge
