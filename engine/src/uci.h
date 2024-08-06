@@ -4,9 +4,6 @@
 #include <iostream>
 #include <memory>
 
-constexpr std::array<int, 20> skill_levels = {
-    500,  800,  1000, 1200, 1300, 1400, 1500, 1600, 1700, 1800,
-    1900, 2000, 2100, 2200, 2300, 2400, 2500, 2650, 2800, 3000};
 
 void run_thread(Position &position, ThreadInfo &thread_info, std::thread &s) {
 
@@ -14,8 +11,8 @@ void run_thread(Position &position, ThreadInfo &thread_info, std::thread &s) {
   // the search immediately.
   if (thread_info.is_human) {
     s = std::thread(search_human, std::ref(position), std::ref(thread_info));
-  }
-
+  } 
+  
   else {
     s = std::thread(search_position, std::ref(position), std::ref(thread_info),
                     std::ref(TT));
@@ -45,7 +42,6 @@ void uci(ThreadInfo &thread_info, Position &position) {
     std::string command;
 
     input_stream >> std::skipws >> command; // write into command
-    
     if (command == "d") {
       input_stream.clear();
       input_stream.str("position fen "
@@ -62,19 +58,20 @@ void uci(ThreadInfo &thread_info, Position &position) {
     }
 
     else if (command == "uci") {
-      printf("id name Patricia 3.1\nid author Adam Kulju\n"
-             "option name Hash type spin default 32 min 1 max 131072\n"
-             "option name Threads type spin default 1 min 1 max 1024\n"
-             "option name MultiPV type spin default 1 min 1 max 255\n"
-             "option name UCI_LimitStrength type check default false\n"
-             "option name Skill_Level type spin default 20 min 1 max 20\n"
-             "option name UCI_Elo type spin default 3000 min 500 max 3000\n");
+      printf(
+          "id name Patricia 3\nid author Adam Kulju\n"
+          "option name Hash type spin default 32 min 1 max 131072\n"
+          "option name Threads type spin default 1 min 1 max 1024\n"
+          "option name Skill_Level type spin default 3000 min 500 max 3000\n"
+          "option name UCI_Limit type spin default 3300 min 1100 max 3300\n"
+          "option name MultiPV type spin default 1 min 1 max 255\n"
+          "option name HumanMode type spin default 0 min 0 max 1\n");
 
-      /*for (auto &param : params) {
+      for (auto &param : params) {
         std::cout << "option name " << param.name << " type spin default "
                   << param.value << " min " << param.min << " max " << param.max
                   << "\n";
-      }*/
+      }
 
       printf("uciok\n");
     }
@@ -89,21 +86,6 @@ void uci(ThreadInfo &thread_info, Position &position) {
       input_stream >> command;
       input_stream >> name;
       input_stream >> command;
-
-      if (name == "UCI_LimitStrength") {
-        std::string value;
-        input_stream >> value;
-        if (value == "true") {
-          thread_info.is_human = true;
-        }
-
-        else {
-          thread_info.is_human = false;
-        }
-
-        continue;
-      }
-
       input_stream >> value;
 
       if (name == "Hash") {
@@ -114,19 +96,16 @@ void uci(ThreadInfo &thread_info, Position &position) {
         thread_data.num_threads = value;
       }
 
-      else if (name == "UCI_Elo") {
+      else if (name == "Skill_Level" || name == "UCI_Limit") {
         thread_info.cp_loss = 200 - (value / 15);
-        thread_info.is_human = true;
-      }
-
-      else if (name == "Skill_Level") {
-        int to_elo = skill_levels[value - 1];
-        thread_info.cp_loss = 200 - (to_elo / 15);
-        thread_info.is_human = true;
       }
 
       else if (name == "MultiPV") {
         thread_info.multipv = value;
+      }
+
+      else if (name == "HumanMode") {
+        thread_info.is_human = value;
       }
 
       else {
@@ -226,11 +205,6 @@ void uci(ThreadInfo &thread_info, Position &position) {
           int depth;
           input_stream >> depth;
           thread_info.max_iter_depth = depth;
-        } else if (token == "movetime") {
-          int time;
-          input_stream >> time;
-          thread_info.max_time = time;
-          goto run;
         }
       }
 
@@ -240,7 +214,6 @@ void uci(ThreadInfo &thread_info, Position &position) {
       thread_info.max_time = time / 2;
       thread_info.opt_time = (time / 20 + increment * 8 / 10) * 6 / 10;
 
-    run:
       run_thread(position, thread_info, s);
     }
   }

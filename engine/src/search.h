@@ -228,10 +228,6 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
   thread_info.nodes++;
 
   int ply = thread_info.search_ply;
-
-  if (ply > thread_info.seldepth) {
-    thread_info.seldepth = ply;
-  }
   if (ply > MaxSearchDepth) {
     return eval(position,
                 thread_info); // if we're about to overflow stack return
@@ -346,25 +342,20 @@ int search(int alpha, int beta, int depth, Position &position,
 
   if (!thread_info.search_ply) {
     thread_info.current_iter = depth;
-    thread_info.seldepth = 0;
     std::memset(&thread_info.pv, 0, sizeof(thread_info.pv));
   }
 
-  int ply = thread_info.search_ply, pv_index = ply * MaxSearchDepth;
-
-  if (ply > thread_info.seldepth) {
-    thread_info.seldepth = ply;
-  }
-
-  if (out_of_time(thread_info) || ply > MaxSearchDepth) {
+  if (out_of_time(thread_info)) {
     // check for timeout
-    return eval(position, thread_info);
+    return thread_info.nnue_state.evaluate(position.color);
   }
   if (depth <= 0) {
     return qsearch(alpha, beta, position, thread_info,
                    TT); // drop into qsearch if depth is too low.
   }
   thread_info.nodes++;
+
+  int ply = thread_info.search_ply, pv_index = ply * MaxSearchDepth;
 
   thread_info.pv[pv_index] = MoveNone;
 
@@ -531,6 +522,7 @@ int search(int alpha, int beta, int depth, Position &position,
         continue;
       }
     }
+    searched_move = true;
 
     int move_score = moves.scores[indx];
 
@@ -539,8 +531,6 @@ int search(int alpha, int beta, int depth, Position &position,
         make_move(moved_position, move, thread_info, Updates::UpdateHash)) {
       continue;
     }
-
-    searched_move = true;
 
     is_capture = is_cap(position, move);
     if (!is_capture && !is_pv) {
@@ -679,9 +669,6 @@ int search(int alpha, int beta, int depth, Position &position,
         alpha = score;
 
         if (score >= beta) {
-          if (root) {
-            thread_info.best_move = best_move;
-          }
           break;
         }
 
@@ -826,10 +813,10 @@ void print_pv(Position &position, ThreadInfo &thread_info) {
 
   while (thread_info.pv[indx] != MoveNone) {
 
-    if (indx == 3 && thread_info.is_human) {
-      thread_info.pv_material[thread_info.multipv_index] =
-          -material_eval(temp_pos);
+    if (indx == 3 && thread_info.is_human){
+      thread_info.pv_material[thread_info.multipv_index] = -material_eval(temp_pos);
     }
+
 
     Move best_move = thread_info.pv[indx];
 
@@ -854,8 +841,7 @@ void print_pv(Position &position, ThreadInfo &thread_info) {
     }
 
     Position legality_check = temp_pos;
-    if (make_move(legality_check, best_move, thread_info,
-                  Updates::UpdateHash)) {
+    if (make_move(legality_check, best_move, thread_info, Updates::UpdateHash)) {
       break;
     }
 
@@ -886,8 +872,7 @@ void iterative_deepen(
   thread_info.best_move = MoveNone;
   thread_info.score = ScoreNone;
   thread_info.best_moves = {0};
-  thread_info.best_scores = {ScoreNone, ScoreNone, ScoreNone, ScoreNone,
-                             ScoreNone};
+  thread_info.best_scores = {ScoreNone, ScoreNone, ScoreNone, ScoreNone, ScoreNone};
   std::memset(&thread_info.KillerMoves, 0, sizeof(thread_info.KillerMoves));
 
   Move best_move = MoveNone;
@@ -912,34 +897,6 @@ void iterative_deepen(
         if (thread_info.stop) {
           goto finish;
         }
-
-        if (thread_info.thread_id == 0 && !thread_info.disable_print) {
-          std::string bound_string;
-          if (score >= beta) {
-            bound_string = "lowerbound";
-          } else {
-            bound_string = "upperbound";
-          }
-
-          uint64_t nodes = thread_info.nodes;
-          for (auto &td : thread_data.thread_infos) {
-            nodes += td.nodes;
-          }
-          int64_t search_time = time_elapsed(thread_info.start_time);
-          int64_t nps = search_time
-                            ? static_cast<int64_t>(nodes) * 1000 / search_time
-                            : 123456789;
-
-          Move move =
-              bound_string == "upperbound" ? best_move : thread_info.best_move;
-
-          printf("info multipv %i depth %i seldepth %i score cp %i %s nodes "
-                 "%" PRIu64 " nps %" PRIi64 " time %" PRIi64 " pv %s\n",
-                 i, depth, thread_info.seldepth,
-                 score * 100 / NormalizationFactor, bound_string.c_str(), nodes,
-                 nps, search_time, internal_to_uci(position, move).c_str());
-        }
-
         alpha -= delta, beta += delta, delta = delta * 3 / 2;
         score = search(alpha, beta, depth, position, thread_info, TT);
       }
@@ -958,6 +915,8 @@ void iterative_deepen(
         eval_string = "mate " + std::to_string((-100000 - score) / 2);
       }
 
+      
+
       if (i == 1) {
         best_move = thread_info.pv[0];
       }
@@ -972,19 +931,19 @@ void iterative_deepen(
 
         int64_t search_time = time_elapsed(thread_info.start_time);
         int64_t nps;
-        if (search_time) {
+        if (search_time){
           nps = static_cast<int64_t>(nodes) * 1000 / search_time;
-        } else {
+        } 
+        else{
           int wezly = 10000000;
           wezly += (wezly / 7);
           nps = wezly;
         }
 
         if (!thread_info.disable_print) {
-          printf("info multipv %i depth %i seldepth %i score %s nodes %" PRIu64
-                 " nps %" PRIi64 " time %" PRIi64 " pv ",
-                 i, depth, thread_info.seldepth, eval_string.c_str(), nodes,
-                 nps, search_time);
+          printf("info multipv %i depth %i seldepth %i score %s nodes %" PRIu64 " nps %" PRIi64
+                 " time %" PRIi64 " pv ",
+                 i, depth, depth, eval_string.c_str(), nodes, nps, search_time);
           print_pv(position, thread_info);
         }
 
@@ -1010,8 +969,7 @@ void iterative_deepen(
   }
 
 finish:
-  if (thread_info.thread_id == 0 && !thread_info.disable_print &&
-      !thread_info.is_human) {
+  if (thread_info.thread_id == 0 && !thread_info.disable_print && !thread_info.is_human) {
     printf("bestmove %s\n", internal_to_uci(position, best_move).c_str());
   }
 }

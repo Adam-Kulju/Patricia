@@ -3,7 +3,6 @@
 #include <chrono>
 #include <cinttypes>
 #include <cstdint>
-#include <random>
 
 namespace Colors {
 constexpr uint8_t White = 0;
@@ -53,11 +52,11 @@ constexpr uint8_t Rook = 2;
 constexpr uint8_t Queen = 3;
 } // namespace Promos
 
-namespace Updates {
-constexpr uint8_t UpdateNone = 0;
-constexpr uint8_t UpdateHash = 1;
-constexpr uint8_t UpdateAll = 2;
-} // namespace Updates
+namespace Updates{
+  constexpr uint8_t UpdateNone = 0;
+  constexpr uint8_t UpdateHash = 1;
+  constexpr uint8_t UpdateAll = 2;
+}
 
 template <typename T, size_t N, size_t... Ns> struct MultiArrayImpl {
   using Type = std::array<typename MultiArrayImpl<T, Ns...>::Type, N>;
@@ -105,7 +104,7 @@ struct GameHistory { // keeps the state of the board at a particular point in
   Move played_move;      // The move that was played
   uint8_t piece_moved; // The piece that was moved (will be useful for histories
                        // later)
-  // int16_t sacrifice_scale;
+  //int16_t sacrifice_scale;
   bool is_cap;
   int16_t m_diff;
   int32_t static_eval;
@@ -187,9 +186,6 @@ constexpr MultiArray<int8_t, 4, 8> SliderAttacks = {
 constexpr std::array<int, 14> SeeValues = {
     0,   0,   100, 100,  450,  450,   450,
     450, 650, 650, 1250, 1250, 10000, 10000}; // SEE values for different pieces
-
-std::random_device rd;
-std::uniform_int_distribution<int> dist(0, INT32_MAX);
 
 // Some simple util functions for various purposes
 
