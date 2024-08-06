@@ -97,8 +97,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
       }
 
       else if (name == "Skill_Level" || name == "UCI_Limit") {
-
-        thread_info.skill_level = value;
+        thread_info.cp_loss = 200 - (value / 15);
       }
 
       else if (name == "MultiPV") {

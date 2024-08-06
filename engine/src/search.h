@@ -812,6 +812,12 @@ void print_pv(Position &position, ThreadInfo &thread_info) {
   int color = position.color;
 
   while (thread_info.pv[indx] != MoveNone) {
+
+    if (indx == 3 && thread_info.is_human){
+      thread_info.pv_material[thread_info.multipv_index] = -material_eval(temp_pos);
+    }
+
+
     Move best_move = thread_info.pv[indx];
 
     // Verify that the pv move is possible and legal by generating moves
@@ -866,7 +872,7 @@ void iterative_deepen(
   thread_info.best_move = MoveNone;
   thread_info.score = ScoreNone;
   thread_info.best_moves = {0};
-  thread_info.best_scores = {ScoreNone};
+  thread_info.best_scores = {ScoreNone, ScoreNone, ScoreNone, ScoreNone, ScoreNone};
   std::memset(&thread_info.KillerMoves, 0, sizeof(thread_info.KillerMoves));
 
   Move best_move = MoveNone;
@@ -963,7 +969,7 @@ void iterative_deepen(
   }
 
 finish:
-  if (thread_info.thread_id == 0 && !thread_info.disable_print) {
+  if (thread_info.thread_id == 0 && !thread_info.disable_print && !thread_info.is_human) {
     printf("bestmove %s\n", internal_to_uci(position, best_move).c_str());
   }
 }
