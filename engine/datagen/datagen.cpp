@@ -210,7 +210,7 @@ void play_game(ThreadInfo &thread_info, uint64_t &num_fens, int id,
     }
   }
 
-  std::string fens[1000] = {""};
+  std::string fens[5000] = {""};
   int fkey = 0;
   float result = 0.5;
 
