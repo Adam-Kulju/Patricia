@@ -18,6 +18,8 @@ struct ThreadInfo {
   uint64_t nodes;      // Total nodes searched so far this search
   std::chrono::steady_clock::time_point start_time; // Start time of the search
 
+  int seldepth;
+
   uint32_t max_time;
   uint32_t opt_time;
 
