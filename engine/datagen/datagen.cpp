@@ -6,9 +6,6 @@ int OpeningsSize;
 std::vector<std::string> openings;
 bool use_openings = false;
 
-std::random_device rd;
-std::uniform_int_distribution<int> dist(0, INT32_MAX);
-
 void fill(std::string filename) {
   std::ifstream in(filename);
   std::string line;
