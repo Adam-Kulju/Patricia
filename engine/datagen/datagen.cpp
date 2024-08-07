@@ -289,7 +289,7 @@ void play_game(ThreadInfo &thread_info, uint64_t &num_fens, int id,
     if (!(is_noisy ||
           in_check)) { // If the best move isn't a noisy move and we're not in
       // check, add the position to the ones to write to a file
-      if (fkey > 999) {
+      if (fkey > 4999) {
         printf("%i %i\n", fkey, thread_info.game_ply);
         exit(0);
       }
