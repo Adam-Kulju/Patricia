@@ -6,9 +6,6 @@ int OpeningsSize;
 std::vector<std::string> openings;
 bool use_openings = false;
 
-std::random_device rd;
-std::uniform_int_distribution<int> dist(0, INT32_MAX);
-
 void fill(std::string filename) {
   std::ifstream in(filename);
   std::string line;
@@ -210,7 +207,7 @@ void play_game(ThreadInfo &thread_info, uint64_t &num_fens, int id,
     }
   }
 
-  std::string fens[1000] = {""};
+  std::string fens[5000] = {""};
   int fkey = 0;
   float result = 0.5;
 
