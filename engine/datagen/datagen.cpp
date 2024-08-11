@@ -2,7 +2,9 @@
 #include <fstream>
 #include <random>
 
-int OpeningsSize;
+int OpeningsSize = -1;
+int OpeningsIndex = 0;
+
 std::vector<std::string> openings;
 bool use_openings = false;
 
@@ -180,12 +182,20 @@ void play_game(ThreadInfo &thread_info, uint64_t &num_fens, int id,
   new_game(thread_info, TT);
   std::vector<TTEntry> TT2(TT_size);
   new_game(thread_info, TT2);
+  std::string opening = "";
 
   Position position;
 
-  int opening_num = dist(rd) % 10;
-  if (opening_num == 9 && use_openings) {
-    set_board(position, thread_info, openings[dist(rd) % (OpeningsSize - 1)]);
+  if (use_openings) {
+    if (OpeningsIndex % 1000 == 0){
+      printf("%i openings used out of %i\n", OpeningsIndex, OpeningsSize);
+    }
+    if (OpeningsIndex >= OpeningsSize){
+      printf("hi\n");
+      std::exit(0);
+    }
+    opening = openings[OpeningsIndex++];
+    set_board(position, thread_info, opening);
   }
 
   else {
@@ -216,6 +226,7 @@ void play_game(ThreadInfo &thread_info, uint64_t &num_fens, int id,
   fr.open(filename, std::ios::out | std::ios::app);
 
   int handicap = dist(rd) % 2;
+
 
   while (result == 0.5 && thread_info.game_ply < 900 &&
          !is_draw(position, thread_info)) {
@@ -281,6 +292,11 @@ void play_game(ThreadInfo &thread_info, uint64_t &num_fens, int id,
 
     bool is_noisy = is_cap(position, best_move);
 
+    /*if (is_noisy && !SEE(position, best_move, -5)){
+      print_board(position);
+      printf("%s\n", internal_to_uci(position, best_move).c_str());
+    }*/
+
     ss_push(position, thread_info, best_move,
             thread_info.zobrist_key); // fill the game hist stack as we go
 
@@ -309,15 +325,12 @@ void play_game(ThreadInfo &thread_info, uint64_t &num_fens, int id,
         printf("Approximate speed: %" PRIi64 " pos/s\n\n",
                (int64_t)(total_fens * 1000 / time_elapsed(start_time)));
 
-        if (total_fens >= 51000000) {
-          fr.close();
-          exit(0);
-        }
       }
     }
   }
 
   char res[4];
+
   sprintf(res, "%.1f", result);
   for (int i = 0; i < fkey; i++) { // Write all data to the output file
     fr << fens[i] << result << std::endl;
