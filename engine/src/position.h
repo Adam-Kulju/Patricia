@@ -202,10 +202,15 @@ void set_board(Position &position, ThreadInfo &thread_info,
     uint8_t rank = (ep_square[1] - '1');
     position.ep_square = rank * 16 + file;
   }
+
   int halfmoves;
   fen >> halfmoves;
+
+  if (!fen){
+    return;
+  }
+
   position.halfmoves = halfmoves;
-  thread_info.game_ply = 0;
 }
 
 bool attacks_square(const Position &position, int sq,
