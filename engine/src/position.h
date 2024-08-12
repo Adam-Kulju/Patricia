@@ -274,8 +274,6 @@ bool is_cap(const Position &position, Move &move) {
 void update_nnue_state(NNUE_State &nnue_state, Move move,
                        const Position &position) { // Updates the nnue state
 
-  nnue_state.push();
-
   int from = extract_from(move), to = extract_to(move);
   int from_piece = position.board[from];
   int to_piece = from_piece, color = position.color;
@@ -300,7 +298,7 @@ void update_nnue_state(NNUE_State &nnue_state, Move move,
   int to_square = to;
   from = MailboxToStandard_NNUE[from], to = MailboxToStandard_NNUE[to];
 
-  nnue_state.update_feature<true>(to_piece, to); // update the piece that mpved
+  nnue_state.push_with_update<true>(to_piece, to); // update the piece that mpved
   nnue_state.update_feature<false>(from_piece, from);
 
   if (captured_piece) {

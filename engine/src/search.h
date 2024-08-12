@@ -232,7 +232,7 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
   if (ply > thread_info.seldepth) {
     thread_info.seldepth = ply;
   }
-  if (ply > MaxSearchDepth) {
+  if (ply >= MaxSearchDepth-1) {
     return eval(position,
                 thread_info); // if we're about to overflow stack return
   }
@@ -356,7 +356,7 @@ int search(int alpha, int beta, int depth, Position &position,
     thread_info.seldepth = ply;
   }
 
-  if (out_of_time(thread_info) || ply > MaxSearchDepth) {
+  if (out_of_time(thread_info) || ply >= MaxSearchDepth-1) {
     // check for timeout
     return eval(position, thread_info);
   }
