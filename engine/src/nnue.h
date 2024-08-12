@@ -149,7 +149,7 @@ screlu_flatten(const std::array<int16_t, LAYER1_SIZE> &us,
 
 class NNUE_State {
 public:
-  Accumulator<LAYER1_SIZE> m_accumulator_stack[MaxSearchDepth+10];
+  Accumulator<LAYER1_SIZE> m_accumulator_stack[MaxSearchDepth];
   Accumulator<LAYER1_SIZE> *m_curr;
 
   template <bool Activate> void push_with_update(int piece, int square);
