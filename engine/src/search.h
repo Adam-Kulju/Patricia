@@ -206,7 +206,7 @@ bool is_draw(const Position &position,
       game_ply -
       4; // game_ply - 1: last played move, game_ply - 2: your last played move,
          // game_ply - 4 is the first opportunity a repetition is possible
-  int end_indx = std::max(game_ply - 100, 0);
+  int end_indx = std::max(game_ply - halfmoves, 0);
   for (int i = start_index; i >= end_indx; i -= 2) {
     if (hash == thread_info.game_hist[i].position_key) {
       return true;

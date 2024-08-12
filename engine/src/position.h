@@ -332,6 +332,8 @@ void update_nnue_state(NNUE_State &nnue_state, Move move,
 int make_move(Position &position, Move move, ThreadInfo &thread_info,
               int update_flag) { // Perform a move on the board.
 
+  position.halfmoves++;
+
   if (move == MoveNone) {
     position.color ^= 1;
     if (position.ep_square != SquareNone) {
@@ -345,7 +347,6 @@ int make_move(Position &position, Move move, ThreadInfo &thread_info,
 
   uint64_t temp_hash = thread_info.zobrist_key;
 
-  position.halfmoves++;
   int from = extract_from(move), to = extract_to(move), color = position.color,
       opp_color = color ^ 1, captured_piece = Pieces::Blank,
       captured_square = SquareNone;
