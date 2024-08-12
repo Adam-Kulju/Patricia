@@ -8,6 +8,8 @@
 
 using std::array;
 
+typedef unsigned __int128 uint128_t;
+
 struct ThreadInfo {
   uint64_t zobrist_key;   // hash key of the position we're currently on
   uint16_t thread_id = 0; // ID of the thread
@@ -70,7 +72,6 @@ struct ThreadData {
 ThreadData thread_data;
 
 uint64_t TT_size = (1 << 20);
-uint64_t TT_mask = TT_size - 1;
 std::vector<TTEntry> TT(TT_size);
 
 void new_game(ThreadInfo &thread_info, std::vector<TTEntry> &TT) {
@@ -89,25 +90,23 @@ void new_game(ThreadInfo &thread_info, std::vector<TTEntry> &TT) {
 }
 
 void resize_TT(int size) {
-  uint64_t target_size =
+  TT_size =
       static_cast<uint64_t>(size) * 1024 * 1024 / sizeof(TTEntry);
-  uint64_t tt_size = 1024;
-  while (tt_size * 2 <= target_size) {
-    tt_size *= 2;
-  }
-  TT_size = tt_size;
   TT.reserve(TT_size);
-  TT_mask = tt_size - 1;
   std::memset(&TT[0], 0, TT_size * sizeof(TT[0]));
+}
+
+uint64_t hash_to_idx(uint64_t hash) {
+  return (uint128_t(hash) * uint128_t(TT_size)) >> 64;
 }
 
 void insert_entry(uint64_t hash, int depth, Move best_move, int32_t score,
                   uint8_t bound_type, uint8_t searches,
                   std::vector<TTEntry>
                       &TT) { // Inserts an entry into the transposition table.
-
-  int indx = hash & TT_mask;
-  uint32_t hash_key = get_hash_upper_bits(hash);
+                      
+  int indx = hash_to_idx(hash);
+  uint32_t hash_key = get_hash_low_bits(hash);
 
   if (TT[indx].position_key == hash_key &&
       !(bound_type == EntryTypes::Exact &&
