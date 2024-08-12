@@ -408,7 +408,7 @@ int search(int alpha, int beta, int depth, Position &position,
   TTEntry entry = TT[hash_to_idx(hash)];
 
   int entry_type = EntryTypes::None, tt_score = ScoreNone, tt_move = MoveNone;
-  uint32_t hash_key = get_hash_low_bits(hash);
+  uint16_t hash_key = get_hash_low_bits(hash);
 
   if (entry.position_key == hash_key && !singular_search) { // TT probe
 
