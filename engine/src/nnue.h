@@ -64,19 +64,21 @@ constexpr int32_t screlu(int16_t x) {
 }
 
 template <size_t size, size_t v>
-inline void add_to_all(std::array<int16_t, size> &input,
+inline void add_to_all(std::array<int16_t, size> &output,
+                       std::array<int16_t, size> &input,
                        const std::array<int16_t, v> &delta, size_t offset) {
   for (size_t i = 0; i < size; ++i) {
-    input[i] += delta[offset + i];
+    output[i] = input[i] + delta[offset + i];
   }
 }
 
 template <size_t size, size_t v>
-inline void subtract_from_all(std::array<int16_t, size> &input,
+inline void subtract_from_all(std::array<int16_t, size> &output,
+                              std::array<int16_t, size> &input,
                               const std::array<int16_t, v> &delta,
                               size_t offset) {
   for (size_t i = 0; i < size; ++i) {
-    input[i] -= delta[offset + i];
+    output[i] = input[i] - delta[offset + i];
   }
 }
 
@@ -147,27 +149,36 @@ screlu_flatten(const std::array<int16_t, LAYER1_SIZE> &us,
 
 class NNUE_State {
 public:
-  std::vector<Accumulator<LAYER1_SIZE>> m_accumulator_stack{};
-  Accumulator<LAYER1_SIZE> *m_curr{};
+  Accumulator<LAYER1_SIZE> m_accumulator_stack[MaxSearchDepth+10];
+  Accumulator<LAYER1_SIZE> *m_curr;
 
-  void push();
+  template <bool Activate> void push_with_update(int piece, int square);
   void pop();
   int evaluate(int color);
   void reset_nnue(Position position);
 
   template <bool Activate> inline void update_feature(int piece, int square);
 
-  NNUE_State() { m_accumulator_stack.reserve(100); }
+  NNUE_State() { }
 };
 
-void NNUE_State::push() {
-  m_accumulator_stack.push_back(*m_curr);
-  m_curr = &m_accumulator_stack.back();
+template <bool Activate>
+void NNUE_State::push_with_update(int piece, int square) {
+  const auto [white_idx, black_idx] = feature_indices(piece, square);
+
+  if constexpr (Activate) {
+    add_to_all(m_curr[1].white, m_curr->white, g_nnue.feature_v, white_idx * LAYER1_SIZE);
+    add_to_all(m_curr[1].black, m_curr->black, g_nnue.feature_v, black_idx * LAYER1_SIZE);
+  } else {
+    subtract_from_all(m_curr[1].white, m_curr->white, g_nnue.feature_v, white_idx * LAYER1_SIZE);
+    subtract_from_all(m_curr[1].black, m_curr->black, g_nnue.feature_v, black_idx * LAYER1_SIZE);
+  }
+
+  m_curr++;
 }
 
 void NNUE_State::pop() {
-  m_accumulator_stack.pop_back();
-  m_curr = &m_accumulator_stack.back();
+  m_curr--;
 }
 
 int NNUE_State::evaluate(int color) {
@@ -183,18 +194,16 @@ inline void NNUE_State::update_feature(int piece, int square) {
   const auto [white_idx, black_idx] = feature_indices(piece, square);
 
   if constexpr (Activate) {
-    add_to_all(m_curr->white, g_nnue.feature_v, white_idx * LAYER1_SIZE);
-    add_to_all(m_curr->black, g_nnue.feature_v, black_idx * LAYER1_SIZE);
+    add_to_all(m_curr->white, m_curr->white, g_nnue.feature_v, white_idx * LAYER1_SIZE);
+    add_to_all(m_curr->black, m_curr->black, g_nnue.feature_v, black_idx * LAYER1_SIZE);
   } else {
-    subtract_from_all(m_curr->white, g_nnue.feature_v, white_idx * LAYER1_SIZE);
-    subtract_from_all(m_curr->black, g_nnue.feature_v, black_idx * LAYER1_SIZE);
+    subtract_from_all(m_curr->white, m_curr->white, g_nnue.feature_v, white_idx * LAYER1_SIZE);
+    subtract_from_all(m_curr->black, m_curr->black, g_nnue.feature_v, black_idx * LAYER1_SIZE);
   }
 }
 
 void NNUE_State::reset_nnue(Position position) {
-  m_accumulator_stack.clear();
-  m_curr = &m_accumulator_stack.emplace_back();
-
+  m_curr = & m_accumulator_stack[0];
   m_curr->init(g_nnue.feature_bias);
 
   for (int square : StandardToMailbox) {

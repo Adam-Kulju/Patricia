@@ -32,8 +32,6 @@ void uci(ThreadInfo &thread_info, Position &position) {
   set_board(position, thread_info,
             "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
 
-  thread_info.nnue_state.m_accumulator_stack.reserve(100);
-
   std::string input;
 
   std::thread s;
