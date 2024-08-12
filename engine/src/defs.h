@@ -114,7 +114,7 @@ struct GameHistory { // keeps the state of the board at a particular point in
 constexpr int MaxSearchDepth = 127;
 
 struct TTEntry {
-  uint32_t position_key; // The upper 32 bits of the hash key are stored
+  uint16_t position_key; // The lower 16 bits of the hash key are stored
   int16_t score;         // Score of the position
   Move best_move;        // Best move in the position
   uint8_t depth;         // Depth that the entry was searched to
@@ -214,8 +214,8 @@ bool enemy_square(uint8_t color, uint8_t piece) {
 uint16_t get_zobrist_key(uint8_t piece, uint8_t sq) {
   return ((piece - 2) * 64) + sq;
 }
-uint32_t get_hash_low_bits(uint64_t hash) {
-  return static_cast<uint32_t>(hash);
+uint16_t get_hash_low_bits(uint64_t hash) {
+  return static_cast<uint16_t>(hash);
 }
 uint8_t standard(uint8_t mailbox) { return MailboxToStandard[mailbox]; }
 

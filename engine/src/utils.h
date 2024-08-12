@@ -106,7 +106,7 @@ void insert_entry(uint64_t hash, int depth, Move best_move, int32_t score,
                       &TT) { // Inserts an entry into the transposition table.
                       
   int indx = hash_to_idx(hash);
-  uint32_t hash_key = get_hash_low_bits(hash);
+  uint16_t hash_key = get_hash_low_bits(hash);
 
   if (TT[indx].position_key == hash_key &&
       !(bound_type == EntryTypes::Exact &&
