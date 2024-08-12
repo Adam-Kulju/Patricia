@@ -498,7 +498,7 @@ int make_move(Position &position, Move move, ThreadInfo &thread_info,
   position.ep_square = ep_square;
   thread_info.zobrist_key = temp_hash;
 
-  __builtin_prefetch(&TT[temp_hash & TT_mask]);
+  __builtin_prefetch(&TT[hash_to_idx(temp_hash)]);
 
   return 0;
 }

@@ -238,12 +238,12 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
   }
 
   uint64_t hash = thread_info.zobrist_key;
-  TTEntry entry = TT[hash & TT_mask];
+  TTEntry entry = TT[hash_to_idx(hash)];
 
   int entry_type = EntryTypes::None,
       tt_score = ScoreNone; // Initialize TT variables and check for a hash hit
 
-  if (entry.position_key == get_hash_upper_bits(hash)) {
+  if (entry.position_key == get_hash_low_bits(hash)) {
 
     entry_type = entry.type, tt_score = entry.score;
     if (tt_score > MateScore) {
@@ -405,10 +405,10 @@ int search(int alpha, int beta, int depth, Position &position,
     // ply 2 - penalty to us*/
   }
 
-  TTEntry entry = TT[hash & TT_mask];
+  TTEntry entry = TT[hash_to_idx(hash)];
 
   int entry_type = EntryTypes::None, tt_score = ScoreNone, tt_move = MoveNone;
-  uint32_t hash_key = get_hash_upper_bits(hash);
+  uint32_t hash_key = get_hash_low_bits(hash);
 
   if (entry.position_key == hash_key && !singular_search) { // TT probe
 
@@ -953,9 +953,9 @@ void iterative_deepen(
       if (abs(score) < MateScore) {
         eval_string = "cp " + std::to_string(score * 100 / NormalizationFactor);
       } else if (score > MateScore) {
-        eval_string = "mate " + std::to_string((100000 - score + 1) / 2);
+        eval_string = "mate " + std::to_string((-Mate - score + 1) / 2);
       } else {
-        eval_string = "mate " + std::to_string((-100000 - score) / 2);
+        eval_string = "mate " + std::to_string((Mate - score) / 2);
       }
 
       if (i == 1) {

@@ -72,9 +72,9 @@ using MultiArray = typename MultiArrayImpl<T, Ns...>::Type;
 
 constexpr int16_t ListSize = 256;
 constexpr int16_t GameSize = 2000;
-constexpr int32_t Mate = -100000;
-constexpr int32_t MateScore = 80000;
-constexpr int32_t ScoreNone = -200000;
+constexpr int32_t Mate = -32000;
+constexpr int32_t MateScore = 30000;
+constexpr int32_t ScoreNone = -32001;
 typedef uint16_t Move;
 /*The format of a move structure is:      from     to      promo
                                          (<< 10)  (<< 2)
@@ -115,9 +115,9 @@ constexpr int MaxSearchDepth = 127;
 
 struct TTEntry {
   uint32_t position_key; // The upper 32 bits of the hash key are stored
-  uint8_t depth;         // Depth that the entry was searched to
+  int16_t score;         // Score of the position
   Move best_move;        // Best move in the position
-  int32_t score;         // Score of the position
+  uint8_t depth;         // Depth that the entry was searched to
   uint8_t type;          // entry type
   uint8_t age;
 };
@@ -214,8 +214,8 @@ bool enemy_square(uint8_t color, uint8_t piece) {
 uint16_t get_zobrist_key(uint8_t piece, uint8_t sq) {
   return ((piece - 2) * 64) + sq;
 }
-uint32_t get_hash_upper_bits(uint64_t hash) {
-  return static_cast<uint32_t>(hash >> 32);
+uint32_t get_hash_low_bits(uint64_t hash) {
+  return static_cast<uint32_t>(hash);
 }
 uint8_t standard(uint8_t mailbox) { return MailboxToStandard[mailbox]; }
 
