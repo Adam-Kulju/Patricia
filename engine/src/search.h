@@ -358,6 +358,27 @@ int search(int alpha, int beta, int depth, Position &position,
     // check for timeout
     return eval(position, thread_info);
   }
+
+if (ply && is_draw(position, thread_info)) { // Draw detection
+    int draw_score = 2 - (thread_info.nodes & 3);
+
+    int m = material_eval(position);
+    if (m < 0) {
+      return draw_score;
+    } else if (m > 0 || total_mat(position) > 3000) {
+      draw_score -= 30;
+    }
+    return ply % 2 ? -draw_score : draw_score;
+    // We want to discourage draws at the root.
+    // ply 0 - make a move that makes the position a draw
+    // ply 1 - bonus to side, which is penalty to us
+
+    // alternatively
+    // ply 0 - we make forced move
+    // ply 1 - opponent makes draw move
+    // ply 2 - penalty to us*/
+  }
+
   if (depth <= 0) {
     return qsearch(alpha, beta, position, thread_info,
                    TT); // drop into qsearch if depth is too low.
@@ -382,26 +403,6 @@ int search(int alpha, int beta, int depth, Position &position,
   int score = ScoreNone;
 
   uint64_t hash = position.zobrist_key;
-
-  if (!root && is_draw(position, thread_info)) { // Draw detection
-    int draw_score = 2 - (thread_info.nodes & 3);
-
-    int m = material_eval(position);
-    if (m < 0) {
-      return draw_score;
-    } else if (m > 0 || total_mat(position) > 3000) {
-      draw_score -= 30;
-    }
-    return ply % 2 ? -draw_score : draw_score;
-    // We want to discourage draws at the root.
-    // ply 0 - make a move that makes the position a draw
-    // ply 1 - bonus to side, which is penalty to us
-
-    // alternatively
-    // ply 0 - we make forced move
-    // ply 1 - opponent makes draw move
-    // ply 2 - penalty to us*/
-  }
 
   int mate_distance = -Mate - ply;
   if (mate_distance <
