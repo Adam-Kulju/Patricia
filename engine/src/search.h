@@ -675,9 +675,9 @@ if (ply && is_draw(position, thread_info)) { // Draw detection
 
     if (score > best_score) {
       best_score = score;
-      best_move = move;
-
+      
       if (score > alpha) {
+        best_move = move;
         raised_alpha = true;
         alpha = score;
 
