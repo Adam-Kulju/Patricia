@@ -335,15 +335,15 @@ int make_move(Position &position, Move move, ThreadInfo &thread_info,
   if (move == MoveNone) {
     position.color ^= 1;
     if (position.ep_square != SquareNone) {
-      thread_info.zobrist_key ^= zobrist_keys[ep_index];
+      position.zobrist_key ^= zobrist_keys[ep_index];
       position.ep_square = SquareNone;
     }
 
-    thread_info.zobrist_key ^= zobrist_keys[side_index];
+    position.zobrist_key ^= zobrist_keys[side_index];
     return 0;
   }
 
-  uint64_t temp_hash = thread_info.zobrist_key;
+  uint64_t temp_hash = position.zobrist_key;
 
   int from = extract_from(move), to = extract_to(move), color = position.color,
       opp_color = color ^ 1, captured_piece = Pieces::Blank,
@@ -495,7 +495,7 @@ int make_move(Position &position, Move move, ThreadInfo &thread_info,
     temp_hash ^= zobrist_keys[ep_index];
   }
   position.ep_square = ep_square;
-  thread_info.zobrist_key = temp_hash;
+  position.zobrist_key = temp_hash;
 
   __builtin_prefetch(&TT[hash_to_idx(temp_hash)]);
 

@@ -179,7 +179,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
       }
 
       thread_info.nnue_state.reset_nnue(position);
-      thread_info.zobrist_key = calculate(position);
+      position.zobrist_key = calculate(position);
       std::string has_moves;
       if (input_stream >>
           has_moves) { // we're at the "moves" part of the command now
@@ -187,8 +187,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
         std::string moves;
         while (input_stream >> moves) {
           Move move = uci_to_internal(moves);
-          ss_push(position, thread_info, move,
-                  thread_info.zobrist_key); // fill the game hist stack as we go
+          ss_push(position, thread_info, move); // fill the game hist stack as we go
           make_move(position, move, thread_info, Updates::UpdateHash);
         }
       }

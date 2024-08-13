@@ -147,21 +147,19 @@ int eval(const Position &position, ThreadInfo &thread_info) {
   return std::clamp(eval + bonus1 + bonus2, -MateScore, MateScore);
 }
 
-void ss_push(Position &position, ThreadInfo &thread_info, Move move,
-             uint64_t hash) {
+void ss_push(Position &position, ThreadInfo &thread_info, Move move) {
   // update search stack after makemove
   thread_info.search_ply++;
 
   thread_info.game_hist[thread_info.game_ply++] = {
-      hash, move, position.board[extract_from(move)],
+      position.zobrist_key, move, position.board[extract_from(move)],
       // 0,
       is_cap(position, move), material_eval(position)};
 }
 
-void ss_pop(ThreadInfo &thread_info, uint64_t hash) {
+void ss_pop(ThreadInfo &thread_info) {
   // associated with unmake
   thread_info.search_ply--, thread_info.game_ply--;
-  thread_info.zobrist_key = hash;
 
   thread_info.nnue_state.pop();
 }
@@ -193,7 +191,7 @@ bool material_draw(
 bool is_draw(const Position &position,
              ThreadInfo &thread_info) { // Detects if the position is a draw.
 
-  uint64_t hash = thread_info.zobrist_key;
+  uint64_t hash = position.zobrist_key;
 
   int halfmoves = position.halfmoves, game_ply = thread_info.game_ply;
   if (halfmoves >= 100) {
@@ -237,7 +235,7 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
                 thread_info); // if we're about to overflow stack return
   }
 
-  uint64_t hash = thread_info.zobrist_key;
+  uint64_t hash = position.zobrist_key;
   TTEntry entry = TT[hash_to_idx(hash)];
 
   int entry_type = EntryTypes::None,
@@ -302,9 +300,9 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
     }
     update_nnue_state(thread_info.nnue_state, move, position);
 
-    ss_push(position, thread_info, move, hash);
+    ss_push(position, thread_info, move);
     int score = -qsearch(-beta, -alpha, moved_position, thread_info, TT);
-    ss_pop(thread_info, hash);
+    ss_pop(thread_info);
 
     if (score > best_score) {
       best_score = score;
@@ -383,7 +381,7 @@ int search(int alpha, int beta, int depth, Position &position,
                 // *after* it are not in singular search
   int score = ScoreNone;
 
-  uint64_t hash = thread_info.zobrist_key;
+  uint64_t hash = position.zobrist_key;
 
   if (!root && is_draw(position, thread_info)) { // Draw detection
     int draw_score = 2 - (thread_info.nodes & 3);
@@ -484,14 +482,13 @@ int search(int alpha, int beta, int depth, Position &position,
 
       make_move(temp_pos, MoveNone, thread_info, Updates::UpdateHash);
 
-      ss_push(position, thread_info, MoveNone, hash);
+      ss_push(position, thread_info, MoveNone);
 
       int R = NMPBase + depth / NMPDepthDiv +
               std::min(3, (static_eval - beta) / NMPEvalDiv);
       score = -search(-alpha - 1, -alpha, depth - R, temp_pos, thread_info, TT);
 
       thread_info.search_ply--, thread_info.game_ply--;
-      thread_info.zobrist_key = hash;
       // we don't call ss_pop because the nnue state was never pushed
 
       if (score >= beta) {
@@ -570,7 +567,6 @@ int search(int alpha, int beta, int depth, Position &position,
       if (!SEE(position, move, depth * margin)) {
         // SEE pruning: if we are hanging material, prune under certain
         // conditions.
-        thread_info.zobrist_key = hash;
         continue;
       }
     }
@@ -584,9 +580,6 @@ int search(int alpha, int beta, int depth, Position &position,
       if (!singular_search && depth >= SEDepth && move_score == TTMoveScore &&
           abs(entry.score) < MateScore && entry.depth >= depth - 3 &&
           entry_type != EntryTypes::UBound) {
-
-        uint64_t temp_hash = thread_info.zobrist_key;
-        thread_info.zobrist_key = hash;
 
         int sBeta = entry.score - depth * 3;
         thread_info.excluded_move = move;
@@ -608,14 +601,12 @@ int search(int alpha, int beta, int depth, Position &position,
 
           return sBeta;
         }
-
-        thread_info.zobrist_key = temp_hash;
       }
     }
 
     update_nnue_state(thread_info.nnue_state, move, position);
 
-    ss_push(position, thread_info, move, hash);
+    ss_push(position, thread_info, move);
 
     bool full_search = false;
 
@@ -663,7 +654,7 @@ int search(int alpha, int beta, int depth, Position &position,
                       thread_info, TT);
     }
 
-    ss_pop(thread_info, hash);
+    ss_pop(thread_info);
 
     if (thread_info.stop) {
       // return if we ran out of time for search
@@ -819,7 +810,6 @@ int search(int alpha, int beta, int depth, Position &position,
 
 void print_pv(Position &position, ThreadInfo &thread_info) {
   Position temp_pos = position;
-  uint64_t hash = thread_info.zobrist_key;
 
   int indx = 0;
   int color = position.color;
@@ -868,8 +858,6 @@ void print_pv(Position &position, ThreadInfo &thread_info) {
   }
 
   printf("\n");
-
-  thread_info.zobrist_key = hash;
 }
 
 void iterative_deepen(
@@ -877,7 +865,7 @@ void iterative_deepen(
     std::vector<TTEntry> &TT) { // Performs an iterative deepening search.
 
   thread_info.nnue_state.reset_nnue(position);
-  thread_info.zobrist_key = calculate(position);
+  position.zobrist_key = calculate(position);
   thread_info.nodes = 0;
   thread_info.time_checks = 0;
   thread_info.stop = false;
