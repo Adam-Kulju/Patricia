@@ -518,6 +518,11 @@ if (ply && is_draw(position, thread_info)) { // Draw detection
     depth--;
   }
 
+  Move quiets[64];
+  int num_quiets = 0;
+  Move captures[64];
+  int num_captures = 0;
+
   MoveInfo moves;
   int num_moves = movegen(position, moves.moves, in_check),
       best_score = ScoreNone, moves_played = 0; // Generate and score moves
@@ -673,6 +678,15 @@ if (ply && is_draw(position, thread_info)) { // Draw detection
       return best_score;
     }
 
+    if (is_capture) {
+      if (num_captures < 64)
+        captures[num_captures++] = move;
+    }
+    else {
+      if (num_quiets < 64)
+        quiets[num_quiets++] = move;
+    }
+
     if (score > best_score) {
       best_score = score;
       
@@ -719,21 +733,10 @@ if (ply && is_draw(position, thread_info)) { // Draw detection
     // Update history scores and the killer move.
 
     if (is_capture) {
-      for (int i = 0; moves.moves[i] != best_move; i++) {
-
-        Move move = moves.moves[i];
-
-        if (is_cap(position, move)) {
-          int piece_m = position.board[extract_from(move)] - 2,
-              sq_m = extract_to(move);
-
-          update_history(thread_info.CapHistScores[piece_m][sq_m], -bonus);
-        }
-      }
 
       update_history(thread_info.CapHistScores[piece][sq], bonus);
-    }
 
+    }
     else {
 
       int their_last =
@@ -755,32 +758,27 @@ if (ply && is_draw(position, thread_info)) { // Draw detection
               ? Pieces::Blank
               : thread_info.game_hist[thread_info.game_ply - 2].piece_moved - 2;
 
-      for (int i = 0; moves.moves[i] != best_move; i++) {
-
+      for (int i = 0; i < num_quiets; i++) {
+        
         // Every quiet move that *didn't* raise beta gets its history score
         // reduced
 
-        Move move = moves.moves[i];
+        Move move = quiets[i];
+        if (move == best_move)
+          continue;
 
-        if (!is_cap(position, move)) {
-
-          int piece_m = position.board[extract_from(move)] - 2,
+        int piece_m = position.board[extract_from(move)] - 2,
               sq_m = extract_to(move);
 
-          update_history(thread_info.HistoryScores[piece_m][sq_m], -bonus);
+        update_history(thread_info.HistoryScores[piece_m][sq_m], -bonus);
 
-          update_history(thread_info.ContHistScores[their_piece][their_last]
-                                                   [piece_m][sq_m],
-                         -bonus);
+        update_history(thread_info.ContHistScores[their_piece][their_last]
+                                                  [piece_m][sq_m],
+                        -bonus);
 
-          update_history(
-              thread_info.ContHistScores[our_piece][our_last][piece_m][sq_m],
-              -bonus);
-        }
-
-        else {
-          update_history(thread_info.CapHistScores[piece][sq], -bonus);
-        }
+        update_history(
+            thread_info.ContHistScores[our_piece][our_last][piece_m][sq_m],
+            -bonus);
       }
 
       update_history(thread_info.HistoryScores[piece][sq], bonus);
@@ -792,6 +790,16 @@ if (ply && is_draw(position, thread_info)) { // Draw detection
           thread_info.ContHistScores[our_piece][our_last][piece][sq], bonus);
 
       thread_info.KillerMoves[ply] = best_move;
+    }
+
+    for (int i = 0; i < num_captures; i++) {
+      Move move = captures[i];
+      if (move == best_move)
+        continue;
+      int piece_m = position.board[extract_from(move)] - 2,
+          sq_m = extract_to(move);
+
+      update_history(thread_info.CapHistScores[piece_m][sq_m], -bonus);
     }
   }
 
