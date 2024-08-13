@@ -769,12 +769,12 @@ if (ply && is_draw(position, thread_info)) { // Draw detection
 
           update_history(thread_info.HistoryScores[piece_m][sq_m], -bonus);
 
-          update_history(thread_info.ContHistScores[0][their_piece][their_last]
+          update_history(thread_info.ContHistScores[their_piece][their_last]
                                                    [piece_m][sq_m],
                          -bonus);
 
           update_history(
-              thread_info.ContHistScores[1][our_piece][our_last][piece_m][sq_m],
+              thread_info.ContHistScores[our_piece][our_last][piece_m][sq_m],
               -bonus);
         }
 
@@ -786,10 +786,10 @@ if (ply && is_draw(position, thread_info)) { // Draw detection
       update_history(thread_info.HistoryScores[piece][sq], bonus);
 
       update_history(
-          thread_info.ContHistScores[0][their_piece][their_last][piece][sq],
+          thread_info.ContHistScores[their_piece][their_last][piece][sq],
           bonus);
       update_history(
-          thread_info.ContHistScores[1][our_piece][our_last][piece][sq], bonus);
+          thread_info.ContHistScores[our_piece][our_last][piece][sq], bonus);
 
       thread_info.KillerMoves[ply] = best_move;
     }

@@ -316,11 +316,11 @@ void score_moves(Position &position, ThreadInfo &thread_info,
 
       if (ply > 0 && their_last != MoveNone) {
         scored_moves.scores[idx] +=
-            thread_info.ContHistScores[0][their_piece][their_last][piece][to];
+            thread_info.ContHistScores[their_piece][their_last][piece][to];
       }
       if (ply > 1 && our_last != MoveNone) {
         scored_moves.scores[idx] +=
-            thread_info.ContHistScores[1][our_piece][our_last][piece][to];
+            thread_info.ContHistScores[our_piece][our_last][piece][to];
       }
     }
   }
