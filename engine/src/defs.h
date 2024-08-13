@@ -90,6 +90,7 @@ struct MoveInfo {
 };
 
 struct Position {
+  uint64_t zobrist_key;   // hash key
   std::array<uint8_t, 0x80> board;        // Stores the board itself
   std::array<uint8_t, 10> material_count; // Stores material
   MultiArray<bool, 2, 2> castling_rights; // castling rights

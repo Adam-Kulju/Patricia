@@ -11,7 +11,6 @@ using std::array;
 typedef unsigned __int128 uint128_t;
 
 struct ThreadInfo {
-  uint64_t zobrist_key;   // hash key of the position we're currently on
   uint16_t thread_id = 0; // ID of the thread
   std::array<GameHistory, GameSize>
       game_hist;       // all positions from earlier in the game
