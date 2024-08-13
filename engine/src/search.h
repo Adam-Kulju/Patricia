@@ -230,7 +230,7 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
   if (ply > thread_info.seldepth) {
     thread_info.seldepth = ply;
   }
-  if (ply >= MaxSearchDepth-1) {
+  if (ply >= MaxSearchDepth - 1) {
     return eval(position,
                 thread_info); // if we're about to overflow stack return
   }
@@ -354,7 +354,7 @@ int search(int alpha, int beta, int depth, Position &position,
     thread_info.seldepth = ply;
   }
 
-  if (out_of_time(thread_info) || ply >= MaxSearchDepth-1) {
+  if (out_of_time(thread_info) || ply >= MaxSearchDepth - 1) {
     // check for timeout
     return eval(position, thread_info);
   }
@@ -401,6 +401,17 @@ int search(int alpha, int beta, int depth, Position &position,
     // ply 0 - we make forced move
     // ply 1 - opponent makes draw move
     // ply 2 - penalty to us*/
+  }
+
+  int mate_distance = -Mate - ply;
+  if (mate_distance <
+      beta) // Mate distance pruning; if we're at depth 10 but we've already
+            // found a mate in 3, there's no point searching this.
+  {
+    beta = mate_distance;
+    if (alpha >= beta) {
+      return beta;
+    }
   }
 
   TTEntry entry = TT[hash_to_idx(hash)];
