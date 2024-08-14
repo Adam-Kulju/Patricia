@@ -940,7 +940,14 @@ void iterative_deepen(
                  nps, search_time, internal_to_uci(position, move).c_str());
         }
 
-        alpha -= delta, beta += delta, delta = delta * 3 / 2;
+        if (score <= alpha) {
+          beta = (alpha + beta) / 2;
+          alpha -= delta;
+        } else if (score >= beta) {
+          beta += delta;
+        }
+        delta += delta / 3;
+
         score = search(alpha, beta, depth, position, thread_info, TT);
       }
 
