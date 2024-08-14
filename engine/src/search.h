@@ -678,15 +678,6 @@ if (ply && is_draw(position, thread_info)) { // Draw detection
       return best_score;
     }
 
-    if (is_capture) {
-      if (num_captures < 64)
-        captures[num_captures++] = move;
-    }
-    else {
-      if (num_quiets < 64)
-        quiets[num_quiets++] = move;
-    }
-
     if (score > best_score) {
       best_score = score;
       
@@ -720,6 +711,16 @@ if (ply && is_draw(position, thread_info)) { // Draw detection
         return score;
       }
     }
+
+    if (is_capture) {
+      if (num_captures < 64)
+        captures[num_captures++] = move;
+    }
+    else {
+      if (num_quiets < 64)
+        quiets[num_quiets++] = move;
+    }
+
     moves_played++;
   }
 
@@ -764,8 +765,6 @@ if (ply && is_draw(position, thread_info)) { // Draw detection
         // reduced
 
         Move move = quiets[i];
-        if (move == best_move)
-          continue;
 
         int piece_m = position.board[extract_from(move)],
               sq_m = extract_to(move);
@@ -794,8 +793,7 @@ if (ply && is_draw(position, thread_info)) { // Draw detection
 
     for (int i = 0; i < num_captures; i++) {
       Move move = captures[i];
-      if (move == best_move)
-        continue;
+
       int piece_m = position.board[extract_from(move)],
           sq_m = extract_to(move);
 
