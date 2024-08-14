@@ -265,7 +265,7 @@ void score_moves(Position &position, ThreadInfo &thread_info,
                 thread_info.game_hist[thread_info.game_ply - 1].played_move);
   int their_piece =
       ply < 1 ? Pieces::Blank
-              : thread_info.game_hist[thread_info.game_ply - 1].piece_moved - 2;
+              : thread_info.game_hist[thread_info.game_ply - 1].piece_moved;
 
   int our_last =
       ply < 2
@@ -274,7 +274,7 @@ void score_moves(Position &position, ThreadInfo &thread_info,
                 thread_info.game_hist[thread_info.game_ply - 2].played_move);
   int our_piece =
       ply < 2 ? Pieces::Blank
-              : thread_info.game_hist[thread_info.game_ply - 2].piece_moved - 2;
+              : thread_info.game_hist[thread_info.game_ply - 2].piece_moved;
 
   for (int idx = 0; idx < len; idx++) {
     Move move = scored_moves.moves[idx];
@@ -298,7 +298,7 @@ void score_moves(Position &position, ThreadInfo &thread_info,
                                  SeeValues[from_piece] / 100 -
                                  TTMoveScore * !SEE(position, move, -107);
 
-      int piece = position.board[extract_from(move)] - 2, to = extract_to(move);
+      int piece = position.board[extract_from(move)], to = extract_to(move);
 
       scored_moves.scores[idx] += thread_info.CapHistScores[piece][to];
 
@@ -311,7 +311,7 @@ void score_moves(Position &position, ThreadInfo &thread_info,
 
     else {
       // Normal moves are scored using history
-      int piece = position.board[extract_from(move)] - 2, to = extract_to(move);
+      int piece = position.board[extract_from(move)], to = extract_to(move);
       scored_moves.scores[idx] = thread_info.HistoryScores[piece][to];
 
       if (ply > 0 && their_last != MoveNone) {

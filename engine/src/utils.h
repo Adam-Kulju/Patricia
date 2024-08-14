@@ -29,9 +29,9 @@ struct ThreadInfo {
 
   NNUE_State nnue_state;
 
-  MultiArray<int16_t, 12, 0x80> HistoryScores;
-  MultiArray<int16_t, 12, 0x80, 12, 0x80> ContHistScores;
-  MultiArray<int16_t, 12, 0x80> CapHistScores;
+  MultiArray<int16_t, 14, 0x80> HistoryScores;
+  MultiArray<int16_t, 14, 0x80, 14, 0x80> ContHistScores;
+  MultiArray<int16_t, 14, 0x80> CapHistScores;
   std::array<Move, MaxSearchDepth + 1> KillerMoves;
 
   uint8_t current_iter;

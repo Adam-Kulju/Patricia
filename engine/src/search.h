@@ -725,7 +725,7 @@ if (ply && is_draw(position, thread_info)) { // Draw detection
 
   if (best_score >= beta) {
 
-    int piece = position.board[extract_from(best_move)] - 2,
+    int piece = position.board[extract_from(best_move)],
         sq = extract_to(best_move);
 
     int bonus = std::min((int)HistBonus * (depth - 1), (int)HistMax);
@@ -747,7 +747,7 @@ if (ply && is_draw(position, thread_info)) { // Draw detection
       int their_piece =
           (ply < 1 || their_last == MoveNone)
               ? Pieces::Blank
-              : thread_info.game_hist[thread_info.game_ply - 1].piece_moved - 2;
+              : thread_info.game_hist[thread_info.game_ply - 1].piece_moved;
 
       int our_last =
           ply < 2 ? MoveNone
@@ -756,7 +756,7 @@ if (ply && is_draw(position, thread_info)) { // Draw detection
       int our_piece =
           (ply < 2 || our_last == MoveNone)
               ? Pieces::Blank
-              : thread_info.game_hist[thread_info.game_ply - 2].piece_moved - 2;
+              : thread_info.game_hist[thread_info.game_ply - 2].piece_moved;
 
       for (int i = 0; i < num_quiets; i++) {
         
@@ -767,7 +767,7 @@ if (ply && is_draw(position, thread_info)) { // Draw detection
         if (move == best_move)
           continue;
 
-        int piece_m = position.board[extract_from(move)] - 2,
+        int piece_m = position.board[extract_from(move)],
               sq_m = extract_to(move);
 
         update_history(thread_info.HistoryScores[piece_m][sq_m], -bonus);
@@ -796,7 +796,7 @@ if (ply && is_draw(position, thread_info)) { // Draw detection
       Move move = captures[i];
       if (move == best_move)
         continue;
-      int piece_m = position.board[extract_from(move)] - 2,
+      int piece_m = position.board[extract_from(move)],
           sq_m = extract_to(move);
 
       update_history(thread_info.CapHistScores[piece_m][sq_m], -bonus);
