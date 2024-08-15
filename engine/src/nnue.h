@@ -180,6 +180,8 @@ void NNUE_State::add_sub(int piece, int from, int to) {
                          g_nnue.feature_v[black_to * LAYER1_SIZE] -
                          g_nnue.feature_v[black_from * LAYER1_SIZE];
   }
+
+  m_curr++;
 }
 
 void NNUE_State::add_sub_sub(int piece, int from, int to, int captured,
@@ -199,6 +201,8 @@ void NNUE_State::add_sub_sub(int piece, int from, int to, int captured,
                          g_nnue.feature_v[black_from * LAYER1_SIZE] -
                          g_nnue.feature_v[black_capt * LAYER1_SIZE];
   }
+
+  m_curr++;
 }
 
 void NNUE_State::add_add_sub_sub(int piece1, int from1, int to1, int piece2, int from2, int to2){
@@ -220,6 +224,8 @@ void NNUE_State::add_add_sub_sub(int piece1, int from1, int to1, int piece2, int
                          g_nnue.feature_v[black_to2 * LAYER1_SIZE] -
                          g_nnue.feature_v[black_from2 * LAYER1_SIZE];
   }
+
+  m_curr++;
 }
 
 void NNUE_State::pop() { m_curr--; }
