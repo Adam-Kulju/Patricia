@@ -298,32 +298,32 @@ void update_nnue_state(NNUE_State &nnue_state, Move move,
   int to_square = to;
   from = MailboxToStandard_NNUE[from], to = MailboxToStandard_NNUE[to];
 
-  nnue_state.push_with_update<true>(to_piece, to); // update the piece that mpved
-  nnue_state.update_feature<false>(from_piece, from);
 
   if (captured_piece) {
     captured_square =
         MailboxToStandard_NNUE[captured_square]; // update the piece that was
                                                  // captured if applicable
-    nnue_state.update_feature<false>(captured_piece, captured_square);
+    nnue_state.add_sub_sub(from_piece, from, to, captured_piece, captured_square);
   }
 
-  if (from_piece - color == Pieces::WKing &&
+  else if (from_piece - color == Pieces::WKing &&
       abs(to - from) ==
           Directions::East * 2) { // update the rook that moved if we castled
 
     int indx = color ? 0x70 : 0;
+
     if (get_file(to_square) > 4) {
-      nnue_state.update_feature<true>(Pieces::WRook + color,
-                                      MailboxToStandard_NNUE[indx + 5]);
-      nnue_state.update_feature<false>(Pieces::WRook + color,
-                                       MailboxToStandard_NNUE[indx + 7]);
+
+      nnue_state.add_add_sub_sub(from_piece, from, to, Pieces::WRook + color, MailboxToStandard_NNUE[indx + 7], MailboxToStandard_NNUE[indx + 5]);
+
     } else {
-      nnue_state.update_feature<true>(Pieces::WRook + color,
-                                      MailboxToStandard_NNUE[indx + 3]);
-      nnue_state.update_feature<false>(Pieces::WRook + color,
-                                       MailboxToStandard_NNUE[indx]);
+
+      nnue_state.add_add_sub_sub(from_piece, from, to, Pieces::WRook + color, MailboxToStandard_NNUE[indx], MailboxToStandard_NNUE[indx + 3]);
     }
+  }
+
+  else{
+    nnue_state.add_sub(from_piece, from, to);
   }
 }
 
