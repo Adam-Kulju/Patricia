@@ -665,7 +665,7 @@ if (ply && is_draw(position, thread_info)) { // Draw detection
       score = -search(-alpha - 1, -alpha, depth - 1 + extension, moved_position,
                       thread_info, TT);
     }
-    if (score > alpha || (!moves_played && is_pv)) {
+    if ((score > alpha || !moves_played) && is_pv) {
       // Full search, full window
       score = -search(-beta, -alpha, depth - 1 + extension, moved_position,
                       thread_info, TT);
