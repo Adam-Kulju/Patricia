@@ -645,11 +645,11 @@ if (ply && is_draw(position, thread_info)) { // Draw detection
       // Increase reduction if not in pv
       R += !is_pv;
 
-      // Clamp reduction so we don't immediately go into qsearch
-      R = std::clamp(R, 1, depth - 1);
-
       // Increase reduction if not improving
       R += !improving;
+
+      // Clamp reduction so we don't immediately go into qsearch
+      R = std::clamp(R, 0, depth - 1);
 
       // Reduced search, reduced window
       score = -search(-alpha - 1, -alpha, depth - R + extension, moved_position,
