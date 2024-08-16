@@ -173,12 +173,12 @@ void NNUE_State::add_sub(int piece, int from, int to) {
 
   for (size_t i = 0; i < LAYER1_SIZE; ++i) {
     m_curr[1].white[i] = m_curr->white[i] +
-                         g_nnue.feature_v[white_to * LAYER1_SIZE] -
-                         g_nnue.feature_v[white_from * LAYER1_SIZE];
+                         g_nnue.feature_v[white_to * LAYER1_SIZE + i] -
+                         g_nnue.feature_v[white_from * LAYER1_SIZE + i];
 
     m_curr[1].black[i] = m_curr->black[i] +
-                         g_nnue.feature_v[black_to * LAYER1_SIZE] -
-                         g_nnue.feature_v[black_from * LAYER1_SIZE];
+                         g_nnue.feature_v[black_to * LAYER1_SIZE + i] -
+                         g_nnue.feature_v[black_from * LAYER1_SIZE + i];
   }
 
   m_curr++;
@@ -192,14 +192,14 @@ void NNUE_State::add_sub_sub(int piece, int from, int to, int captured,
 
   for (size_t i = 0; i < LAYER1_SIZE; ++i) {
     m_curr[1].white[i] = m_curr->white[i] +
-                         g_nnue.feature_v[white_to * LAYER1_SIZE] -
-                         g_nnue.feature_v[white_from * LAYER1_SIZE] -
-                         g_nnue.feature_v[white_capt * LAYER1_SIZE];
+                         g_nnue.feature_v[white_to * LAYER1_SIZE + i] -
+                         g_nnue.feature_v[white_from * LAYER1_SIZE + i] -
+                         g_nnue.feature_v[white_capt * LAYER1_SIZE + i];
 
     m_curr[1].black[i] = m_curr->black[i] +
-                         g_nnue.feature_v[black_to * LAYER1_SIZE] -
-                         g_nnue.feature_v[black_from * LAYER1_SIZE] -
-                         g_nnue.feature_v[black_capt * LAYER1_SIZE];
+                         g_nnue.feature_v[black_to * LAYER1_SIZE + i] -
+                         g_nnue.feature_v[black_from * LAYER1_SIZE + i] -
+                         g_nnue.feature_v[black_capt * LAYER1_SIZE + i];
   }
 
   m_curr++;
@@ -208,21 +208,21 @@ void NNUE_State::add_sub_sub(int piece, int from, int to, int captured,
 void NNUE_State::add_add_sub_sub(int piece1, int from1, int to1, int piece2, int from2, int to2){
   const auto [white_from1, black_from1] = feature_indices(piece1, from1);
   const auto [white_to1, black_to1] = feature_indices(piece1, to1);
-  const auto [white_from2, black_from2] = feature_indices(piece1, from1);
-  const auto [white_to2, black_to2] = feature_indices(piece1, to1);
+  const auto [white_from2, black_from2] = feature_indices(piece2, from2);
+  const auto [white_to2, black_to2] = feature_indices(piece2, to2);
 
   for (size_t i = 0; i < LAYER1_SIZE; ++i){
     m_curr[1].white[i] = m_curr->white[i] +
-                         g_nnue.feature_v[white_to1 * LAYER1_SIZE] -
-                         g_nnue.feature_v[white_from1 * LAYER1_SIZE] +
-                         g_nnue.feature_v[white_to2 * LAYER1_SIZE] - 
-                         g_nnue.feature_v[white_from2 * LAYER1_SIZE];
+                         g_nnue.feature_v[white_to1 * LAYER1_SIZE + i] -
+                         g_nnue.feature_v[white_from1 * LAYER1_SIZE + i] +
+                         g_nnue.feature_v[white_to2 * LAYER1_SIZE + i] - 
+                         g_nnue.feature_v[white_from2 * LAYER1_SIZE + i];
 
     m_curr[1].black[i] = m_curr->black[i] +
-                         g_nnue.feature_v[black_to1 * LAYER1_SIZE] -
-                         g_nnue.feature_v[black_from1 * LAYER1_SIZE] +
-                         g_nnue.feature_v[black_to2 * LAYER1_SIZE] -
-                         g_nnue.feature_v[black_from2 * LAYER1_SIZE];
+                         g_nnue.feature_v[black_to1 * LAYER1_SIZE + i] -
+                         g_nnue.feature_v[black_from1 * LAYER1_SIZE + i] +
+                         g_nnue.feature_v[black_to2 * LAYER1_SIZE + i] -
+                         g_nnue.feature_v[black_from2 * LAYER1_SIZE + i];
   }
 
   m_curr++;
