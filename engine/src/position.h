@@ -303,7 +303,7 @@ void update_nnue_state(NNUE_State &nnue_state, Move move,
     captured_square =
         MailboxToStandard_NNUE[captured_square]; // update the piece that was
                                                  // captured if applicable
-    nnue_state.add_sub_sub(from_piece, from, to, captured_piece, captured_square);
+    nnue_state.add_sub_sub(from_piece, from, to_piece, to, captured_piece, captured_square);
   }
 
   else if (from_piece - color == Pieces::WKing &&
@@ -323,7 +323,7 @@ void update_nnue_state(NNUE_State &nnue_state, Move move,
   }
 
   else{
-    nnue_state.add_sub(from_piece, from, to);
+    nnue_state.add_sub(from_piece, from, to_piece, to);
   }
 }
 

@@ -153,8 +153,8 @@ public:
   Accumulator<LAYER1_SIZE> m_accumulator_stack[MaxSearchDepth];
   Accumulator<LAYER1_SIZE> *m_curr;
 
-  void add_sub(int piece, int from, int to);
-  void add_sub_sub(int piece, int from, int to, int captured, int captured_pos);
+  void add_sub(int from_piece, int from, int to_piece, int to);
+  void add_sub_sub(int from_piece, int from, int to_piece, int to, int captured, int captured_pos);
   void add_add_sub_sub(int piece1, int from1, int to1, int piece2, int from2, int to2);
   void pop();
   int evaluate(int color);
@@ -166,10 +166,10 @@ public:
 };
 
 
-void NNUE_State::add_sub(int piece, int from, int to) {
+void NNUE_State::add_sub(int from_piece, int from, int to_piece, int to) {
 
-  const auto [white_from, black_from] = feature_indices(piece, from);
-  const auto [white_to, black_to] = feature_indices(piece, to);
+  const auto [white_from, black_from] = feature_indices(from_piece, from);
+  const auto [white_to, black_to] = feature_indices(to_piece, to);
 
   for (size_t i = 0; i < LAYER1_SIZE; ++i) {
     m_curr[1].white[i] = m_curr->white[i] +
@@ -184,10 +184,10 @@ void NNUE_State::add_sub(int piece, int from, int to) {
   m_curr++;
 }
 
-void NNUE_State::add_sub_sub(int piece, int from, int to, int captured,
+void NNUE_State::add_sub_sub(int from_piece, int from, int to_piece, int to, int captured,
                              int captured_sq) {
-  const auto [white_from, black_from] = feature_indices(piece, from);
-  const auto [white_to, black_to] = feature_indices(piece, to);
+  const auto [white_from, black_from] = feature_indices(from_piece, from);
+  const auto [white_to, black_to] = feature_indices(to_piece, to);
   const auto [white_capt, black_capt] = feature_indices(captured, captured_sq);
 
   for (size_t i = 0; i < LAYER1_SIZE; ++i) {
