@@ -200,6 +200,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
       if (s.joinable()) {
         s.join();
       }
+      thread_info.max_nodes_searched = UINT64_MAX / 2;
       thread_info.max_iter_depth = MaxSearchDepth;
 
       int color = position.color, time = INT32_MAX, increment = 0;
