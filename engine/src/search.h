@@ -318,7 +318,7 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
   }
 
   if (best_score == ScoreNone) { // handle no legal moves (stalemate/checkmate)
-    return attacks_square(position, position.kingpos[color], color ^ 1)
+    return in_check
                ? (Mate + ply)
                : 0;
   }
@@ -806,10 +806,8 @@ if (ply && is_draw(position, thread_info)) { // Draw detection
   }
 
   if (best_score == ScoreNone) { // handle no legal moves (stalemate/checkmate)
-    return singular_search ? alpha
-           : attacks_square(position, position.kingpos[color], color ^ 1)
-               ? (Mate + ply)
-               : 0;
+    return singular_search ? alpha : 
+                  in_check ? (Mate + ply) : 0;
   }
   entry_type = best_score >= beta ? EntryTypes::LBound
                : raised_alpha     ? EntryTypes::Exact
