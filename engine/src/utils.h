@@ -91,7 +91,7 @@ void new_game(ThreadInfo &thread_info, std::vector<TTEntry> &TT) {
 void resize_TT(int size) {
   TT_size =
       static_cast<uint64_t>(size) * 1024 * 1024 / sizeof(TTEntry);
-  TT.reserve(TT_size);
+  TT.resize(TT_size);
   std::memset(&TT[0], 0, TT_size * sizeof(TT[0]));
 }
 
