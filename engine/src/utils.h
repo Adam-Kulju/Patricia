@@ -88,6 +88,24 @@ void new_game(ThreadInfo &thread_info, std::vector<TTEntry> &TT) {
   thread_info.cp_accum_loss = 0;
 }
 
+uint16_t get_hash_low_bits(uint64_t hash) {
+  return static_cast<uint16_t>(hash);
+}
+
+int32_t score_to_tt(int32_t score, int32_t ply) {
+  if (score == ScoreNone) return ScoreNone;
+  if (score > MateScore)  return score + ply;
+  if (score < -MateScore) return score - ply;
+  return score;
+}
+
+int32_t score_from_tt(int32_t score, int32_t ply) {
+  if (score == ScoreNone) return ScoreNone;
+  if (score > MateScore)  return score - ply;
+  if (score < -MateScore) return score + ply;
+  return score;
+}
+
 void resize_TT(int size) {
   TT_size =
       static_cast<uint64_t>(size) * 1024 * 1024 / sizeof(TTEntry);

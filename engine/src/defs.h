@@ -216,9 +216,6 @@ bool enemy_square(uint8_t color, uint8_t piece) {
 uint16_t get_zobrist_key(uint8_t piece, uint8_t sq) {
   return ((piece - 2) * 64) + sq;
 }
-uint16_t get_hash_low_bits(uint64_t hash) {
-  return static_cast<uint16_t>(hash);
-}
 uint8_t standard(uint8_t mailbox) { return MailboxToStandard[mailbox]; }
 
 constexpr int32_t side_index = 772;
