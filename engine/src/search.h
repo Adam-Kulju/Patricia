@@ -151,10 +151,13 @@ void ss_push(Position &position, ThreadInfo &thread_info, Move move) {
   // update search stack after makemove
   thread_info.search_ply++;
 
-  thread_info.game_hist[thread_info.game_ply++] = {
-      position.zobrist_key, move, position.board[extract_from(move)],
-      // 0,
-      is_cap(position, move), material_eval(position)};
+  thread_info.game_hist[thread_info.game_ply].position_key = position.zobrist_key;
+  thread_info.game_hist[thread_info.game_ply].played_move = move;
+  thread_info.game_hist[thread_info.game_ply].piece_moved = position.board[extract_from(move)];
+  thread_info.game_hist[thread_info.game_ply].is_cap = is_cap(position, move);
+  thread_info.game_hist[thread_info.game_ply].m_diff = material_eval(position);
+
+  thread_info.game_ply++;
 }
 
 void ss_pop(ThreadInfo &thread_info) {
