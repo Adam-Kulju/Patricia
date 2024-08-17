@@ -91,7 +91,8 @@ int eval(const Position &position, ThreadInfo &thread_info) {
   int m_threshold = std::max({300, abs(eval) * 2 / 3, abs(eval) - 700});
 
   int bonus1 = 0, bonus2 = 0;
-
+  
+/*
   // Give a small bonus if the position is much better than what material would
   // suggest
 
@@ -102,6 +103,7 @@ int eval(const Position &position, ThreadInfo &thread_info) {
 
     bonus1 -= 25 + (m_eval - eval - m_threshold) / 10;
   }
+*/
 
   bool our_side = (thread_info.search_ply % 2 == 0);
 
