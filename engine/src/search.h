@@ -341,7 +341,7 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
   return best_score;
 }
 
-int search(int alpha, int beta, int depth, Position &position,
+int search(int alpha, int beta, int depth, bool cutnode, Position &position,
            ThreadInfo &thread_info,
            std::vector<TTEntry> &TT) { // Performs an alpha-beta search.
 
@@ -501,7 +501,7 @@ if (ply && is_draw(position, thread_info)) { // Draw detection
 
       int R = NMPBase + depth / NMPDepthDiv +
               std::min(3, (static_eval - beta) / NMPEvalDiv);
-      score = -search(-alpha - 1, -alpha, depth - R, temp_pos, thread_info, TT);
+      score = -search(-alpha - 1, -alpha, depth - R, !cutnode, temp_pos, thread_info, TT);
 
       thread_info.search_ply--, thread_info.game_ply--;
       // we don't call ss_pop because the nnue state was never pushed
@@ -603,7 +603,7 @@ if (ply && is_draw(position, thread_info)) { // Draw detection
 
         int sBeta = entry.score - depth * 3;
         thread_info.excluded_move = move;
-        int sScore = search(sBeta - 1, sBeta, (depth - 1) / 2, position,
+        int sScore = search(sBeta - 1, sBeta, (depth - 1) / 2, cutnode, position,
                             thread_info, TT);
 
         if (sScore < sBeta) {
@@ -651,11 +651,13 @@ if (ply && is_draw(position, thread_info)) { // Draw detection
       // Increase reduction if not improving
       R += !improving;
 
+      R += cutnode;
+
       // Clamp reduction so we don't immediately go into qsearch
       R = std::clamp(R, 0, depth - 1);
 
       // Reduced search, reduced window
-      score = -search(-alpha - 1, -alpha, depth - R + extension, moved_position,
+      score = -search(-alpha - 1, -alpha, depth - R + extension, true, moved_position,
                       thread_info, TT);
       if (score > alpha) {
         full_search = R > 1;
@@ -665,12 +667,12 @@ if (ply && is_draw(position, thread_info)) { // Draw detection
     }
     if (full_search) {
       // Full search, null window
-      score = -search(-alpha - 1, -alpha, depth - 1 + extension, moved_position,
+      score = -search(-alpha - 1, -alpha, depth - 1 + extension, !cutnode, moved_position,
                       thread_info, TT);
     }
     if ((score > alpha || !moves_played) && is_pv) {
       // Full search, full window
-      score = -search(-beta, -alpha, depth - 1 + extension, moved_position,
+      score = -search(-beta, -alpha, depth - 1 + extension, false, moved_position,
                       thread_info, TT);
     }
 
@@ -909,7 +911,7 @@ void iterative_deepen(
 
       int score, delta = 20;
 
-      score = search(alpha, beta, depth, position, thread_info, TT);
+      score = search(alpha, beta, depth, false, position, thread_info, TT);
 
       // Aspiration Windows: We search the position with a narrow window around
       // the last search score in order to get cutoffs faster. If our search
@@ -955,7 +957,7 @@ void iterative_deepen(
         }
         delta += delta / 3;
 
-        score = search(alpha, beta, depth, position, thread_info, TT);
+        score = search(alpha, beta, depth, false, position, thread_info, TT);
       }
 
       if (score == ScoreNone) {
