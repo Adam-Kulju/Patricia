@@ -4,6 +4,7 @@
 #include "params.h"
 #include "position.h"
 #include "utils.h"
+#include "tm.h"
 
 constexpr int NormalizationFactor = 195;
 
@@ -353,6 +354,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   if (!thread_info.search_ply) {
     thread_info.current_iter = depth;
     thread_info.seldepth = 0;
+    thread_info.iter_nodes = thread_info.nodes;
     std::memset(&thread_info.pv, 0, sizeof(thread_info.pv));
   }
 
@@ -573,6 +575,9 @@ if (ply && is_draw(position, thread_info)) { // Draw detection
 
     searched_move = true;
 
+
+    uint64_t curr_nodes = thread_info.nodes;
+
     is_capture = is_cap(position, move);
     if (!is_capture && !is_pv && best_score > -MateScore) {
 
@@ -722,6 +727,7 @@ if (ply && is_draw(position, thread_info)) { // Draw detection
           if (root) {
             thread_info.best_moves[thread_info.multipv_index] = best_move;
             thread_info.best_scores[thread_info.multipv_index] = best_score;
+            thread_info.best_move_nodes = thread_info.nodes - curr_nodes;
           }
         }
       }
@@ -820,8 +826,13 @@ if (ply && is_draw(position, thread_info)) { // Draw detection
     }
   }
 
-  if (root && !searched_move) {
-    return ScoreNone;
+  if (root) {
+    if (!searched_move){
+      return ScoreNone;
+    }
+    else{
+      thread_info.iter_nodes = thread_info.nodes - thread_info.iter_nodes;
+    }
   }
 
   if (best_score == ScoreNone) { // handle no legal moves (stalemate/checkmate)
@@ -839,6 +850,7 @@ if (ply && is_draw(position, thread_info)) { // Draw detection
                  score_to_tt(best_score, ply),
                  entry_type, thread_info.searches, TT);
   }
+
   return best_score;
 }
 
@@ -898,6 +910,7 @@ void iterative_deepen(
     Position &position, ThreadInfo &thread_info,
     std::vector<TTEntry> &TT) { // Performs an iterative deepening search.
 
+  thread_info.original_opt = thread_info.opt_time;
   thread_info.nnue_state.reset_nnue(position);
   position.zobrist_key = calculate(position);
   thread_info.nodes = 0;
@@ -1034,6 +1047,7 @@ void iterative_deepen(
 
       if (depth > 6) {
         alpha = score - 20, beta = score + 20;
+        adjust_soft_limit(thread_info);
       }
     }
   }

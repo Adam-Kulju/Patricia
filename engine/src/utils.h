@@ -16,13 +16,18 @@ struct ThreadInfo {
       game_hist;       // all positions from earlier in the game
   uint16_t game_ply;   // how far we're into the game
   uint16_t search_ply; // depth that we are in the search tree
+
   uint64_t nodes;      // Total nodes searched so far this search
+  uint64_t best_move_nodes;
+  uint64_t iter_nodes;
+
   std::chrono::steady_clock::time_point start_time; // Start time of the search
 
   int seldepth;
 
   uint32_t max_time;
   uint32_t opt_time;
+  uint32_t original_opt;
 
   uint16_t time_checks;
   bool stop;
