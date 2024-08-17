@@ -99,8 +99,8 @@ uint64_t hash_to_idx(uint64_t hash) {
   return (uint128_t(hash) * uint128_t(TT_size)) >> 64;
 }
 
-void insert_entry(uint64_t hash, int depth, Move best_move, int32_t score,
-                  uint8_t bound_type, uint8_t searches,
+void insert_entry(uint64_t hash, int depth, Move best_move, int32_t static_eval,
+                  int32_t score, uint8_t bound_type, uint8_t searches,
                   std::vector<TTEntry>
                       &TT) { // Inserts an entry into the transposition table.
                       
@@ -128,6 +128,7 @@ void insert_entry(uint64_t hash, int depth, Move best_move, int32_t score,
 
   TT[indx].position_key = hash_key,
   TT[indx].depth = static_cast<uint8_t>(depth), TT[indx].type = bound_type,
+  TT[indx].static_eval = static_eval,
   TT[indx].score = score;
   TT[indx].age = searches;
 }
