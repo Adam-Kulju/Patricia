@@ -244,22 +244,26 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
   TTEntry entry = TT[hash_to_idx(hash)];
 
   int entry_type = EntryTypes::None,
+      tt_static_eval = ScoreNone,
       tt_score = ScoreNone; // Initialize TT variables and check for a hash hit
 
   if (entry.position_key == get_hash_low_bits(hash)) {
-
+    tt_static_eval = entry.static_eval;
     entry_type = entry.type, tt_score = entry.score;
-    if (tt_score > MateScore) {
-      tt_score -= ply;
-    } else if (tt_score < -MateScore) {
-      tt_score += ply;
-    }
 
-    if ((entry_type == EntryTypes::Exact) ||
-        (entry_type == EntryTypes::LBound && tt_score >= beta) ||
-        (entry_type == EntryTypes::UBound &&
-         tt_score <= alpha)) { // if we get an "accurate" tt score then return
-      return tt_score;
+    if (tt_score != ScoreNone) {
+      if (tt_score > MateScore) {
+        tt_score -= ply;
+      } else if (tt_score < -MateScore) {
+        tt_score += ply;
+      }
+
+      if ((entry_type == EntryTypes::Exact) ||
+          (entry_type == EntryTypes::LBound && tt_score >= beta) ||
+          (entry_type == EntryTypes::UBound &&
+          tt_score <= alpha)) { // if we get an "accurate" tt score then return
+        return tt_score;
+      }
     }
   }
 
@@ -271,19 +275,24 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
 
   if (!in_check) { // If we're not in check and static eval beats beta, we can
                    // immediately return
-    static_eval = eval(position, thread_info);
-
-    if (entry_type == EntryTypes::Exact ||
-        (entry_type == EntryTypes::UBound && tt_score < static_eval) ||
-        (entry_type == EntryTypes::LBound && tt_score > static_eval)) {
-
-      static_eval = tt_score;
+    if (tt_static_eval == ScoreNone) {
+      best_score = static_eval = eval(position, thread_info);
+    } else {
+      best_score = static_eval = tt_static_eval;
     }
 
-    if (static_eval >= beta) {
-      return static_eval;
+    if (tt_score != ScoreNone) {
+      if (entry_type == EntryTypes::Exact ||
+          (entry_type == EntryTypes::UBound && tt_score < static_eval) ||
+          (entry_type == EntryTypes::LBound && tt_score > static_eval)) {
+
+        best_score = tt_score;
+      }
     }
-    best_score = static_eval;
+
+    if (best_score >= beta) {
+      return best_score;
+    }
   }
   MoveInfo moves;
   int num_moves =
@@ -334,7 +343,7 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
                : raised_alpha     ? EntryTypes::Exact
                                   : EntryTypes::UBound;
 
-  insert_entry(hash, 0, best_move,
+  insert_entry(hash, 0, best_move, static_eval,
                best_score > MateScore    ? best_score + ply
                : best_score < -MateScore ? best_score - ply
                                          : best_score,
@@ -422,25 +431,28 @@ if (ply && is_draw(position, thread_info)) { // Draw detection
 
   TTEntry entry = TT[hash_to_idx(hash)];
 
-  int entry_type = EntryTypes::None, tt_score = ScoreNone, tt_move = MoveNone;
+  int entry_type = EntryTypes::None, tt_static_eval = ScoreNone,
+      tt_score = ScoreNone, tt_move = MoveNone;
   uint16_t hash_key = get_hash_low_bits(hash);
 
   if (entry.position_key == hash_key && !singular_search) { // TT probe
-
+    tt_static_eval = entry.static_eval;
     entry_type = entry.type, tt_score = entry.score, tt_move = entry.best_move;
-    if (tt_score > MateScore) {
-      tt_score -= ply;
-    } else if (tt_score < -MateScore) {
-      tt_score += ply;
-    }
-    if (!is_pv &&
-        entry.depth >= depth) { // If we get a useful score from the TT and it's
-                                // searched to at least the same depth we would
-                                // have searched, then we can return
-      if ((entry_type == EntryTypes::Exact) ||
-          (entry_type == EntryTypes::LBound && tt_score >= beta) ||
-          (entry_type == EntryTypes::UBound && tt_score <= alpha)) {
-        return tt_score;
+    if (tt_score != ScoreNone) {
+      if (tt_score > MateScore) {
+        tt_score -= ply;
+      } else if (tt_score < -MateScore) {
+        tt_score += ply;
+      }
+      if (!is_pv &&
+          entry.depth >= depth) { // If we get a useful score from the TT and it's
+                                  // searched to at least the same depth we would
+                                  // have searched, then we can return
+        if ((entry_type == EntryTypes::Exact) ||
+            (entry_type == EntryTypes::LBound && tt_score >= beta) ||
+            (entry_type == EntryTypes::UBound && tt_score <= alpha)) {
+          return tt_score;
+        }
       }
     }
   }
@@ -455,7 +467,15 @@ if (ply && is_draw(position, thread_info)) { // Draw detection
   } else if (singular_search) {
     static_eval = thread_info.game_hist[thread_info.game_ply].static_eval;
   } else {
-    static_eval = eval(position, thread_info);
+    if (tt_static_eval == ScoreNone)
+      static_eval = eval(position, thread_info);
+    else
+      static_eval = tt_static_eval;
+
+    if (entry.position_key != hash_key) {
+      insert_entry(hash, 0, MoveNone, static_eval,
+                    ScoreNone, EntryTypes::None, thread_info.searches, TT);
+    }
   }
 
   thread_info.game_hist[thread_info.game_ply].static_eval = static_eval;
@@ -471,11 +491,13 @@ if (ply && is_draw(position, thread_info)) { // Draw detection
     improving = true;
   }
 
-  if (entry_type == EntryTypes::Exact ||
-      (entry_type == EntryTypes::UBound && tt_score < static_eval) ||
-      (entry_type == EntryTypes::LBound && tt_score > static_eval)) {
+  if (tt_score != ScoreNone) {
+    if (entry_type == EntryTypes::Exact ||
+        (entry_type == EntryTypes::UBound && tt_score < static_eval) ||
+        (entry_type == EntryTypes::LBound && tt_score > static_eval)) {
 
-    static_eval = tt_score;
+      static_eval = tt_score;
+    }
   }
 
   if (!is_pv && !in_check && !singular_search) {
@@ -823,6 +845,7 @@ if (ply && is_draw(position, thread_info)) { // Draw detection
   // Add the search results to the TT, accounting for mate scores
   if (!singular_search) {
     insert_entry(hash, depth, best_move,
+                thread_info.game_hist[thread_info.game_ply].static_eval,
                  best_score > MateScore    ? best_score + ply
                  : best_score < -MateScore ? best_score - ply
                                            : best_score,

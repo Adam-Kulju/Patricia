@@ -116,6 +116,7 @@ constexpr int MaxSearchDepth = 127;
 
 struct TTEntry {
   uint16_t position_key; // The lower 16 bits of the hash key are stored
+  int16_t static_eval;
   int16_t score;         // Score of the position
   Move best_move;        // Best move in the position
   uint8_t depth;         // Depth that the entry was searched to
