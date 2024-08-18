@@ -693,16 +693,18 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
                       moved_position, thread_info, TT);
     }
 
-    int i = 0;
-    while (thread_info.root_moves[i].move != move) {
-      if (thread_info.root_moves[i].move == MoveNone) {
-        thread_info.root_moves[i].move = move;
-        break;
+    if (root) {
+      int i = 0;
+      while (thread_info.root_moves[i].move != move) {
+        if (thread_info.root_moves[i].move == MoveNone) {
+          thread_info.root_moves[i].move = move;
+          break;
+        }
+        i++;
       }
-      i++;
-    }
 
-    thread_info.root_moves[i].nodes += (thread_info.nodes - curr_nodes);
+      thread_info.root_moves[i].nodes += (thread_info.nodes - curr_nodes);
+    }
 
     ss_pop(thread_info);
 
