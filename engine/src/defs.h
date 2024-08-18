@@ -90,7 +90,7 @@ struct MoveInfo {
 };
 
 struct Position {
-  uint64_t zobrist_key;   // hash key
+  uint64_t zobrist_key;                   // hash key
   std::array<uint8_t, 0x80> board;        // Stores the board itself
   std::array<uint8_t, 10> material_count; // Stores material
   MultiArray<bool, 2, 2> castling_rights; // castling rights
@@ -117,14 +117,14 @@ constexpr int MaxSearchDepth = 127;
 struct TTEntry {
   uint16_t position_key; // The lower 16 bits of the hash key are stored
   int16_t static_eval;
-  int16_t score;         // Score of the position
-  Move best_move;        // Best move in the position
-  uint8_t depth;         // Depth that the entry was searched to
-  uint8_t type;          // entry type
+  int16_t score;  // Score of the position
+  Move best_move; // Best move in the position
+  uint8_t depth;  // Depth that the entry was searched to
+  uint8_t type;   // entry type
   uint8_t age;
 };
 
-struct RootMoveInfo{
+struct RootMoveInfo {
   Move move;
   uint64_t nodes;
 };

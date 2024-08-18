@@ -6,7 +6,6 @@
 #include "tm.h"
 #include "utils.h"
 
-
 constexpr int NormalizationFactor = 195;
 
 void update_history(int16_t &entry, int score) { // Update history score
@@ -696,7 +695,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
     int i = 0;
     while (thread_info.root_moves[i].move != move) {
-      if (thread_info.root_moves[i].move == MoveNone){
+      if (thread_info.root_moves[i].move == MoveNone) {
         thread_info.root_moves[i].move = move;
         break;
       }
@@ -1046,8 +1045,6 @@ void iterative_deepen(
           while (thread_info.root_moves[i].move != best_move) {
             i++;
           }
-
-          printf("%lu %i\n", thread_info.root_moves[i].nodes, i);
           adjust_soft_limit(thread_info, thread_info.root_moves[i].nodes);
         }
       }
