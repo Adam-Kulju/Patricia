@@ -18,8 +18,7 @@ struct ThreadInfo {
   uint16_t search_ply; // depth that we are in the search tree
 
   uint64_t nodes;      // Total nodes searched so far this search
-  uint64_t best_move_nodes;
-  uint64_t iter_nodes;
+  RootMoveInfo root_moves[ListSize];
 
   std::chrono::steady_clock::time_point start_time; // Start time of the search
 

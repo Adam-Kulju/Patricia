@@ -124,6 +124,11 @@ struct TTEntry {
   uint8_t age;
 };
 
+struct RootMoveInfo{
+  Move move;
+  uint64_t nodes;
+};
+
 constexpr std::array<uint8_t, 64> StandardToMailbox =
     { // Used to convert standard board position into mailbox position
         0x0,  0x1,  0x2,  0x3,  0x4,  0x5,  0x6,  0x7,  0x10, 0x11, 0x12,
