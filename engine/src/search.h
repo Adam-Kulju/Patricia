@@ -302,7 +302,7 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
   for (int indx = 0; indx < num_moves; indx++) {
     Move move = get_next_move(moves.moves, moves.scores, indx, num_moves);
 
-    if (! isLegal(position, move)) {
+    if (! is_legal(position, move)) {
       continue;
     }
 
@@ -313,7 +313,7 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
     }
 
     Position moved_position = position;
-    make_move(moved_position, move, thread_info, Updates::UpdateAll);
+    make_move(moved_position, move, thread_info);
 
     update_nnue_state(thread_info.nnue_state, move, position);
 
@@ -512,7 +512,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       // still beat beta on a reduced search, we can prune the node.
 
       Position temp_pos = position;
-      make_move(temp_pos, MoveNone, thread_info, Updates::UpdateHash);
+      make_move(temp_pos, MoveNone, thread_info);
 
       ss_push(position, thread_info, MoveNone);
 
@@ -570,7 +570,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     if (move == excluded_move) {
       continue;
     }
-    if (! isLegal(position, move)) {
+    if (! is_legal(position, move)) {
       continue;
     }
 
@@ -646,7 +646,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     }
 
     Position moved_position = position;
-    make_move(moved_position, move, thread_info, Updates::UpdateHash);
+    make_move(moved_position, move, thread_info);
 
     update_nnue_state(thread_info.nnue_state, move, position);
 
@@ -897,13 +897,13 @@ void print_pv(Position &position, ThreadInfo &thread_info) {
       break;
     }
 
-    if (! isLegal(temp_pos, best_move)) {
+    if (! is_legal(temp_pos, best_move)) {
       break;
     }
 
     printf("%s ", internal_to_uci(temp_pos, best_move).c_str());
 
-    make_move(temp_pos, best_move, thread_info, Updates::UpdateHash);
+    make_move(temp_pos, best_move, thread_info);
 
     indx++;
     color ^= 1;

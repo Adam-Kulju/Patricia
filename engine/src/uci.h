@@ -188,7 +188,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
         while (input_stream >> moves) {
           Move move = uci_to_internal(moves);
           ss_push(position, thread_info, move); // fill the game hist stack as we go
-          make_move(position, move, thread_info, Updates::UpdateHash);
+          make_move(position, move, thread_info);
         }
       }
 

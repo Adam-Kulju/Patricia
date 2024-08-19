@@ -327,8 +327,7 @@ void update_nnue_state(NNUE_State &nnue_state, Move move,
   }
 }
 
-int make_move(Position &position, Move move, ThreadInfo &thread_info,
-              int update_flag) { // Perform a move on the board.
+void make_move(Position &position, Move move, ThreadInfo &thread_info) { // Perform a move on the board.
 
   position.halfmoves++;
 
@@ -340,7 +339,7 @@ int make_move(Position &position, Move move, ThreadInfo &thread_info,
     }
 
     position.zobrist_key ^= zobrist_keys[side_index];
-    return 0;
+    return;
   }
 
   uint64_t temp_hash = position.zobrist_key;
@@ -382,15 +381,6 @@ int make_move(Position &position, Move move, ThreadInfo &thread_info,
   // Move the piece
   position.board[to] = position.board[from];
   position.board[from] = Pieces::Blank;
-
-  if (attacks_square(position, position.kingpos[color], opp_color)) {
-    return 1;
-  }
-  else if (update_flag == Updates::UpdateNone){
-    position.color ^= 1;
-    position.ep_square = ep_square;
-    return 0;
-  }
 
   int piece_to = position.board[to];
 
@@ -498,11 +488,9 @@ int make_move(Position &position, Move move, ThreadInfo &thread_info,
   position.zobrist_key = temp_hash;
 
   __builtin_prefetch(&TT[hash_to_idx(temp_hash)]);
-
-  return 0;
 }
 
-int isLegal(Position &position, Move move) { // Perform a move on the board.
+int is_legal(Position &position, Move move) { // Perform a move on the board.
 
   int from = extract_from(move), to = extract_to(move), color = position.color,
       opp_color = color ^ 1;
