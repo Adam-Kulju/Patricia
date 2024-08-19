@@ -228,6 +228,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
           int time;
           input_stream >> time;
           thread_info.max_time = time;
+          thread_info.opt_time = INT32_MAX / 2;
           goto run;
         }
       }
