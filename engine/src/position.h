@@ -501,3 +501,35 @@ int make_move(Position &position, Move move, ThreadInfo &thread_info,
 
   return 0;
 }
+
+int isLegal(Position &position, Move move) { // Perform a move on the board.
+
+  int from = extract_from(move), to = extract_to(move), color = position.color,
+      opp_color = color ^ 1;
+
+  int piece_to = position.board[to];
+  int piece_from = position.board[from];
+  int ep_cap_square = SquareNone;
+
+  // en passant
+  if (piece_from - color == Pieces::WPawn && to == position.ep_square) {
+    ep_cap_square = to + (color ? Directions::North : Directions::South);
+
+    position.board[ep_cap_square] = Pieces::Blank;
+  }
+
+  // Move the piece
+  position.board[to] = position.board[from];
+  position.board[from] = Pieces::Blank;
+
+  int new_king_pos = piece_from - color == Pieces::WKing ? to : position.kingpos[color];
+  bool is_king_attacked = attacks_square(position, new_king_pos, opp_color);
+
+  // Restore
+  position.board[from] = piece_from;
+  position.board[to] = piece_to;
+  if (ep_cap_square != SquareNone)
+    position.board[ep_cap_square] = Pieces::WPawn + opp_color;
+
+  return ! is_king_attacked;
+}
