@@ -20,10 +20,11 @@ perft(int depth, Position &position, bool first,
   for (int i = 0; i < nmoves;
        i++) // Loop through all of the moves, skipping illegal ones.
   {
-    Position new_position = position;
-    if (make_move(new_position, list[i], thread_info, Updates::UpdateNone)) {
+    if (! is_legal(position, list[i])) {
       continue;
     }
+    Position new_position = position;
+    make_move(new_position, list[i], thread_info);
 
     uint64_t nodes = perft(depth - 1, new_position, false, thread_info);
     

@@ -161,10 +161,8 @@ Move random_move(Position &position,
 
   int num_legal = 0;
   for (int i = 0; i < num_moves; i++) {
-    Position moved_position = position;
     Move move = moves.moves[i];
-
-    if (!make_move(moved_position, move, thread_info, Updates::UpdateNone)) {
+    if (is_legal(position, move)) {
       legal_moves.moves[num_legal++] = move;
     }
   }
