@@ -669,6 +669,9 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
         // alpha/beta
         R /= 2;
       }
+      else{
+        R -= thread_info.HistoryScores[position.board[extract_from(move)]][extract_to(move)] / 10000;
+      }
 
       // Increase reduction if not in pv
       R += !is_pv;
