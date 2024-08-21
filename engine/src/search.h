@@ -354,6 +354,8 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
            ThreadInfo &thread_info,
            std::vector<TTEntry> &TT) { // Performs an alpha-beta search.
 
+  GameHistory* ss = & (thread_info.game_hist[thread_info.game_ply]);
+
   if (!thread_info.search_ply) {
     thread_info.current_iter = depth;
     thread_info.seldepth = 0;
@@ -459,7 +461,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   if (in_check) {
     static_eval = ScoreNone;
   } else if (singular_search) {
-    static_eval = thread_info.game_hist[thread_info.game_ply].static_eval;
+    static_eval = ss->static_eval;
   } else {
     if (tt_static_eval == ScoreNone)
       static_eval = eval(position, thread_info);
@@ -472,7 +474,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     }
   }
 
-  thread_info.game_hist[thread_info.game_ply].static_eval = static_eval;
+  ss->static_eval = static_eval;
 
   bool improving = false;
 
@@ -480,8 +482,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   // less in certain circumstances (or prune more if it's not)
 
   if (ply > 1 && !in_check &&
-      static_eval >
-          thread_info.game_hist[thread_info.game_ply - 2].static_eval) {
+      static_eval > (ss-2)->static_eval) {
     improving = true;
   }
 
@@ -505,7 +506,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     }
     if (static_eval >= beta && depth >= NMPMinDepth &&
         has_non_pawn_material(position, color) &&
-        thread_info.game_hist[thread_info.game_ply - 1].played_move !=
+        (ss-1)->played_move !=
             MoveNone) {
 
       // Null Move Pruning (NMP): If we can give our opponent a free move and
@@ -781,23 +782,17 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     } else {
 
       int their_last =
-          ply < 1 ? MoveNone
-                  : extract_to(thread_info.game_hist[thread_info.game_ply - 1]
-                                   .played_move);
+          ply < 1 ? MoveNone : extract_to((ss-1)->played_move);
 
       int their_piece =
           (ply < 1 || their_last == MoveNone)
-              ? Pieces::Blank
-              : thread_info.game_hist[thread_info.game_ply - 1].piece_moved;
+              ? Pieces::Blank : (ss-1)->piece_moved;
 
       int our_last =
-          ply < 2 ? MoveNone
-                  : extract_to(thread_info.game_hist[thread_info.game_ply - 2]
-                                   .played_move);
+          ply < 2 ? MoveNone : extract_to((ss-2)->played_move);
       int our_piece =
           (ply < 2 || our_last == MoveNone)
-              ? Pieces::Blank
-              : thread_info.game_hist[thread_info.game_ply - 2].piece_moved;
+              ? Pieces::Blank : (ss-2)->piece_moved;
 
       for (int i = 0; i < num_quiets; i++) {
 
@@ -854,8 +849,8 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   // Add the search results to the TT, accounting for mate scores
   if (!singular_search) {
     insert_entry(hash, depth, best_move,
-                 thread_info.game_hist[thread_info.game_ply].static_eval,
-                 score_to_tt(best_score, ply), entry_type, thread_info.searches,
+                 ss->static_eval, score_to_tt(best_score, ply),
+                 entry_type, thread_info.searches,
                  TT);
   }
 
