@@ -209,9 +209,8 @@ void play_game(ThreadInfo &thread_info, uint64_t &num_fens, int id,
         return;
       }
 
-      ss_push(position, thread_info, move,
-              thread_info.zobrist_key); // fill the game hist stack as we go
-      make_move(position, move, thread_info, Updates::UpdateHash);
+      ss_push(position, thread_info, move); // fill the game hist stack as we go
+      make_move(position, move, thread_info);
     }
   }
 
@@ -295,10 +294,9 @@ void play_game(ThreadInfo &thread_info, uint64_t &num_fens, int id,
       printf("%s\n", internal_to_uci(position, best_move).c_str());
     }*/
 
-    ss_push(position, thread_info, best_move,
-            thread_info.zobrist_key); // fill the game hist stack as we go
+    ss_push(position, thread_info, best_move); // fill the game hist stack as we go
 
-    make_move(position, best_move, thread_info, Updates::UpdateHash);
+    make_move(position, best_move, thread_info);
 
     if (!(is_noisy ||
           in_check)) { // If the best move isn't a noisy move and we're not in
