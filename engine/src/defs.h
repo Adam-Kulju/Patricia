@@ -189,33 +189,33 @@ constexpr std::array<int, 14> SeeValues = {
     0,   0,   100, 100,  450,  450,   450,
     450, 650, 650, 1250, 1250, 10000, 10000}; // SEE values for different pieces
 
-std::random_device rd;
-std::uniform_int_distribution<int> dist(0, INT32_MAX);
+inline std::random_device rd;
+inline std::uniform_int_distribution<int> dist(0, INT32_MAX);
 
 // Some simple util functions for various purposes
 
-bool out_of_board(uint8_t sq) { return sq & 0x88; }
-uint8_t get_rank(uint8_t sq) { return sq / 16; }
-uint8_t get_file(uint8_t sq) { return sq % 16; }
-uint8_t flip_sq(uint8_t sq) { return sq ^ 112; }
-uint8_t get_color(uint8_t piece) { return piece & 1; }
-Move pack_move(uint8_t from, uint8_t to, uint8_t promo) {
+inline bool out_of_board(uint8_t sq) { return sq & 0x88; }
+inline uint8_t get_rank(uint8_t sq) { return sq / 16; }
+inline uint8_t get_file(uint8_t sq) { return sq % 16; }
+inline uint8_t flip_sq(uint8_t sq) { return sq ^ 112; }
+inline uint8_t get_color(uint8_t piece) { return piece & 1; }
+inline Move pack_move(uint8_t from, uint8_t to, uint8_t promo) {
   return (from << 9) + (to << 2) + promo;
 }
-uint8_t extract_from(Move move) { return move >> 9; }
-uint8_t extract_to(Move move) { return (move >> 2) & 127; }
-uint8_t extract_promo(Move move) { return move & 3; }
+inline uint8_t extract_from(Move move) { return move >> 9; }
+inline uint8_t extract_to(Move move) { return (move >> 2) & 127; }
+inline uint8_t extract_promo(Move move) { return move & 3; }
 
-bool friendly_square(uint8_t color, uint8_t piece) {
+inline bool friendly_square(uint8_t color, uint8_t piece) {
   return (piece && (piece & 1) == color);
 }
-bool enemy_square(uint8_t color, uint8_t piece) {
+inline bool enemy_square(uint8_t color, uint8_t piece) {
   return (piece && (piece & 1) != color);
 }
-uint16_t get_zobrist_key(uint8_t piece, uint8_t sq) {
+inline uint16_t get_zobrist_key(uint8_t piece, uint8_t sq) {
   return ((piece - 2) * 64) + sq;
 }
-uint8_t standard(uint8_t mailbox) { return MailboxToStandard[mailbox]; }
+inline uint8_t standard(uint8_t mailbox) { return MailboxToStandard[mailbox]; }
 
 constexpr int32_t side_index = 772;
 constexpr int32_t ep_index = 773;
