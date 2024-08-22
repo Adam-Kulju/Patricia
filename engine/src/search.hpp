@@ -1,4 +1,5 @@
-#pragma once
+#ifndef PATRICIA_SEARCH_HPP
+#define PATRICIA_SEARCH_HPP
 #include "movegen.hpp"
 #include "nnue.hpp"
 #include "params.hpp"
@@ -1110,3 +1111,5 @@ inline void search_position(Position &position, ThreadInfo &thread_info,
 
   thread_data.threads.clear();
 }
+
+#endif

@@ -2,7 +2,8 @@
 // Altair(https://github.com/Alex2262/AltairChessEngine) and Midnight
 // (https://github.com/archishou/MidnightChessEngine).
 
-#pragma once
+#ifndef PATRICIA_SIMD_HPP
+#define PATRICIA_SIMD_HPP
 
 #if defined(__AVX512F__)
 #include <immintrin.h>
@@ -115,3 +116,5 @@ auto inline vec_int32_hadd(auto vec) {
   return 0;
 #endif
 }
+
+#endif

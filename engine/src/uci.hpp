@@ -1,4 +1,5 @@
-#pragma once
+#ifndef PATRICIA_UCI_HPP
+#define PATRICIA_UCI_HPP
 #include "human.hpp"
 #include "search.hpp"
 #include <iostream>
@@ -244,3 +245,5 @@ inline void uci(ThreadInfo &thread_info, Position &position) {
     }
   }
 }
+
+#endif

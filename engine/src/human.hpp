@@ -1,4 +1,5 @@
-#pragma once
+#ifndef PATRICIA_HUMAN_HPP
+#define PATRICIA_HUMAN_HPP
 #include "search.hpp"
 
 inline void multipv_search(Position &position, ThreadInfo &thread_info) {
@@ -69,3 +70,5 @@ inline void search_human(Position &position, ThreadInfo &thread_info) {
 
   printf("bestmove %s\n", internal_to_uci(position, best_move).c_str());
 }
+
+#endif

@@ -1,4 +1,5 @@
-#pragma once
+#ifndef PATRICIA_POSITION_HPP
+#define PATRICIA_POSITION_HPP
 #include "utils.hpp"
 #include <cctype>
 #include <cstring>
@@ -520,3 +521,5 @@ inline int is_legal(Position &position, Move move) { // Perform a move on the bo
 
   return ! is_king_attacked;
 }
+
+#endif

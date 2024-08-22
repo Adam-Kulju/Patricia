@@ -1,4 +1,5 @@
-#pragma once
+#ifndef PATRICIA_NNUE_HPP
+#define PATRICIA_NNUE_HPP
 #include "defs.hpp"
 #include "simd.hpp"
 #include <algorithm>
@@ -265,3 +266,5 @@ inline void NNUE_State::reset_nnue(Position position) {
     }
   }
 }
+
+#endif

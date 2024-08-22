@@ -7,8 +7,8 @@
  * making use from them externally in other translation units.
  */
 
-#ifndef INCBIN_HDR
-#define INCBIN_HDR
+#ifndef PATRICIA_INCBIN_HPP
+#define PATRICIA_INCBIN_HPP
 #include <climits>
 
 #if defined(__AVX512BW__) || defined(__AVX512CD__) || defined(__AVX512DQ__) || \

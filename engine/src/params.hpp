@@ -1,4 +1,5 @@
-#pragma once
+#ifndef PATRICIA_PARAMS_HPP
+#define PATRICIA_PARAMS_HPP
 #include "defs.hpp"
 #include <cmath>
 #include <iostream>
@@ -73,3 +74,5 @@ inline void init_LMR() {
     }
   }
 }
+
+#endif

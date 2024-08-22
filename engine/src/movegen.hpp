@@ -1,4 +1,5 @@
-#pragma once
+#ifndef PATRICIA_MOVEGEN_HPP
+#define PATRICIA_MOVEGEN_HPP
 #include "defs.hpp"
 #include "position.hpp"
 #include <cstdint>
@@ -341,3 +342,5 @@ inline Move get_next_move(std::span<Move> moves, std::span<int> scores, int star
 
   return moves[start_idx];
 }
+
+#endif

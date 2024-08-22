@@ -1,4 +1,3 @@
-#pragma once
 #ifndef PATRICIA_DEFS_HPP
 #define PATRICIA_DEFS_HPP
 #include <array>

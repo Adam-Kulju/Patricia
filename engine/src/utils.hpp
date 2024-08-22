@@ -1,4 +1,5 @@
-#pragma once
+#ifndef PATRICIA_UTILS_HPP
+#define PATRICIA_UTILS_HPP
 #include "defs.hpp"
 #include "nnue.hpp"
 #include "params.hpp"
@@ -185,3 +186,5 @@ inline int64_t time_elapsed(std::chrono::steady_clock::time_point start_time) {
   return std::chrono::duration_cast<std::chrono::milliseconds>(now - start_time)
       .count();
 }
+
+#endif
