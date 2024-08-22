@@ -6,8 +6,8 @@
 
 
 std::string
-internal_to_uci(const Position &position,
-                Move move) { // Converts an internal move into a uci move.
+inline internal_to_uci(const Position &position,
+                Move move) { // Converts an internal move into an uci move.
 
   int from = extract_from(move), to = extract_to(move),
       promo = extract_promo(move);
@@ -27,8 +27,8 @@ internal_to_uci(const Position &position,
   return uci;
 }
 
-Move uci_to_internal(std::string uci) {
-  // Converts a uci move into an internal move.
+inline Move uci_to_internal(std::string uci) {
+  // Converts an uci move into an internal move.
 
   int from_file = uci[0] - 'a', from_rank = uci[1] - '1',
       to_file = uci[2] - 'a', to_rank = uci[3] - '1', promo = 0;
@@ -39,7 +39,7 @@ Move uci_to_internal(std::string uci) {
                    promo);
 }
 
-void print_board(
+inline void print_board(
     Position position) { // Prints the board. Very helpful for debugging.
   for (int i = 0x70; i >= 0;) {
     printf("+---+---+---+---+---+---+---+---+\n");
@@ -97,7 +97,7 @@ void print_board(
   printf("+---+---+---+---+---+---+---+---+\n\n");
 }
 
-void set_board(Position &position, ThreadInfo &thread_info,
+inline void set_board(Position &position, ThreadInfo &thread_info,
                std::string f) { // Sets the board to a given fen.
   std::memset(&position, 0, sizeof(Position));
   std::istringstream fen(f);
@@ -213,7 +213,7 @@ void set_board(Position &position, ThreadInfo &thread_info,
   position.halfmoves = halfmoves;
 }
 
-bool attacks_square(const Position &position, int sq,
+inline bool attacks_square(const Position &position, int sq,
                     int color) { // Do we attack the square at position "sq"?
   int opp_color = color ^ 1, indx = -1;
 
@@ -261,9 +261,9 @@ bool attacks_square(const Position &position, int sq,
   return false;
 }
 
-bool is_queen_promo(Move move) { return extract_promo(move) == 3; }
+inline bool is_queen_promo(Move move) { return extract_promo(move) == 3; }
 
-bool is_cap(const Position &position, Move &move) {
+inline bool is_cap(const Position &position, Move &move) {
   int to = extract_to(move);
   return (position.board[to] ||
           (to == position.ep_square && position.board[extract_from(move)] ==
@@ -271,7 +271,7 @@ bool is_cap(const Position &position, Move &move) {
           is_queen_promo((move)));
 }
 
-void update_nnue_state(NNUE_State &nnue_state, Move move,
+inline void update_nnue_state(NNUE_State &nnue_state, Move move,
                        const Position &position) { // Updates the nnue state
 
   int from = extract_from(move), to = extract_to(move);
@@ -327,7 +327,7 @@ void update_nnue_state(NNUE_State &nnue_state, Move move,
   }
 }
 
-void make_move(Position &position, Move move, ThreadInfo &thread_info) { // Perform a move on the board.
+inline void make_move(Position &position, Move move, ThreadInfo &thread_info) { // Perform a move on the board.
 
   position.halfmoves++;
 
@@ -487,10 +487,9 @@ void make_move(Position &position, Move move, ThreadInfo &thread_info) { // Perf
   position.ep_square = ep_square;
   position.zobrist_key = temp_hash;
 
-  __builtin_prefetch(&TT[hash_to_idx(temp_hash)]);
 }
 
-int is_legal(Position &position, Move move) { // Perform a move on the board.
+inline int is_legal(Position &position, Move move) { // Perform a move on the board.
 
   int from = extract_from(move), to = extract_to(move), color = position.color,
       opp_color = color ^ 1;
