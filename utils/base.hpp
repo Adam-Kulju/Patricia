@@ -1,6 +1,6 @@
 #pragma once
-#ifndef BASE_HPP
-#define BASE_HPP
+#ifndef PATRICIA_BASE_HPP
+#define PATRICIA_BASE_HPP
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
