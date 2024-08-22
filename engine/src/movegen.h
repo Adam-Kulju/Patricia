@@ -10,7 +10,7 @@ constexpr int GoodCaptureBaseScore = 2000000;
 constexpr int BadCaptureBaseScore = -2000000;
 constexpr int KillerMoveScore = 100000;
 
-int movegen(const Position &position, std::span<Move> move_list,
+inline int movegen(const Position &position, std::span<Move> move_list,
             bool in_check) {
   uint8_t color = position.color;
   int pawn_dir = color ? Directions::South : Directions::North,
@@ -143,7 +143,7 @@ int movegen(const Position &position, std::span<Move> move_list,
   return idx;
 }
 
-int cheapest_attacker(const Position &position, int sq, int color,
+inline int cheapest_attacker(const Position &position, int sq, int color,
                       int &attack_sq) {
   // Finds the cheapest attacker for a given square on a given board.
 
@@ -205,7 +205,7 @@ int cheapest_attacker(const Position &position, int sq, int color,
   return lowest;
 }
 
-bool SEE(Position &position, Move move, int threshold) {
+inline bool SEE(Position &position, Move move, int threshold) {
 
   int color = position.color, from = extract_from(move), to = extract_to(move),
       gain = SeeValues[position.board[to]],
@@ -251,7 +251,7 @@ bool SEE(Position &position, Move move, int threshold) {
   return true;
 }
 
-void score_moves(Position &position, ThreadInfo &thread_info,
+inline void score_moves(Position &position, ThreadInfo &thread_info,
                  MoveInfo &scored_moves, Move tt_move, int len) {
 
   // score the moves
@@ -326,7 +326,7 @@ void score_moves(Position &position, ThreadInfo &thread_info,
   }
 }
 
-Move get_next_move(std::span<Move> moves, std::span<int> scores, int start_idx,
+inline Move get_next_move(std::span<Move> moves, std::span<int> scores, int start_idx,
                    int len) {
   // Performs a selection sort
   int best_idx = start_idx, best_score = scores[start_idx];
