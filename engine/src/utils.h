@@ -2,7 +2,6 @@
 #include "defs.h"
 #include "nnue.h"
 #include "params.h"
-#include <stdio.h>
 #include <thread>
 #include <vector>
 
@@ -72,12 +71,12 @@ struct ThreadData {
   int num_threads = 1;
 };
 
-ThreadData thread_data;
+inline ThreadData thread_data;
 
-uint64_t TT_size = (1 << 20);
-std::vector<TTEntry> TT(TT_size);
+inline uint64_t TT_size = (1 << 20);
+inline std::vector<TTEntry> TT(TT_size);
 
-void new_game(ThreadInfo &thread_info, std::vector<TTEntry> &TT) {
+inline void new_game(ThreadInfo &thread_info, std::vector<TTEntry> &TT) {
   // Reset TT and other thread_info values for a new game
 
   thread_info.game_ply = 0;
@@ -92,36 +91,36 @@ void new_game(ThreadInfo &thread_info, std::vector<TTEntry> &TT) {
   thread_info.cp_accum_loss = 0;
 }
 
-uint16_t get_hash_low_bits(uint64_t hash) {
+inline uint16_t get_hash_low_bits(uint64_t hash) {
   return static_cast<uint16_t>(hash);
 }
 
-int32_t score_to_tt(int32_t score, int32_t ply) {
+inline int32_t score_to_tt(int32_t score, int32_t ply) {
   if (score == ScoreNone) return ScoreNone;
   if (score > MateScore)  return score + ply;
   if (score < -MateScore) return score - ply;
   return score;
 }
 
-int32_t score_from_tt(int32_t score, int32_t ply) {
+inline int32_t score_from_tt(int32_t score, int32_t ply) {
   if (score == ScoreNone) return ScoreNone;
   if (score > MateScore)  return score - ply;
   if (score < -MateScore) return score + ply;
   return score;
 }
 
-void resize_TT(int size) {
+inline void resize_TT(int size) {
   TT_size =
       static_cast<uint64_t>(size) * 1024 * 1024 / sizeof(TTEntry);
   TT.resize(TT_size);
   std::memset(&TT[0], 0, TT_size * sizeof(TT[0]));
 }
 
-uint64_t hash_to_idx(uint64_t hash) {
-  return (uint128_t(hash) * uint128_t(TT_size)) >> 64;
+inline uint64_t hash_to_idx(uint64_t hash) {
+  return (static_cast<uint128_t>(hash) * static_cast<uint128_t>(TT_size)) >> 64;
 }
 
-void insert_entry(uint64_t hash, int depth, Move best_move, int32_t static_eval,
+inline void insert_entry(uint64_t hash, int depth, Move best_move, int32_t static_eval,
                   int32_t score, uint8_t bound_type, uint8_t searches,
                   std::vector<TTEntry>
                       &TT) { // Inserts an entry into the transposition table.
@@ -155,14 +154,13 @@ void insert_entry(uint64_t hash, int depth, Move best_move, int32_t static_eval,
   TT[indx].age = searches;
 }
 
-uint64_t calculate(const Position &position) { // Calculates the zobrist key of
+inline uint64_t calculate(const Position &position) { // Calculates the zobrist key of
                                                // a given position.
   // Useful when initializing positions, in search though
   // incremental updates are faster.
   uint64_t hash = 0;
   for (int indx : StandardToMailbox) {
-    int piece = position.board[indx];
-    if (piece) {
+    if (int piece = position.board[indx]) {
       hash ^= zobrist_keys[get_zobrist_key(piece, standard(indx))];
     }
   }
@@ -180,7 +178,7 @@ uint64_t calculate(const Position &position) { // Calculates the zobrist key of
   return hash;
 }
 
-int64_t time_elapsed(std::chrono::steady_clock::time_point start_time) {
+inline int64_t time_elapsed(std::chrono::steady_clock::time_point start_time) {
   // get the time that has elapsed since the start of search
 
   auto now = std::chrono::steady_clock::now();
