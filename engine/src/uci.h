@@ -8,7 +8,7 @@ constexpr std::array<int, 20> skill_levels = {
     500,  800,  1000, 1200, 1300, 1400, 1500, 1600, 1700, 1800,
     1900, 2000, 2100, 2200, 2300, 2400, 2500, 2650, 2800, 3000};
 
-void run_thread(Position &position, ThreadInfo &thread_info, std::thread &s) {
+inline void run_thread(Position &position, ThreadInfo &thread_info, std::thread &s) {
 
   // This wrapper function allows the user to call the "stop" command to stop
   // the search immediately.
@@ -22,9 +22,9 @@ void run_thread(Position &position, ThreadInfo &thread_info, std::thread &s) {
   }
 }
 
-void uci(ThreadInfo &thread_info, Position &position) {
-  setvbuf(stdin, NULL, _IONBF, 0);
-  setvbuf(stdout, NULL, _IONBF, 0);
+inline void uci(ThreadInfo &thread_info, Position &position) {
+  setvbuf(stdin, nullptr, _IONBF, 0);
+  setvbuf(stdout, nullptr, _IONBF, 0);
 
   printf("Patricia Chess Engine, written by Adam Kulju\n\n\n");
 
