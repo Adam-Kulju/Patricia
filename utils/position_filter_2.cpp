@@ -2,7 +2,7 @@
 #include <iostream>
 #include <fstream>
 
-#include "base.h"
+#include "base.hpp"
 
 float danger_values[5] = {0.8, 2.2, 2, 3, 6};
 float defense_values[5] = {1, 1.1, 1.1, 1, 1.7};

@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <iostream>
 #include <fstream>
-#include "base.h"
+#include "base.hpp"
 
 constexpr int develop_penalty[0x80] = {
     0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,

@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <iostream>
 #include <fstream>
-#include "base.h"
+#include "base.hpp"
 
 
 int mat(board_info *board){

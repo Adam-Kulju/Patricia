@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <iostream>
 #include <fstream>
-#include "base.h"
+#include "base.hpp"
 
 bool enough_mat(board_info *board){
   int total_mat = 0;
