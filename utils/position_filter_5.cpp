@@ -1,7 +1,7 @@
 //Development
 //Pieces on the first two ranks count as poorly developed (be7 can be strong later but isn't really now)
 
-#include <stdio.h>
+#include <cstdio>
 #include <iostream>
 #include <fstream>
 #include "base.hpp"

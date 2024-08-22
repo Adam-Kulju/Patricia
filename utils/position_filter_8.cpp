@@ -4,7 +4,7 @@
 #include "base.hpp"
 #include <fstream>
 #include <iostream>
-#include <stdio.h>
+#include <cstdio>
 
 using namespace  std;
 

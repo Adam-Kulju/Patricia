@@ -1,7 +1,7 @@
 //King mobility
 //a bad thing in the middlegame!
 
-#include <stdio.h>
+#include <cstdio>
 #include <iostream>
 #include <fstream>
 #include "base.hpp"

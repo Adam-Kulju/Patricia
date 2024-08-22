@@ -1,9 +1,10 @@
 #ifndef PATRICIA_BASE_HPP
 #define PATRICIA_BASE_HPP
-#include <ctype.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdint.h>
+#include <cctype>
+#include <cstdlib>
+#include <cstring>
+#include <cstdint>
+
 namespace Colors{
     constexpr uint8_t White = 0;
     constexpr uint8_t Black = 1;
@@ -39,7 +40,7 @@ struct board_info {
 #define get_file(x) (x % 16)
 #define flip(x) (x ^ 112)
 
-bool setfromfen(
+inline bool setfromfen(
     board_info *board,
     const char *fenstring) // Given an FEN, sets up the board to it.
 {

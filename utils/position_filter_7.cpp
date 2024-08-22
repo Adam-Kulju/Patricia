@@ -1,7 +1,7 @@
 //Pawn levers
 //
 
-#include <stdio.h>
+#include <cstdio>
 #include <iostream>
 #include <fstream>
 #include "base.hpp"
