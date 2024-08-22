@@ -75,9 +75,9 @@ struct ThreadData {
 ThreadData thread_data;
 
 uint64_t TT_size = (1 << 20);
-std::vector<TTEntry> TT(TT_size);
+std::vector<TTBucket> TT(TT_size);
 
-void new_game(ThreadInfo &thread_info, std::vector<TTEntry> &TT) {
+void new_game(ThreadInfo &thread_info, std::vector<TTBucket> &TT) {
   // Reset TT and other thread_info values for a new game
 
   thread_info.game_ply = 0;
@@ -112,7 +112,7 @@ int32_t score_from_tt(int32_t score, int32_t ply) {
 
 void resize_TT(int size) {
   TT_size =
-      static_cast<uint64_t>(size) * 1024 * 1024 / sizeof(TTEntry);
+      static_cast<uint64_t>(size) * 1024 * 1024 / sizeof(TTBucket);
   TT.resize(TT_size);
   std::memset(&TT[0], 0, TT_size * sizeof(TT[0]));
 }
@@ -121,38 +121,63 @@ uint64_t hash_to_idx(uint64_t hash) {
   return (uint128_t(hash) * uint128_t(TT_size)) >> 64;
 }
 
-void insert_entry(uint64_t hash, int depth, Move best_move, int32_t static_eval,
-                  int32_t score, uint8_t bound_type, uint8_t searches,
-                  std::vector<TTEntry>
-                      &TT) { // Inserts an entry into the transposition table.
-                      
-  int indx = hash_to_idx(hash);
+int entry_quality(TTEntry& entry, int searches) {
+  int age_diff = (MaxAge + searches - entry.get_age()) % MaxAge;
+  return entry.depth - age_diff * 8;
+}
+
+TTEntry& probe_entry(uint64_t hash, bool &hit, uint8_t searches, std::vector<TTBucket> &TT) {
+
   uint16_t hash_key = get_hash_low_bits(hash);
+  auto& entries = TT[hash_to_idx(hash)].entries;
 
-  if (TT[indx].position_key == hash_key &&
-      !(bound_type == EntryTypes::Exact &&
-        TT[indx].type != EntryTypes::Exact)) {
+  for (int i = 0; i < BucketEntries; i++) {
+    bool empty =   entries[i].score == 0 
+                && entries[i].get_type() == EntryTypes::None;
 
-    uint8_t age_diff = searches - TT[indx].age;
-
-    int new_bonus =
-        depth + bound_type + (age_diff * age_diff * 10 / AgeDiffDiv);
-    int old_bonus = TT[indx].depth + TT[indx].type;
-
-    if (old_bonus * OldBonusMult > new_bonus * NewBonusMult) {
-      return;
+    if (empty || entries[i].position_key == hash_key) {
+      hit = !empty;
+      entries[i].age_bound =  (searches << 2) | entries[i].get_type();
+      return entries[i];
     }
   }
 
-  if (best_move != MoveNone || hash_key != TT[indx].position_key) {
-    TT[indx].best_move = best_move;
+  TTEntry* worst = & (entries[0]);
+  int worst_quality = entry_quality(*worst, searches);
+
+  for (int i = 1; i < BucketEntries; i++) {
+    int this_quality = entry_quality(entries[i], searches);
+    if (this_quality < worst_quality) {
+      worst = & (entries[i]);
+      worst_quality = this_quality;
+    }
   }
 
-  TT[indx].position_key = hash_key,
-  TT[indx].depth = static_cast<uint8_t>(depth), TT[indx].type = bound_type,
-  TT[indx].static_eval = static_eval,
-  TT[indx].score = score;
-  TT[indx].age = searches;
+  hit = false;
+  return *worst;
+}
+
+void insert_entry(TTEntry& entry, uint64_t hash, int depth, Move best_move, 
+                  int32_t static_eval, int32_t score, uint8_t bound_type, uint8_t searches)
+{ // Inserts an entry into the transposition table.
+                      
+  uint16_t hash_key = get_hash_low_bits(hash);
+
+  if (best_move != MoveNone || hash_key != entry.position_key) {
+    entry.best_move = best_move;
+  }
+
+  if (entry.position_key == hash_key &&
+      (bound_type != EntryTypes::Exact) &&
+      entry.depth > depth + 4) {
+    return;
+  }
+
+  entry.position_key = hash_key,
+  entry.depth = static_cast<uint8_t>(depth),
+  entry.static_eval = static_eval,
+  entry.score = score,
+  entry.age_bound = (searches << 2) | bound_type;
 }
 
 uint64_t calculate(const Position &position) { // Calculates the zobrist key of

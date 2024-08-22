@@ -223,7 +223,7 @@ bool is_draw(const Position &position,
 }
 
 int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
-            std::vector<TTEntry> &TT) { // Performs a quiescence search on the
+            std::vector<TTBucket> &TT) { // Performs a quiescence search on the
                                         // given position.
 
   if (out_of_time(thread_info)) {
@@ -245,14 +245,14 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
   }
 
   uint64_t hash = position.zobrist_key;
-  TTEntry entry = TT[hash_to_idx(hash)];
-  bool tt_hit = entry.position_key == get_hash_low_bits(hash);
+  bool tt_hit;
+  TTEntry& entry = probe_entry(hash, tt_hit, thread_info.searches, TT);
 
   int entry_type = EntryTypes::None, tt_static_eval = ScoreNone,
       tt_score = ScoreNone; // Initialize TT variables and check for a hash hit
 
   if (tt_hit) {
-    entry_type = entry.type;
+    entry_type = entry.get_type();
     tt_static_eval = entry.static_eval;
     tt_score = score_from_tt(entry.score, ply);
   }
@@ -344,15 +344,15 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
                : raised_alpha     ? EntryTypes::Exact
                                   : EntryTypes::UBound;
 
-  insert_entry(hash, 0, best_move, static_eval, score_to_tt(best_score, ply),
-               entry_type, thread_info.searches, TT);
+  insert_entry(entry, hash, 0, best_move, static_eval, score_to_tt(best_score, ply),
+               entry_type, thread_info.searches);
 
   return best_score;
 }
 
 int search(int alpha, int beta, int depth, bool cutnode, Position &position,
            ThreadInfo &thread_info,
-           std::vector<TTEntry> &TT) { // Performs an alpha-beta search.
+           std::vector<TTBucket> &TT) { // Performs an alpha-beta search.
 
   GameHistory* ss = & (thread_info.game_hist[thread_info.game_ply]);
 
@@ -429,14 +429,14 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     }
   }
 
-  TTEntry entry = TT[hash_to_idx(hash)];
+  bool tt_hit;
+  TTEntry& entry = probe_entry(hash, tt_hit, thread_info.searches, TT);
 
   int entry_type = EntryTypes::None, tt_static_eval = ScoreNone,
       tt_score = ScoreNone, tt_move = MoveNone;
-  bool tt_hit = entry.position_key == get_hash_low_bits(hash);
 
   if (tt_hit && !singular_search) { // TT probe
-    entry_type = entry.type;
+    entry_type = entry.get_type();
     tt_static_eval = entry.static_eval;
     tt_score = score_from_tt(entry.score, ply);
     tt_move = entry.best_move;
@@ -469,8 +469,8 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       static_eval = tt_static_eval;
 
     if (!tt_hit) {
-      insert_entry(hash, 0, MoveNone, static_eval, ScoreNone, EntryTypes::None,
-                   thread_info.searches, TT);
+      insert_entry(entry, hash, 0, MoveNone, static_eval, ScoreNone, EntryTypes::None,
+                   thread_info.searches);
     }
   }
 
@@ -851,10 +851,9 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
   // Add the search results to the TT, accounting for mate scores
   if (!singular_search) {
-    insert_entry(hash, depth, best_move,
+    insert_entry(entry, hash, depth, best_move,
                  ss->static_eval, score_to_tt(best_score, ply),
-                 entry_type, thread_info.searches,
-                 TT);
+                 entry_type, thread_info.searches);
   }
 
   return best_score;
@@ -912,7 +911,7 @@ void print_pv(Position &position, ThreadInfo &thread_info) {
 
 void iterative_deepen(
     Position &position, ThreadInfo &thread_info,
-    std::vector<TTEntry> &TT) { // Performs an iterative deepening search.
+    std::vector<TTBucket> &TT) { // Performs an iterative deepening search.
 
   thread_info.original_opt = thread_info.opt_time;
   thread_info.nnue_state.reset_nnue(position);
@@ -1072,7 +1071,7 @@ finish:
 }
 
 void search_position(Position &position, ThreadInfo &thread_info,
-                     std::vector<TTEntry> &TT) {
+                     std::vector<TTBucket> &TT) {
   thread_info.position = position;
   thread_info.thread_id = 0;
   thread_info.nodes = 0;
@@ -1105,7 +1104,7 @@ void search_position(Position &position, ThreadInfo &thread_info,
     }
   }
 
-  thread_info.searches++;
+  thread_info.searches = (thread_info.searches + 1) % MaxAge;
 
   thread_data.threads.clear();
 }

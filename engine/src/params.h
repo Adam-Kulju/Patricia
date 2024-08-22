@@ -54,8 +54,6 @@ TUNE_PARAM(SeePruningNoisyMargin, -33, -50, -10);
 TUNE_PARAM(HistBonus, 274, 200, 400);
 TUNE_PARAM(HistMax, 2537, 1500, 3500);
 TUNE_PARAM(AgeDiffDiv, 5, 2, 6);
-TUNE_PARAM(OldBonusMult, 22, 10, 30);
-TUNE_PARAM(NewBonusMult, 33, 20, 40);
 
 
 void print_params_for_ob() {
