@@ -174,11 +174,11 @@ Move random_move(Position &position,
 }
 
 void play_game(ThreadInfo &thread_info, uint64_t &num_fens, int id,
-               std::vector<TTEntry> &TT) { // Plays a game, copying all "good"
+               std::vector<TTBucket> &TT) { // Plays a game, copying all "good"
                                            // FENs to a file.
 
   new_game(thread_info, TT);
-  std::vector<TTEntry> TT2(TT_size);
+  std::vector<TTBucket> TT2(TT_size);
   new_game(thread_info, TT2);
   std::string opening = "";
 
@@ -337,7 +337,7 @@ void play_game(ThreadInfo &thread_info, uint64_t &num_fens, int id,
 
 void run(int id) {
 
-  std::vector<TTEntry> TT(TT_size);
+  std::vector<TTBucket> TT(TT_size);
   std::unique_ptr<ThreadInfo> thread_info = std::make_unique<ThreadInfo>();
 
   uint64_t num_fens = 0;
