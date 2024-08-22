@@ -1,6 +1,7 @@
+#pragma once
 #include "search.h"
 
-void multipv_search(Position &position, ThreadInfo &thread_info) {
+inline void multipv_search(Position &position, ThreadInfo &thread_info) {
 
   thread_info.multipv = 5;
   thread_info.opt_time = thread_info.opt_time * 3 / 4;
@@ -23,7 +24,7 @@ void multipv_search(Position &position, ThreadInfo &thread_info) {
 // cp loss 120 - 1300
 // cp loss 150 - 1000
 
-void search_human(Position &position, ThreadInfo &thread_info) {
+inline void search_human(Position &position, ThreadInfo &thread_info) {
 
   int starting_mat = material_eval(position);
 
