@@ -6,6 +6,8 @@
 #include <fstream>
 #include "base.hpp"
 
+using namespace  std;
+
 constexpr int develop_penalty[0x80] = {
     0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 1, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -55,14 +57,14 @@ int poorly_developed(board_info *board){
 }
 
 
-int filter(const std::string input, const std::string &output){
+int filter(const string input, const string &output){
   char buffer[32768];
   int buffer_key = 0;
-  std::ofstream fout(output);
-  std::ifstream fin(input);
-  std::string line;
+  ofstream fout(output);
+  ifstream fin(input);
+  string line;
   int total_lines = 0, filtered_lines = 0;
-  while (std::getline(fin, line)){
+  while (getline(fin, line)){
     total_lines++;
     board_info board;
     bool color = setfromfen(&board, line.c_str());

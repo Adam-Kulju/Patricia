@@ -6,6 +6,8 @@
 #include <iostream>
 #include <stdio.h>
 
+using namespace  std;
+
 bool enough_mat(board_info *board) {
   int total_mat = 0;
   int piece_values[5] = {100, 300, 300, 500, 900};
@@ -57,14 +59,14 @@ bool monster_piece(board_info *board) {
   return false;
 }
 
-int filter(const std::string input, const std::string &output) {
+int filter(const string input, const string &output) {
   char buffer[32768];
   int buffer_key = 0;
-  std::ofstream fout(output);
-  std::ifstream fin(input);
-  std::string line;
+  ofstream fout(output);
+  ifstream fin(input);
+  string line;
   int total_lines = 0, filtered_lines = 0;
-  while (std::getline(fin, line)) {
+  while (getline(fin, line)) {
     total_lines++;
     board_info board;
     bool color = setfromfen(&board, line.c_str());

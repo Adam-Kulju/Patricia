@@ -2,6 +2,9 @@
 #include <fstream>
 #include <stdint.h>
 #include <cstring>
+
+using namespace  std;
+
 struct bulletformat{
     uint64_t occ;
     uint8_t pieces[16];
@@ -12,10 +15,10 @@ struct bulletformat{
 };
 
 
-std::string export_fen(int board[64]) { // From an internal board state, print
+string export_fen(int board[64]) { // From an internal board state, print
                                         // an FEN for datagen purposes.
   int pos = 56;
-  std::string fen;
+  string fen;
   int fenkey = 0;
   while (pos >= 0) {
     //printf("%i\n", pos);
@@ -71,7 +74,7 @@ std::string export_fen(int board[64]) { // From an internal board state, print
         pos++;
       }
 
-      fen.append(std::to_string(empty));
+      fen.append(to_string(empty));
       pos--;
     }
 
@@ -85,19 +88,19 @@ std::string export_fen(int board[64]) { // From an internal board state, print
     pos++;
   }
 
-  std::string n = " w - - 0 0";
+  string n = " w - - 0 0";
 
   return fen + n;
 }
 
 
 int main(int argc, char *argv[]){
-    std::string i = argv[1];
-    std::string o = argv[2];
+    string i = argv[1];
+    string o = argv[2];
 
-    std::ifstream in(i);
-    std::ofstream out(o);
-    std::string f2;
+    ifstream in(i);
+    ofstream out(o);
+    string f2;
 
     bulletformat temp;
     uint32_t lines_read = 0;
@@ -120,14 +123,14 @@ int main(int argc, char *argv[]){
         }
     }
 
-    std::string f = export_fen(board);
+    string f = export_fen(board);
     if (f == "error"){
         printf("%i\n", lines_read);
         exit(0);
     }
-    std::string result = std::to_string((float)temp.result / 2).substr(0, 3);
-    f.append(" | " + std::to_string(temp.score) + " | " + result);
-    out << f << std::endl;
+    string result = to_string((float)temp.result / 2).substr(0, 3);
+    f.append(" | " + to_string(temp.score) + " | " + result);
+    out << f << endl;
     
     }
     

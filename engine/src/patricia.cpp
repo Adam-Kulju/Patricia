@@ -3,6 +3,8 @@
 #include <memory>
 #include <cstdio>
 
+using namespace  std;
+
 uint64_t
 perft(int depth, Position &position, bool first,
       ThreadInfo &thread_info) // Performs a perft search to the desired depth,
@@ -11,7 +13,7 @@ perft(int depth, Position &position, bool first,
   if (!depth) {
     return 1; // a terminal node
   } 
-  std::array<Move, ListSize> list;
+  array<Move, ListSize> list;
   uint64_t total_nodes = 0;
   int nmoves =
       movegen(position, list,
@@ -29,7 +31,7 @@ perft(int depth, Position &position, bool first,
     uint64_t nodes = perft(depth - 1, new_position, false, thread_info);
     
     if (first) {
-      std::printf("%s: %" PRIu64 "\n", internal_to_uci(position, list[i]).c_str(),
+      printf("%s: %" PRIu64 "\n", internal_to_uci(position, list[i]).c_str(),
              nodes);
     }
     total_nodes += nodes;
@@ -39,7 +41,7 @@ perft(int depth, Position &position, bool first,
 }
 
 int bench(Position &position, ThreadInfo &thread_info) {
-  std::vector<std::string> fens = {
+  vector<string> fens = {
       "2r2k2/8/4P1R1/1p6/8/P4K1N/7b/2B5 b - - 0 55\0",
       "2r4r/1p4k1/1Pnp4/3Qb1pq/8/4BpPp/5P2/2RR1BK1 w - - 0 42\0",
       "6k1/5pp1/8/2bKP2P/2P5/p4PNb/B7/8 b - - 1 44\0",
@@ -98,17 +100,17 @@ int bench(Position &position, ThreadInfo &thread_info) {
   thread_info.max_iter_depth = 12;
   uint64_t total_nodes = 0;
 
-  auto start = std::chrono::steady_clock::now();
+  auto start = chrono::steady_clock::now();
 
-  for (std::string fen : fens) {
+  for (string fen : fens) {
     new_game(thread_info, TT);
     set_board(position, thread_info, fen);
-    thread_info.start_time = std::chrono::steady_clock::now();
+    thread_info.start_time = chrono::steady_clock::now();
     iterative_deepen(position, thread_info, TT);
     total_nodes += thread_info.nodes;
   }
 
-  std::printf("Bench: %" PRIu64 " nodes %" PRIi64 " nps\n", total_nodes,
+  printf("Bench: %" PRIu64 " nodes %" PRIi64 " nps\n", total_nodes,
          static_cast<int64_t>(total_nodes * 1000 / time_elapsed(start)));
 
   return 0;
@@ -116,26 +118,26 @@ int bench(Position &position, ThreadInfo &thread_info) {
 
 int main(int argc, char *argv[]) {
   Position position;
-  std::unique_ptr<ThreadInfo> thread_info = std::make_unique<ThreadInfo>();
+  unique_ptr<ThreadInfo> thread_info = make_unique<ThreadInfo>();
 
   init_LMR();
   if (argc > 1) {
-    if (std::string(argv[1]) == "perft") {
+    if (string(argv[1]) == "perft") {
       new_game(*thread_info, TT);
       set_board(position, *thread_info,
                 "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
-      thread_info->start_time = std::chrono::steady_clock::now();
+      thread_info->start_time = chrono::steady_clock::now();
 
       uint64_t nodes = perft(atoi(argv[2]), position, true, *thread_info);
 
-      std::printf("%" PRIu64 " nodes %" PRIu64 " nps\n", nodes,
+      printf("%" PRIu64 " nodes %" PRIu64 " nps\n", nodes,
            (uint64_t)(nodes * 1000 /
                       (time_elapsed(thread_info->start_time))));
 
-      std::exit(0);
+      exit(0);
     }
 
-    else if (std::string(argv[1]) == "bench") {
+    else if (string(argv[1]) == "bench") {
       bench(position, *thread_info);
     }
   }
