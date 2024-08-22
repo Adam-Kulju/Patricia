@@ -1,4 +1,3 @@
-#pragma once
 #ifndef PATRICIA_BASE_HPP
 #define PATRICIA_BASE_HPP
 #include <ctype.h>
