@@ -6,7 +6,6 @@
 #include <cstdint>
 #include <cstring>
 #include <span>
-#include <vector>
 #ifdef _MSC_VER
 #define W_MSVC
 #pragma push_macro("_MSC_VER")
@@ -45,7 +44,7 @@ struct alignas(64) NNUE_Params {
 };
 
 INCBIN(nnue, "src/abby.nnue");
-const NNUE_Params &g_nnue = *reinterpret_cast<const NNUE_Params *>(g_nnueData);
+inline const NNUE_Params &g_nnue = *reinterpret_cast<const NNUE_Params *>(g_nnueData);
 
 template <size_t HiddenSize> struct alignas(64) Accumulator {
   std::array<int16_t, HiddenSize> white;
@@ -83,7 +82,7 @@ inline void subtract_from_all(std::array<int16_t, size> &output,
   }
 }
 
-std::pair<size_t, size_t> feature_indices(int piece, int sq) {
+inline std::pair<size_t, size_t> feature_indices(int piece, int sq) {
   constexpr size_t color_stride = 64 * 6;
   constexpr size_t piece_stride = 64;
 
@@ -166,7 +165,7 @@ public:
 };
 
 
-void NNUE_State::add_sub(int from_piece, int from, int to_piece, int to) {
+inline void NNUE_State::add_sub(int from_piece, int from, int to_piece, int to) {
 
   const auto [white_from, black_from] = feature_indices(from_piece, from);
   const auto [white_to, black_to] = feature_indices(to_piece, to);
@@ -184,7 +183,7 @@ void NNUE_State::add_sub(int from_piece, int from, int to_piece, int to) {
   m_curr++;
 }
 
-void NNUE_State::add_sub_sub(int from_piece, int from, int to_piece, int to, int captured,
+inline void NNUE_State::add_sub_sub(int from_piece, int from, int to_piece, int to, int captured,
                              int captured_sq) {
   const auto [white_from, black_from] = feature_indices(from_piece, from);
   const auto [white_to, black_to] = feature_indices(to_piece, to);
@@ -205,7 +204,7 @@ void NNUE_State::add_sub_sub(int from_piece, int from, int to_piece, int to, int
   m_curr++;
 }
 
-void NNUE_State::add_add_sub_sub(int piece1, int from1, int to1, int piece2, int from2, int to2){
+inline void NNUE_State::add_add_sub_sub(int piece1, int from1, int to1, int piece2, int from2, int to2){
   const auto [white_from1, black_from1] = feature_indices(piece1, from1);
   const auto [white_to1, black_to1] = feature_indices(piece1, to1);
   const auto [white_from2, black_from2] = feature_indices(piece2, from2);
@@ -228,9 +227,9 @@ void NNUE_State::add_add_sub_sub(int piece1, int from1, int to1, int piece2, int
   m_curr++;
 }
 
-void NNUE_State::pop() { m_curr--; }
+inline void NNUE_State::pop() { m_curr--; }
 
-int NNUE_State::evaluate(int color) {
+inline int NNUE_State::evaluate(int color) {
   const auto output =
       color == Colors::White
           ? screlu_flatten(m_curr->white, m_curr->black, g_nnue.output_v)
@@ -255,7 +254,7 @@ inline void NNUE_State::update_feature(int piece, int square) {
   }
 }
 
-void NNUE_State::reset_nnue(Position position) {
+inline void NNUE_State::reset_nnue(Position position) {
   m_curr = &m_accumulator_stack[0];
   m_curr->init(g_nnue.feature_bias);
 
