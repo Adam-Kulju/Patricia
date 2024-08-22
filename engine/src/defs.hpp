@@ -1,4 +1,6 @@
 #pragma once
+#ifndef PATRICIA_DEFS_HPP
+#define PATRICIA_DEFS_HPP
 #include <array>
 #include <chrono>
 #include <cinttypes>
@@ -489,3 +491,5 @@ constexpr std::array<uint64_t, 778> zobrist_keys = {
     10972816599561388940ull, 4931112976348785580ull,  8213967169213816566ull,
     15336469859637867841ull,
 };
+
+#endif
