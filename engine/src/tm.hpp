@@ -1,6 +1,6 @@
 #pragma once
-#include "defs.h"
-#include "utils.h"
+#include "defs.hpp"
+#include "utils.hpp"
 #include <algorithm>
 
 inline void adjust_soft_limit(ThreadInfo &thread_info, const uint64_t best_move_nodes) {

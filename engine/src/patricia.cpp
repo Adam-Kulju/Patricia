@@ -1,5 +1,5 @@
-#include "search.h"
-#include "uci.h"
+#include "search.hpp"
+#include "uci.hpp"
 #include <memory>
 #include <cstdio>
 

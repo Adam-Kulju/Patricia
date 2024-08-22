@@ -1,5 +1,5 @@
-#ifndef __base__
-#define __base__
+#ifndef BASE_H
+#define BASE_H
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
