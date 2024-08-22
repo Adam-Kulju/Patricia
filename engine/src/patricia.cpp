@@ -1,7 +1,7 @@
 #include "search.h"
 #include "uci.h"
 #include <memory>
-#include <stdio.h>
+#include <cstdio>
 
 uint64_t
 perft(int depth, Position &position, bool first,
@@ -18,7 +18,7 @@ perft(int depth, Position &position, bool first,
               attacks_square(position, position.kingpos[position.color],
                              position.color ^ 1));
   for (int i = 0; i < nmoves;
-       i++) // Loop through all of the moves, skipping illegal ones.
+       i++) // Loop through all the moves, skipping illegal ones.
   {
     if (! is_legal(position, list[i])) {
       continue;
@@ -29,7 +29,7 @@ perft(int depth, Position &position, bool first,
     uint64_t nodes = perft(depth - 1, new_position, false, thread_info);
     
     if (first) {
-      printf("%s: %" PRIu64 "\n", internal_to_uci(position, list[i]).c_str(),
+      std::printf("%s: %" PRIu64 "\n", internal_to_uci(position, list[i]).c_str(),
              nodes);
     }
     total_nodes += nodes;
@@ -38,7 +38,7 @@ perft(int depth, Position &position, bool first,
   return total_nodes;
 }
 
-void bench(Position &position, ThreadInfo &thread_info) {
+int bench(Position &position, ThreadInfo &thread_info) {
   std::vector<std::string> fens = {
       "2r2k2/8/4P1R1/1p6/8/P4K1N/7b/2B5 b - - 0 55\0",
       "2r4r/1p4k1/1Pnp4/3Qb1pq/8/4BpPp/5P2/2RR1BK1 w - - 0 42\0",
@@ -108,10 +108,10 @@ void bench(Position &position, ThreadInfo &thread_info) {
     total_nodes += thread_info.nodes;
   }
 
-  printf("Bench: %" PRIu64 " nodes %" PRIi64 " nps\n", total_nodes,
-         (int64_t)(total_nodes * 1000 / time_elapsed(start)));
+  std::printf("Bench: %" PRIu64 " nodes %" PRIi64 " nps\n", total_nodes,
+         static_cast<int64_t>(total_nodes * 1000 / time_elapsed(start)));
 
-  std::exit(0);
+  return 0;
 }
 
 int main(int argc, char *argv[]) {
@@ -128,7 +128,7 @@ int main(int argc, char *argv[]) {
 
       uint64_t nodes = perft(atoi(argv[2]), position, true, *thread_info);
 
-      printf("%" PRIu64 " nodes %" PRIu64 " nps\n", nodes,
+      std::printf("%" PRIu64 " nodes %" PRIu64 " nps\n", nodes,
            (uint64_t)(nodes * 1000 /
                       (time_elapsed(thread_info->start_time))));
 
