@@ -6,9 +6,11 @@
  * Facilities for including binary files into the current translation unit and
  * making use from them externally in other translation units.
  */
+
 #ifndef INCBIN_HDR
 #define INCBIN_HDR
-#include <limits.h>
+#include <climits>
+
 #if defined(__AVX512BW__) || defined(__AVX512CD__) || defined(__AVX512DQ__) || \
     defined(__AVX512ER__) || defined(__AVX512PF__) || defined(__AVX512VL__) || \
     defined(__AVX512F__)
@@ -25,7 +27,7 @@
 #define INCBIN_ALIGNMENT_INDEX 2
 #endif
 
-/* Lookup table of (1 << n) where `n' is `INCBIN_ALIGNMENT_INDEX' */
+/* Lookup table of (1 << n) where 'n' is 'INCBIN_ALIGNMENT_INDEX' */
 #define INCBIN_ALIGN_SHIFT_0 1
 #define INCBIN_ALIGN_SHIFT_1 2
 #define INCBIN_ALIGN_SHIFT_2 4
@@ -82,14 +84,14 @@
 #define INCBIN_ALIGN_BYTE ".balign 1\n"
 #elif defined(INCBIN_ARM)
 /*
- * On arm assemblers, the alignment value is calculated as (1 << n) where `n' is
- * the shift count. This is the value passed to `.align'
+ * On arm assemblers, the alignment value is calculated as (1 << n) where 'n' is
+ * the shift count. This is the value passed to '.align'
  */
 #define INCBIN_ALIGN_HOST                                                      \
   ".align " INCBIN_STRINGIZE(INCBIN_ALIGNMENT_INDEX) "\n"
 #define INCBIN_ALIGN_BYTE ".align 0\n"
 #else
-/* We assume other inline assembler's treat `.align' as `.balign' */
+    /* We assume other inline assembler's treat '.align' as '.balign' */
 #define INCBIN_ALIGN_HOST ".align " INCBIN_STRINGIZE(INCBIN_ALIGNMENT) "\n"
 #define INCBIN_ALIGN_BYTE ".align 1\n"
 #endif
@@ -136,7 +138,7 @@
  *
  * @note This is useful for Harvard architectures where program memory cannot
  * be directly read from the program without special instructions. With this you
- * can chose to put the size variable in RAM rather than ROM.
+ * can choose to put the size variable in RAM rather than ROM.
  */
 #if !defined(INCBIN_OUTPUT_SIZE_SECTION)
 #define INCBIN_OUTPUT_SIZE_SECTION INCBIN_OUTPUT_SECTION
@@ -171,7 +173,7 @@
 #define INCBIN_MANGLE ""
 #endif
 #if defined(INCBIN_ARM)
-/* On arm assemblers, `@' is used as a line comment token */
+/* On arm assemblers, '@' is used as a line comment token */
 #define INCBIN_TYPE(NAME)                                                      \
   ".type " INCBIN_STRINGIZE(INCBIN_PREFIX) #NAME ", %object\n"
 #elif defined(__MINGW32__) || defined(__MINGW64__)
@@ -181,7 +183,7 @@
 // CIEKCE: this just doesn't work on windows at all
 #define INCBIN_TYPE(NAME)
 #else
-/* It's safe to use `@' on other architectures */
+/* It's safe to use '@' on other architectures */
 #define INCBIN_TYPE(NAME)                                                      \
   ".type " INCBIN_STRINGIZE(INCBIN_PREFIX) #NAME ", @object\n"
 #endif
@@ -219,7 +221,7 @@
  * - INCBIN_STYLE_CAMEL "CamelCase"
  * - INCBIN_STYLE_SNAKE "snake_case"
  *
- * @note By default this is INCBIN_STYLE_CAMEL
+ * @note By default, this is INCBIN_STYLE_CAMEL
  *
  * @code
  * #define INCBIN_STYLE INCBIN_STYLE_SNAKE
@@ -269,7 +271,7 @@
  * Produces three external symbols that reference the binary data included in
  * another translation unit.
  *
- * The symbol names are a concatenation of `INCBIN_PREFIX' before *NAME*; with
+ * The symbol names are a concatenation of 'INCBIN_PREFIX' before *NAME*; with
  * "Data", as well as "End" and "Size" after. An example is provided below.
  *
  * @param TYPE Optional array type. Omitting this picks a default of `unsigned
@@ -313,7 +315,7 @@
  * Produces three external symbols that reference the textual data included in
  * another translation unit.
  *
- * The symbol names are a concatenation of `INCBIN_PREFIX' before *NAME*; with
+ * The symbol names are a concatenation of 'INCBIN_PREFIX' before *NAME*; with
  * "Data", as well as "End" and "Size" after. An example is provided below.
  *
  * @param NAME The name given for the textual data
@@ -335,7 +337,7 @@
  * Includes a binary file into the current translation unit, producing three
  * symbols for objects that encode the data and size respectively.
  *
- * The symbol names are a concatenation of `INCBIN_PREFIX' before *NAME*; with
+ * The symbol names are a concatenation of 'INCBIN_PREFIX' before *NAME*; with
  * "Data", as well as "End" and "Size" after. An example is provided below.
  *
  * @param TYPE Optional array type. Omitting this picks a default of `unsigned
@@ -416,7 +418,7 @@
  * Includes a textual file into the current translation unit, producing three
  * symbols for objects that encode the data and size respectively.
  *
- * The symbol names are a concatenation of `INCBIN_PREFIX' before *NAME*; with
+ * The symbol names are a concatenation of 'INCBIN_PREFIX' before *NAME*; with
  * "Data", as well as "End" and "Size" after. An example is provided below.
  *
  * @param NAME The name to associate with this binary data (as an identifier.)
