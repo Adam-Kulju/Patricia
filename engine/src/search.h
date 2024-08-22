@@ -8,11 +8,11 @@
 
 constexpr int NormalizationFactor = 195;
 
-void update_history(int16_t &entry, int score) { // Update history score
+inline void update_history(int16_t &entry, int score) { // Update history score
   entry += score - entry * abs(score) / 16384;
 }
 
-bool out_of_time(ThreadInfo &thread_info) {
+inline bool out_of_time(ThreadInfo &thread_info) {
   if (thread_info.stop) {
     return true;
   } else if (thread_info.thread_id != 0 || thread_info.current_iter == 1) {
@@ -42,7 +42,7 @@ bool out_of_time(ThreadInfo &thread_info) {
   return false;
 }
 
-int16_t material_eval(const Position &position) {
+inline int16_t material_eval(const Position &position) {
   int m = (position.material_count[0] - position.material_count[1]) * 100 +
           (position.material_count[2] - position.material_count[3]) * 300 +
           (position.material_count[4] - position.material_count[5]) * 300 +
@@ -51,7 +51,8 @@ int16_t material_eval(const Position &position) {
 
   return position.color ? -m : m;
 }
-int16_t total_mat(const Position &position) {
+
+inline int16_t total_mat(const Position &position) {
   int m = (position.material_count[0] + position.material_count[1]) * 100 +
           (position.material_count[2] + position.material_count[3]) * 300 +
           (position.material_count[4] + position.material_count[5]) * 300 +
@@ -61,7 +62,7 @@ int16_t total_mat(const Position &position) {
   return m;
 }
 
-bool has_non_pawn_material(const Position &position, int color) {
+inline bool has_non_pawn_material(const Position &position, int color) {
   int s_indx = 2 + color;
   return (position.material_count[s_indx] ||
           position.material_count[s_indx + 2] ||
@@ -69,7 +70,7 @@ bool has_non_pawn_material(const Position &position, int color) {
           position.material_count[s_indx + 6]);
 }
 
-int16_t total_mat_color(const Position &position, int color) {
+inline int16_t total_mat_color(const Position &position, int color) {
   // total material for one color
 
   int m = 0;
@@ -79,7 +80,7 @@ int16_t total_mat_color(const Position &position, int color) {
   return m;
 }
 
-int eval(const Position &position, ThreadInfo &thread_info) {
+inline int eval(const Position &position, ThreadInfo &thread_info) {
   int color = position.color;
   int root_color = thread_info.search_ply % 2 ? color ^ 1 : color;
 
@@ -151,7 +152,7 @@ int eval(const Position &position, ThreadInfo &thread_info) {
   return std::clamp(eval + bonus1 + bonus2, -MateScore, MateScore);
 }
 
-void ss_push(Position &position, ThreadInfo &thread_info, Move move) {
+inline void ss_push(Position &position, ThreadInfo &thread_info, Move move) {
   // update search stack after makemove
   thread_info.search_ply++;
 
@@ -166,14 +167,14 @@ void ss_push(Position &position, ThreadInfo &thread_info, Move move) {
   thread_info.game_ply++;
 }
 
-void ss_pop(ThreadInfo &thread_info) {
+inline void ss_pop(ThreadInfo &thread_info) {
   // associated with unmake
   thread_info.search_ply--, thread_info.game_ply--;
 
   thread_info.nnue_state.pop();
 }
 
-bool material_draw(
+inline bool material_draw(
     const Position &position) { // Is there not enough material on the
                                 // position for one side to win?
   for (int i : {0, 1, 6, 7, 8,
@@ -197,7 +198,7 @@ bool material_draw(
   return true;
 }
 
-bool is_draw(const Position &position,
+inline bool is_draw(const Position &position,
              ThreadInfo &thread_info) { // Detects if the position is a draw.
 
   uint64_t hash = position.zobrist_key;
@@ -222,7 +223,7 @@ bool is_draw(const Position &position,
   return false;
 }
 
-int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
+inline int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
             std::vector<TTEntry> &TT) { // Performs a quiescence search on the
                                         // given position.
 
@@ -350,7 +351,7 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
   return best_score;
 }
 
-int search(int alpha, int beta, int depth, bool cutnode, Position &position,
+inline int search(int alpha, int beta, int depth, bool cutnode, Position &position,
            ThreadInfo &thread_info,
            std::vector<TTEntry> &TT) { // Performs an alpha-beta search.
 
@@ -774,7 +775,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     int piece = position.board[extract_from(best_move)],
         sq = extract_to(best_move);
 
-    int bonus = std::min((int)HistBonus * (depth - 1), (int)HistMax);
+    int bonus = std::min(static_cast<int>(HistBonus) * (depth - 1), static_cast<int>(HistMax));
 
     // Update history scores and the killer move.
 
@@ -860,7 +861,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   return best_score;
 }
 
-void print_pv(Position &position, ThreadInfo &thread_info) {
+inline void print_pv(Position &position, ThreadInfo &thread_info) {
   Position temp_pos = position;
 
   int indx = 0;
@@ -910,7 +911,7 @@ void print_pv(Position &position, ThreadInfo &thread_info) {
   printf("\n");
 }
 
-void iterative_deepen(
+inline void iterative_deepen(
     Position &position, ThreadInfo &thread_info,
     std::vector<TTEntry> &TT) { // Performs an iterative deepening search.
 
@@ -1071,7 +1072,7 @@ finish:
   }
 }
 
-void search_position(Position &position, ThreadInfo &thread_info,
+inline void search_position(Position &position, ThreadInfo &thread_info,
                      std::vector<TTEntry> &TT) {
   thread_info.position = position;
   thread_info.thread_id = 0;
