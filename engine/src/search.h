@@ -623,7 +623,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
           abs(entry.score) < MateScore && entry.depth >= depth - 3 &&
           entry_type != EntryTypes::UBound) {
 
-        int sBeta = entry.score - depth * 3;
+        int sBeta = entry.score - depth;
         thread_info.excluded_move = move;
         int sScore = search(sBeta - 1, sBeta, (depth - 1) / 2, cutnode,
                             position, thread_info, TT);
