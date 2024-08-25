@@ -928,8 +928,9 @@ void iterative_deepen(
   std::memset(&thread_info.KillerMoves, 0, sizeof(thread_info.KillerMoves));
   std::memset(&thread_info.root_moves, 0, sizeof(thread_info.root_moves));
 
-  Move best_move = MoveNone;
+  Move best_move = MoveNone, prev_best = MoveNone;
   int alpha = ScoreNone, beta = -ScoreNone;
+  int bm_stability = 0;
 
   for (int depth = 1; depth <= thread_info.max_iter_depth; depth++) {
 
@@ -1044,11 +1045,18 @@ void iterative_deepen(
         }
 
         else if (thread_info.multipv == 1 && depth > 6) {
+          if (best_move == prev_best){
+            bm_stability = std::min(bm_stability + 1, 8);
+          }
+          else{
+            bm_stability = 0;
+          }
+
           int i = 0;
           while (thread_info.root_moves[i].move != best_move) {
             i++;
           }
-          adjust_soft_limit(thread_info, thread_info.root_moves[i].nodes);
+          adjust_soft_limit(thread_info, thread_info.root_moves[i].nodes, bm_stability);
         }
       }
 
@@ -1056,6 +1064,8 @@ void iterative_deepen(
         goto finish;
       }
 
+      prev_best = best_move;
+      
       if (depth > 6) {
         alpha = score - 20, beta = score + 20;
       }
