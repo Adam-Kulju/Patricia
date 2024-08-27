@@ -10,18 +10,18 @@
   
 </div>
 
-The most aggressive chess engine ever written, Patricia is a killer bunny who will not hesitate to ram as many pieces as possible down your throat.
+A killer bunny who will not hesitate to ram as many pieces as possible down your throat, Patricia is the most aggressive chess engine the world has ever seen.
 
 <br/><br/>
 
 # Aggression
-The metric that Patricia's aggression claims are based off of is Stefan Pohl's [EAS tool (found here)](https://www.sp-cc.de/eas-ratinglist.htm), which is the most well known and well regarded tool for determining the aggressiveness of chess engines. It looks at a combination of factors, such as sacrifice rate, short win rate, and unnecessary draw rate, and outputs a score that captures how "exciting" an engine tends to play.
+The metric that Patricia's aggression claims are based off of is Stefan Pohl's [EAS tool (found here)](https://www.sp-cc.de/eas-ratinglist.htm), which is the most well known and well regarded tool for determining the aggressiveness of chess engines. It looks at a combination of factors, such as sacrifice rate, short win rate, and unnecessary draw rate, and outputs a score that captures how "exciting" an engine tends to play. It's not a perfect statistic but from my experience it reflects the "eye test" well.
 
-The average engine's EAS score generally falls between 50,000 and 100,000. The most aggressive top engine is Stockfish, due to its extreme tactical ability; it has an EAS score of 190,000. The most aggressive engine of any notable strength that Stefan Pohl has ever seen is Velvet 4.1.0, which topped out at a remarkable EAS Score of 280,000.
+The average engine's EAS score generally falls between 50,000 and 100,000. The most aggressive top engine is Stockfish, due to its extreme tactical ability; it has an EAS score of 190,000.
 
-Patricia, with an EAS score of 420,000 in gauntlet testing, is leaps and bounds above any engine that has ever existed in terms of attacking, sacrificing, and playing stylishly. 
+By contrast, Patricia's EAS score is <b><i>430,000</i></b> as tested by [Pohl himself](https://www.sp-cc.de/patricia_eas_engine.htm).
 
-It's worth noting that Patricia is still well into superhuman territory, with an estimated CCRL elo of 3300-3350; she can put up a solid fight against top engines, and can crush any human or weak engine that dares to oppose her.
+It's worth noting that Patricia is still well into superhuman territory, with an estimated CCRL elo of 3300-3350; she can put up a solid fight against top engines, and will crush any humans.
 
 <br/><br/>
 
