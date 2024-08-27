@@ -118,23 +118,26 @@ int eval(const Position &position, ThreadInfo &thread_info) {
   // search tree If we are completely winning, give a bigger bonus to
   // incentivize finding the most stylish move when everything wins
 
-  for (int idx = start_index + 2; idx < thread_info.game_ply - 4; idx += 2) {
+  if (!thread_info.disable_print) {
 
-    if (thread_info.game_hist[idx].m_diff < s_m &&
-        thread_info.game_hist[idx + 1].m_diff > s_m &&
-        thread_info.game_hist[idx + 2].m_diff < s_m &&
-        thread_info.game_hist[idx + 3].m_diff > s_m &&
-        thread_info.game_hist[idx + 4].m_diff < s_m) {
+    for (int idx = start_index + 2; idx < thread_info.game_ply - 4; idx += 2) {
 
-      s = s_m + thread_info.game_hist[idx + 4].m_diff;
+      if (thread_info.game_hist[idx].m_diff < s_m &&
+          thread_info.game_hist[idx + 1].m_diff > s_m &&
+          thread_info.game_hist[idx + 2].m_diff < s_m &&
+          thread_info.game_hist[idx + 3].m_diff > s_m &&
+          thread_info.game_hist[idx + 4].m_diff < s_m) {
+
+        s = s_m + thread_info.game_hist[idx + 4].m_diff;
+      }
     }
-  }
-  if (s) {
+    if (s) {
 
-    if (thread_info.search_ply % 2) {
-      bonus2 = -20 * (eval < -500 ? 3 : eval < -150 ? 2 : 1);
-    } else {
-      bonus2 = 20 * (eval > 500 ? 3 : eval > 150 ? 2 : 1);
+      if (thread_info.search_ply % 2) {
+        bonus2 = -20 * (eval < -500 ? 3 : eval < -150 ? 2 : 1);                        
+      } else {
+        bonus2 = 20 * (eval > 500 ? 3 : eval > 150 ? 2 : 1);
+      }
     }
   }
 
