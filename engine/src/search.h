@@ -543,6 +543,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   int num_quiets = 0;
   Move captures[64];
   int num_captures = 0;
+  thread_info.KillerMoves[ply + 1] = MoveNone;
 
   MoveInfo moves;
   int num_moves = movegen(position, moves.moves, in_check),
