@@ -184,9 +184,21 @@ void play_game(ThreadInfo &thread_info, uint64_t &num_fens, int id,
 
   Position position;
 
-  if (use_openings && dist(rd) % 10 == 9) {
+  if (use_openings) {
     opening = openings[dist(rd) % OpeningsSize];
     set_board(position, thread_info, opening);
+    int moves = 4 + (dist(rd) % 2);
+
+    for (int i = 0; i < moves;
+         i++) {
+      Move move = random_move(position, thread_info);
+      if (move == MoveNone) {
+        return;
+      }
+
+      ss_push(position, thread_info, move);
+      make_move(position, move, thread_info);
+    }
   }
 
   else {
@@ -218,7 +230,7 @@ void play_game(ThreadInfo &thread_info, uint64_t &num_fens, int id,
   int handicap = dist(rd) % 2;
 
 
-  while (result == 0.5 && thread_info.game_ply < 900 &&
+  while (result == 0.5 &&
          !is_draw(position, thread_info)) {
 
     int repeats = 1;
@@ -262,6 +274,16 @@ void play_game(ThreadInfo &thread_info, uint64_t &num_fens, int id,
       }
       break;
     }
+                                                       
+    else if (thread_info.game_ply > 200){
+      if (score < -200){
+        result = 0;
+      }
+      else if (score > 200){
+        result = 1;
+      }
+      break;
+    }
 
     if (best_move == MoveNone) {
       print_board(position);
@@ -302,7 +324,7 @@ void play_game(ThreadInfo &thread_info, uint64_t &num_fens, int id,
 
         if (total_fens > 51000000){
           fr.close();
-          exit(0);
+          exit(0);                          
         }
       }
     }
