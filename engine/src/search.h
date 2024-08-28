@@ -134,21 +134,21 @@ int eval(const Position &position, ThreadInfo &thread_info) {
     if (s) {
 
       if (thread_info.search_ply % 2) {
-        bonus2 = -20 * (eval < -500 ? 3 : eval < -150 ? 2 : 1);                        
+        bonus2 = -20 * (eval < -500 ? 3 : eval < -150 ? 2 : 1);
       } else {
         bonus2 = 20 * (eval > 500 ? 3 : eval > 150 ? 2 : 1);
       }
     }
-  }
 
-  // If we're winning, scale eval by material; we don't want to trade off to an
-  // easily won endgame, but instead should continue the attack.
+    // If we're winning, scale eval by material; we don't want to trade off to
+    // an easily won endgame, but instead should continue the attack.
 
-  if (abs(eval) > 500) {
-    eval = eval *
-           (512 + total_mat_color(position, color ^ 1) / 8 -
-            (position.material_count[0] + position.material_count[1]) * 20) /
-           768;
+    if (abs(eval) > 500) {
+      eval = eval *
+             (512 + total_mat_color(position, color ^ 1) / 8 -
+              (position.material_count[0] + position.material_count[1]) * 20) /
+             768;
+    }
   }
 
   return std::clamp(eval + bonus1 + bonus2, -MateScore, MateScore);
