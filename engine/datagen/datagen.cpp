@@ -287,7 +287,7 @@ void play_game(ThreadInfo &thread_info, uint64_t &num_fens, int id,
 
     if (best_move == MoveNone) {
       print_board(position);
-      thread_info.disable_print = false;
+      thread_info.doing_datagen = false;
       search_position(position, thread_info, TT);
       std::exit(1);
     }
@@ -341,7 +341,7 @@ void run(int id) {
   std::unique_ptr<ThreadInfo> thread_info = std::make_unique<ThreadInfo>();
 
   uint64_t num_fens = 0;
-  thread_info->disable_print = true;
+  thread_info->doing_datagen = true;
   thread_info->opt_time = UINT32_MAX / 2;
   thread_info->max_time = UINT32_MAX / 2;
 
