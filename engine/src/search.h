@@ -85,6 +85,10 @@ int eval(const Position &position, ThreadInfo &thread_info) {
 
   int eval = thread_info.nnue_state.evaluate(color);
 
+  if (thread_info.doing_datagen) {
+    return std::clamp(eval, -MateScore, MateScore);
+  }
+
   // Patricia is much less dependent on explicit eval twiddling than before, but
   // there are still a few things I do.
 
@@ -118,37 +122,34 @@ int eval(const Position &position, ThreadInfo &thread_info) {
   // search tree If we are completely winning, give a bigger bonus to
   // incentivize finding the most stylish move when everything wins
 
-  if (!thread_info.disable_print) {
+  for (int idx = start_index + 2; idx < thread_info.game_ply - 4; idx += 2) {
 
-    for (int idx = start_index + 2; idx < thread_info.game_ply - 4; idx += 2) {
+    if (thread_info.game_hist[idx].m_diff < s_m &&
+        thread_info.game_hist[idx + 1].m_diff > s_m &&
+        thread_info.game_hist[idx + 2].m_diff < s_m &&
+        thread_info.game_hist[idx + 3].m_diff > s_m &&
+        thread_info.game_hist[idx + 4].m_diff < s_m) {
 
-      if (thread_info.game_hist[idx].m_diff < s_m &&
-          thread_info.game_hist[idx + 1].m_diff > s_m &&
-          thread_info.game_hist[idx + 2].m_diff < s_m &&
-          thread_info.game_hist[idx + 3].m_diff > s_m &&
-          thread_info.game_hist[idx + 4].m_diff < s_m) {
-
-        s = s_m + thread_info.game_hist[idx + 4].m_diff;
-      }
+      s = s_m + thread_info.game_hist[idx + 4].m_diff;
     }
-    if (s) {
+  }
+  if (s) {
 
-      if (thread_info.search_ply % 2) {
-        bonus2 = -20 * (eval < -500 ? 3 : eval < -150 ? 2 : 1);
-      } else {
-        bonus2 = 20 * (eval > 500 ? 3 : eval > 150 ? 2 : 1);
-      }
+    if (thread_info.search_ply % 2) {
+      bonus2 = -20 * (eval < -500 ? 3 : eval < -150 ? 2 : 1);
+    } else {
+      bonus2 = 20 * (eval > 500 ? 3 : eval > 150 ? 2 : 1);
     }
+  }
 
-    // If we're winning, scale eval by material; we don't want to trade off to
-    // an easily won endgame, but instead should continue the attack.
+  // If we're winning, scale eval by material; we don't want to trade off to
+  // an easily won endgame, but instead should continue the attack.
 
-    if (abs(eval) > 500) {
-      eval = eval *
-             (512 + total_mat_color(position, color ^ 1) / 8 -
-              (position.material_count[0] + position.material_count[1]) * 20) /
-             768;
-    }
+  if (abs(eval) > 500) {
+    eval = eval *
+            (512 + total_mat_color(position, color ^ 1) / 8 -
+            (position.material_count[0] + position.material_count[1]) * 20) /
+            768;
   }
 
   return std::clamp(eval + bonus1 + bonus2, -MateScore, MateScore);
@@ -956,7 +957,7 @@ void iterative_deepen(
           goto finish;
         }
 
-        if (thread_info.thread_id == 0 && !thread_info.disable_print) {
+        if (thread_info.thread_id == 0 && !thread_info.doing_datagen) {
           std::string bound_string;
           if (score >= beta) {
             bound_string = "lowerbound";
@@ -1030,7 +1031,7 @@ void iterative_deepen(
           nps = wezly;
         }
 
-        if (!thread_info.disable_print) {
+        if (!thread_info.doing_datagen) {
           printf("info multipv %i depth %i seldepth %i score %s nodes %" PRIu64
                  " nps %" PRIi64 " time %" PRIi64 " pv ",
                  i, depth, thread_info.seldepth, eval_string.c_str(), nodes,
@@ -1077,7 +1078,7 @@ void iterative_deepen(
   }
 
 finish:
-  if (thread_info.thread_id == 0 && !thread_info.disable_print &&
+  if (thread_info.thread_id == 0 && !thread_info.doing_datagen &&
       !thread_info.is_human) {
     printf("bestmove %s\n", internal_to_uci(position, best_move).c_str());
   }

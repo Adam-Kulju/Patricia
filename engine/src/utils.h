@@ -52,7 +52,7 @@ struct ThreadInfo {
 
   int32_t score = ScoreNone;
   Move best_move = MoveNone;
-  bool disable_print = false;
+  bool doing_datagen = false;
 
   bool is_human = false;
   int cp_accum_loss = 0;
