@@ -537,7 +537,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     }
   }
 
-  if (is_pv && tt_move == MoveNone && depth > IIRMinDepth) {
+  if ((is_pv || cutnode) && tt_move == MoveNone && depth > IIRMinDepth + cutnode) {
     // Internal Iterative Reduction: If we are in a PV node and have no TT move,
     // reduce the depth.
     depth--;
