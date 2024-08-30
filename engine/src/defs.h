@@ -53,6 +53,10 @@ constexpr uint8_t Rook = 2;
 constexpr uint8_t Queen = 3;
 } // namespace Promos
 
+constexpr int get_piece_type(int x) {
+  return x & ~1;
+}
+
 template <typename T, size_t N, size_t... Ns> struct MultiArrayImpl {
   using Type = std::array<typename MultiArrayImpl<T, Ns...>::Type, N>;
 };
