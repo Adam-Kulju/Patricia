@@ -119,6 +119,10 @@ int main(int argc, char *argv[]) {
   std::unique_ptr<ThreadInfo> thread_info = std::make_unique<ThreadInfo>();
 
   init_LMR();
+  init_bbs();
+  print_bb(RookMasks[0]);
+  exit(0);
+  
   if (argc > 1) {
     if (std::string(argv[1]) == "perft") {
       new_game(*thread_info, TT);

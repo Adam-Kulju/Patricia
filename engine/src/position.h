@@ -3,6 +3,7 @@
 #include <cctype>
 #include <cstring>
 #include <sstream>
+#include "bitboard.h"
 
 
 std::string
