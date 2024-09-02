@@ -176,11 +176,26 @@ int pop_lsb(uint64_t &bb) {
   return s;
 }
 
+void print_bb(uint64_t bb) {
+  printf("\n");
+  for (int rank = 7; rank >= 0; rank--) {
+    for (int file = 0; file < 8; file++) {
+      int sq = file + (rank << 3);
+      printf("%i ", bool(bb & (1ull << sq)));
+    }
+    printf("\n");
+  }
+}
+
 uint64_t set_occ(int idx, int size, uint64_t mask) {
   uint64_t occ = 0;
+
   for (int i = 0; i < size; i++) {
-    if (idx & (1 << size)) {
-      occ |= pop_lsb(mask);
+
+    int square = pop_lsb(mask);
+
+    if (idx & (1 << i)) {
+      occ |= (1ull << square);
     }
   }
   return occ;
@@ -241,8 +256,8 @@ void fill_bishop_attacks() {
     int bits = __builtin_popcountll(BishopMasks[square]);
     int occ_var = 1 << bits;
     for (int i = 0; i < occ_var; i++) {
-
       uint64_t occ = set_occ(i, bits, BishopMasks[square]);
+
       uint64_t magic_idx = occ * BishopMagics[square] >> 55;
       BishopAttacks[square][magic_idx] = bishop_sliders(square, occ);
     }
@@ -260,6 +275,14 @@ void fill_rook_attacks() {
       RookAttacks[square][magic_idx] = rook_sliders(square, occ);
     }
   }
+}
+
+uint64_t get_bishop_attacks(int sq, uint64_t occ) {
+  return BishopAttacks[sq][(occ & BishopMasks[sq]) * BishopMagics[sq] >> 55];
+}
+
+uint64_t get_rook_attacks(int sq, uint64_t occ) {
+  return RookAttacks[sq][(occ & RookMasks[sq]) * RookMagics[sq] >> 52];
 }
 
 void init_bbs() {
@@ -281,12 +304,12 @@ void generate_bb(std::string fen, Position_BB &pos) {
   int sq = a8;
 
   for (char c : fen) {
-    if (sq == SqNone) {
+    if (sq == SqNone || c == ' ') {
       break;
     } else if (c == '/') {
       sq -= 65;
     } else if (isdigit(c)) {
-      sq += Directions_BB::East * (c - '0');
+      sq += Directions_BB::North * (c - '0');
     } else {
       int index;
       switch (tolower(c)) {
@@ -310,7 +333,7 @@ void generate_bb(std::string fen, Position_BB &pos) {
         break;
       default:
         printf("Unexpected error occured parsing FEN!\n");
-        printf("%s\n", fen.c_str());
+        printf("%s %c\n", fen.c_str(), c);
         exit(1);
       }
 
@@ -319,7 +342,7 @@ void generate_bb(std::string fen, Position_BB &pos) {
       pos.pieces[index] += (1ull << sq);
       pos.colors[color_indx] += (1ull << sq);
 
-      sq += Directions_BB::East;
+      sq += Directions_BB::North;
     }
   }
 }
@@ -338,17 +361,6 @@ void update_bb(Position_BB &pos, int from_piece, int from, int to_piece, int to,
   if (capture_sq != SquareNone) {
     pos.colors[color ^ 1] -= (1ull << capture_sq);
     pos.pieces[capt_type] -= (1ull << capture_sq);
-  }
-}
-
-void print_bb(uint64_t bb) {
-  printf("\n");
-  for (int rank = 7; rank >= 0; rank--) {
-    for (int file = 0; file < 8; file++) {
-      int sq = file + (rank << 3);
-      printf("%i ", bool(bb & (1ull << sq)));
-    }
-    printf("\n");
   }
 }
 

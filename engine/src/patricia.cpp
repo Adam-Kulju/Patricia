@@ -119,10 +119,13 @@ int main(int argc, char *argv[]) {
   std::unique_ptr<ThreadInfo> thread_info = std::make_unique<ThreadInfo>();
 
   init_LMR();
-
   init_bbs();
-  print_bb(RookMasks[0]);
-  
+
+  Position_BB bb;
+  generate_bb("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", bb);
+
+  print_bb(get_bishop_attacks(a4, bb.colors[0] | bb.colors[1]));
+  print_bb(get_rook_attacks(a4, bb.colors[0] | bb.colors[1]));
   exit(0);
 
 
