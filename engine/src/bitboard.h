@@ -1,3 +1,4 @@
+#pragma once
 #include "defs.h"
 #include <cctype>
 #include <cstdint>
@@ -80,15 +81,16 @@ struct Magic {
 };
 
 namespace Directions_BB {
-constexpr int8_t North = 1;
-constexpr int8_t South = -1;
-constexpr int8_t East = 8;
-constexpr int8_t West = -8;
+constexpr int8_t North = 8;
+constexpr int8_t South = -8;
+constexpr int8_t East = 1;
+constexpr int8_t West = -1;
 constexpr int8_t Northeast = 9;
 constexpr int8_t Southeast = -7;
 constexpr int8_t Northwest = 7;
 constexpr int8_t Southwest = -9;
 } // namespace Directions_BB
+
 
 namespace Pieces_BB {
 constexpr uint8_t Pawn = 0;
@@ -110,7 +112,7 @@ uint64_t BishopMasks[64];
 uint64_t BishopAttacks[64][512];
 uint64_t RookAttacks[64][4096];
 
-constexpr uint64_t BishopMagics[] = {
+constexpr uint64_t BishopMagics[64] = {
     0x2020420401002200, 0x05210A020A002118, 0x1110040454C00484,
     0x1008095104080000, 0xC409104004000000, 0x0002901048080200,
     0x0044040402084301, 0x2002030188040200, 0x0000C8084808004A,
@@ -190,10 +192,13 @@ uint64_t bishop_sliders(int square, uint64_t occ) {
     while (temp_file >= 0 && temp_file <= 7 && temp_rank >= 0 &&
            temp_rank <= 7) {
       int temp_sq = temp_file + (temp_rank * 8);
-      bb |= temp_sq;
-      if (occ & temp_sq) {
+      bb |= (1ull << temp_sq);
+      if (occ & (1ull << temp_sq)) {
         break;
       }
+
+      temp_file += dirs_file[i];
+      temp_rank += dirs_rank[i];
     }
   }
 
@@ -212,10 +217,13 @@ uint64_t rook_sliders(int square, uint64_t occ) {
     while (temp_file >= 0 && temp_file <= 7 && temp_rank >= 0 &&
            temp_rank <= 7) {
       int temp_sq = temp_file + (temp_rank * 8);
-      bb |= temp_sq;
-      if (occ & temp_sq) {
+      bb |= (1ull << temp_sq);
+      if (occ & (1ull << temp_sq)) {
         break;
       }
+
+      temp_file += dirs_file[i];
+      temp_rank += dirs_rank[i];
     }
   }
 
@@ -324,16 +332,14 @@ void update_bb(Position_BB &pos, int from_piece, int from, int to_piece, int to,
 }
 
 void print_bb(uint64_t bb) {
-  for (int sq = a8; sq != SqNone;) {
-    if (sq > SqNone) {
-      printf("\n");
-      sq -= 65;
-    } else {
-      printf("%i ", (int)(bb >> sq) & 1);
-      sq += Directions_BB::East;
+  printf("\n");
+  for (int rank = 7; rank >= 0; rank--) {
+    for (int file = 0; file < 8; file++) {
+      int sq = file + (rank << 3);
+      printf("%i ", bool(bb & (1ull << sq)));
     }
+    printf("\n");
   }
-  printf("\n\n");
 }
 
 void print_bbs(Position_BB &pos) {
