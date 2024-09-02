@@ -74,11 +74,15 @@ enum Square : int { // a1 = 0. a8 = 7, etc. thus a1 is the LSB and h8 is the
   SqNone
 };
 
-struct Magic {
-  uint64_t bitmask;
-  uint64_t magic_value;
-  uint8_t shift;
-};
+constexpr uint64_t Ranks[8] = {0xFFull,       0xFFull << 8,  0xFFull << 16,
+                               0xFFull << 24, 0xFFull << 32, 0xFFull << 40,
+                               0xFFull << 48, 0xFFull << 56};
+
+constexpr uint64_t Files[8] = {
+    0x101010101010101ull,      0x101010101010101ull << 1,
+    0x101010101010101ull << 2, 0x101010101010101ull << 3,
+    0x101010101010101ull << 4, 0x101010101010101ull << 5,
+    0x101010101010101ull << 6, 0x101010101010101ull << 7};
 
 namespace Directions_BB {
 constexpr int8_t North = 8;
@@ -90,7 +94,6 @@ constexpr int8_t Southeast = -7;
 constexpr int8_t Northwest = 7;
 constexpr int8_t Southwest = -9;
 } // namespace Directions_BB
-
 
 namespace Pieces_BB {
 constexpr uint8_t Pawn = 0;
@@ -161,6 +164,9 @@ constexpr uint64_t RookMagics[64] = {
 
 int get_file(int square) { return square % 8; }
 int get_rank(int square) { return square / 8; }
+
+uint64_t file_bb(int square) { return Files[square % 8]; }
+uint64_t rank_bb(int square) { return Ranks[square / 8]; }
 
 int get_lsb(uint64_t bb) { return __builtin_ctzll(bb); }
 
@@ -256,14 +262,18 @@ void fill_rook_attacks() {
   }
 }
 
-void init_bbs(){
-    for (int square = a1; square < SqNone; square++){
-        BishopMasks[square] = bishop_sliders(square, 0);
-        RookMasks[square] = rook_sliders(square, 0);
-    }
+void init_bbs() {
+  for (int square = a1; square < SqNone; square++) {
 
-    fill_bishop_attacks();
-    fill_rook_attacks();
+    uint64_t edges = ((Ranks[0] | Ranks[7]) & ~rank_bb(square)) |
+                     ((Files[0] | Files[7]) & ~file_bb(square));
+
+    BishopMasks[square] = bishop_sliders(square, 0) & ~edges;
+    RookMasks[square] = rook_sliders(square, 0) & ~edges;
+  }
+
+  fill_bishop_attacks();
+  fill_rook_attacks();
 }
 
 void generate_bb(std::string fen, Position_BB &pos) {
