@@ -8,77 +8,77 @@
 enum Square : int { // a1 = 0. a8 = 7, etc. thus a1 is the LSB and h8 is the
                     // MSB.
   a1,
-  a2,
-  a3,
-  a4,
-  a5,
-  a6,
-  a7,
-  a8,
   b1,
-  b2,
-  b3,
-  b4,
-  b5,
-  b6,
-  b7,
-  b8,
   c1,
-  c2,
-  c3,
-  c4,
-  c5,
-  c6,
-  c7,
-  c8,
   d1,
-  d2,
-  d3,
-  d4,
-  d5,
-  d6,
-  d7,
-  d8,
   e1,
-  e2,
-  e3,
-  e4,
-  e5,
-  e6,
-  e7,
-  e8,
   f1,
-  f2,
-  f3,
-  f4,
-  f5,
-  f6,
-  f7,
-  f8,
   g1,
-  g2,
-  g3,
-  g4,
-  g5,
-  g6,
-  g7,
-  g8,
   h1,
+  a2,
+  b2,
+  c2,
+  d2,
+  e2,
+  f2,
+  g2,
   h2,
+  a3,
+  b3,
+  c3,
+  d3,
+  e3,
+  f3,
+  g3,
   h3,
+  a4,
+  b4,
+  c4,
+  d4,
+  e4,
+  f4,
+  g4,
   h4,
+  a5,
+  b5,
+  c5,
+  d5,
+  e5,
+  f5,
+  g5,
   h5,
+  a6,
+  b6,
+  c6,
+  d6,
+  e6,
+  f6,
+  g6,
   h6,
+  a7,
+  b7,
+  c7,
+  d7,
+  e7,
+  f7,
+  g7,
   h7,
+  a8,
+  b8,
+  c8,
+  d8,
+  e8,
+  f8,
+  g8,
   h8,
   SqNone
 };
 
-constexpr uint64_t Ranks[8] = {0xFFull,       0xFFull << 8,  0xFFull << 16,
+constexpr std::array<uint64_t, 8> Ranks = {0xFFull,       0xFFull << 8,  0xFFull << 16,
                                0xFFull << 24, 0xFFull << 32, 0xFFull << 40,
                                0xFFull << 48, 0xFFull << 56};
 
-constexpr uint64_t Files[8] = {
+constexpr std::array<uint64_t, 8> Files = {
     0x101010101010101ull,      0x101010101010101ull << 1,
     0x101010101010101ull << 2, 0x101010101010101ull << 3,
     0x101010101010101ull << 4, 0x101010101010101ull << 5,
@@ -106,16 +106,17 @@ constexpr uint8_t PieceNone = 6;
 } // namespace Pieces_BB
 
 struct Position_BB {
-  uint64_t colors[2];
-  uint64_t pieces[6];
+  std::array<uint64_t, 2> colors;
+  std::array<uint64_t, 6> pieces;
 };
 
-uint64_t RookMasks[64];
-uint64_t BishopMasks[64];
-uint64_t BishopAttacks[64][512];
-uint64_t RookAttacks[64][4096];
+std::array<uint64_t, 64> RookMasks;
+std::array<uint64_t, 64> BishopMasks;
+MultiArray<uint64_t, 64, 512> BishopAttacks;
+MultiArray<uint64_t, 64, 4096> RookAttacks;
+MultiArray<uint64_t, 2, 64> PawnAttacks;
 
-constexpr uint64_t BishopMagics[64] = {
+constexpr std::array<uint64_t, 64> BishopMagics = {
     0x2020420401002200, 0x05210A020A002118, 0x1110040454C00484,
     0x1008095104080000, 0xC409104004000000, 0x0002901048080200,
     0x0044040402084301, 0x2002030188040200, 0x0000C8084808004A,
@@ -138,7 +139,7 @@ constexpr uint64_t BishopMagics[64] = {
     0x0818182101082000, 0x0200800080D80800, 0x32A9220510209801,
     0x0000901010820200, 0x0000014064080180, 0xA001204204080186,
     0xC04010040258C048};
-constexpr uint64_t RookMagics[64] = {
+constexpr std::array<uint64_t, 64> RookMagics = {
     0x5080008011400020, 0x0140001000402000, 0x0280091000200480,
     0x0700081001002084, 0x0300024408010030, 0x510004004E480100,
     0x0400044128020090, 0x8080004100012080, 0x0220800480C00124,
@@ -172,7 +173,7 @@ int get_lsb(uint64_t bb) { return __builtin_ctzll(bb); }
 
 int pop_lsb(uint64_t &bb) {
   int s = get_lsb(bb);
-  bb &= ~1;
+  bb &= (bb-1);
   return s;
 }
 
@@ -304,12 +305,13 @@ void generate_bb(std::string fen, Position_BB &pos) {
   int sq = a8;
 
   for (char c : fen) {
-    if (sq == SqNone || c == ' ') {
+    if (c == ' ') {
       break;
     } else if (c == '/') {
-      sq -= 65;
+      sq -= 8; // drop rank
+      sq -= 8; // reset at file a
     } else if (isdigit(c)) {
-      sq += Directions_BB::North * (c - '0');
+      sq += Directions_BB::East * (c - '0');
     } else {
       int index;
       switch (tolower(c)) {
@@ -339,10 +341,10 @@ void generate_bb(std::string fen, Position_BB &pos) {
 
       bool color_indx = islower(c);
 
-      pos.pieces[index] += (1ull << sq);
-      pos.colors[color_indx] += (1ull << sq);
+      pos.pieces[index] |= (1ull << sq);
+      pos.colors[color_indx] |= (1ull << sq);
 
-      sq += Directions_BB::North;
+      sq += Directions_BB::East;
     }
   }
 }
