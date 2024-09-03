@@ -325,23 +325,16 @@ void fill_knight_attacks() {
 void fill_pawn_attacks() {
   std::memset(&PawnAttacks, 0, sizeof(PawnAttacks));
 
-  for (int square = a2; square < SqNone; square++) {
+  for (int square = a1; square < SqNone; square++) {
     if (get_file(square) > 0) {
       PawnAttacks[Colors::White][square] |=
           (1ull << (square + Directions_BB::Northwest));
-    }
-    if (get_file(square) < 7) {
-      PawnAttacks[Colors::White][square] |=
-          (1ull << (square + Directions_BB::Northeast));
-    }
-  }
-
-  for (int square = h7; square >= a1; square--) {
-    if (get_file(square) > 0) {
       PawnAttacks[Colors::Black][square] |=
           (1ull << (square + Directions_BB::Southwest));
     }
     if (get_file(square) < 7) {
+      PawnAttacks[Colors::White][square] |=
+          (1ull << (square + Directions_BB::Northeast));
       PawnAttacks[Colors::Black][square] |=
           (1ull << (square + Directions_BB::Southeast));
     }
