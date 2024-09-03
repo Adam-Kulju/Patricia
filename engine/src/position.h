@@ -509,11 +509,6 @@ void make_move(Position &position, Move move,
   position.ep_square = ep_square;
   position.zobrist_key = temp_hash;
 
-  if (castle){
-    print_board(position);
-    print_bbs(position.pos);
-    exit(0);
-  }
 
   __builtin_prefetch(&TT[hash_to_idx(temp_hash)]);
 }

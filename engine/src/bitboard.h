@@ -97,13 +97,13 @@ constexpr int8_t Southwest = -9;
 } // namespace Directions_BB
 
 namespace Pieces_BB {
-constexpr uint8_t Pawn = 0;
-constexpr uint8_t Knight = 1;
-constexpr uint8_t Bishop = 2;
-constexpr uint8_t Rook = 3;
-constexpr uint8_t Queen = 4;
-constexpr uint8_t King = 5;
-constexpr uint8_t PieceNone = 6;
+constexpr uint8_t PieceNone = 0;
+constexpr uint8_t Pawn = 1;
+constexpr uint8_t Knight = 2;
+constexpr uint8_t Bishop = 3;
+constexpr uint8_t Rook = 4;
+constexpr uint8_t Queen = 5;
+constexpr uint8_t King = 6;
 } // namespace Pieces_BB
 
 std::array<uint64_t, 64> RookMasks;
@@ -166,6 +166,8 @@ int get_rank(int square) { return square / 8; }
 
 uint64_t file_bb(int square) { return Files[square % 8]; }
 uint64_t rank_bb(int square) { return Ranks[square / 8]; }
+
+int pop_count(uint64_t bb) { return __builtin_popcountll(bb); }
 
 int get_lsb(uint64_t bb) { return __builtin_ctzll(bb); }
 
@@ -252,7 +254,7 @@ uint64_t rook_sliders(int square, uint64_t occ) {
 
 void fill_bishop_attacks() {
   for (int square = a1; square < SqNone; square++) {
-    int bits = __builtin_popcountll(BishopMasks[square]);
+    int bits = pop_count(BishopMasks[square]);
     int occ_var = 1 << bits;
     for (int i = 0; i < occ_var; i++) {
       uint64_t occ = set_occ(i, bits, BishopMasks[square]);
@@ -265,7 +267,7 @@ void fill_bishop_attacks() {
 
 void fill_rook_attacks() {
   for (int square = a1; square < SqNone; square++) {
-    int bits = __builtin_popcountll(RookMasks[square]);
+    int bits = pop_count(RookMasks[square]);
     int occ_var = 1 << bits;
     for (int i = 0; i < occ_var; i++) {
 
@@ -424,9 +426,9 @@ void update_bb(Position_BB &pos, int from_piece, int from, int to_piece, int to,
                int captured_piece, int capture_sq) {
   
   int color = from_piece & 1;
-  int from_type = from_piece / 2 - 1;
-  int to_type = to_piece / 2 - 1;
-  int capt_type = captured_piece / 2 - 1;
+  int from_type = from_piece / 2;
+  int to_type = to_piece / 2;
+  int capt_type = captured_piece / 2;
 
   pos.colors[color] += (1ull << to) - (1ull << from);
   pos.pieces[from_type] -= (1ull << from);

@@ -36,13 +36,13 @@ int movegen(const Position &position, std::span<Move> move_list,
       if (position.board[to] == Pieces::Blank) {
 
         move_list[idx++] = pack_move(from, to, 0);
-        if (get_rank(to) == promotion_rank) {
+        if (get_rank_x88(to) == promotion_rank) {
           for (int promo : {1, 2, 3}) {
             move_list[idx++] = pack_move(from, to, promo);
           }
         }
         // two squares forwards
-        else if (get_rank(from) == first_rank &&
+        else if (get_rank_x88(from) == first_rank &&
                  position.board[to + pawn_dir] == Pieces::Blank) {
           move_list[idx++] = pack_move(from, (to + pawn_dir), 0);
         }
@@ -53,7 +53,7 @@ int movegen(const Position &position, std::span<Move> move_list,
           (c_left == position.ep_square ||
            enemy_square(color, position.board[c_left]))) {
         move_list[idx++] = pack_move(from, c_left, 0);
-        if (get_rank(to) == promotion_rank) {
+        if (get_rank_x88(to) == promotion_rank) {
           for (int promo : {Promos::Bishop, Promos::Rook,
                             Promos::Queen}) { // knight is implicit via zero
             move_list[idx++] = pack_move(from, c_left, promo);
@@ -65,7 +65,7 @@ int movegen(const Position &position, std::span<Move> move_list,
           (c_right == position.ep_square ||
            enemy_square(color, position.board[c_right]))) {
         move_list[idx++] = pack_move(from, c_right, 0);
-        if (get_rank(to) == promotion_rank) {
+        if (get_rank_x88(to) == promotion_rank) {
           for (int promo : {Promos::Bishop, Promos::Rook, Promos::Queen}) {
             move_list[idx++] = pack_move(from, c_right, promo);
           }
