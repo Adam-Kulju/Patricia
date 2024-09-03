@@ -92,15 +92,15 @@ int eval(const Position &position, ThreadInfo &thread_info) {
   // Patricia is much less dependent on explicit eval twiddling than before, but
   // there are still a few things I do.
 
-  int m_eval = material_eval(position);
-  int m_threshold = std::max({300, abs(eval) * 2 / 3, abs(eval) - 700});
-
   int bonus1 = 0, bonus2 = 0;
 
   /*
     // Give a small bonus if the position is much better than what material
     would
     // suggest
+
+    int m_eval = material_eval(position);
+    int m_threshold = std::max({300, abs(eval) * 2 / 3, abs(eval) - 700});
 
     if (eval > 0 && eval > m_eval + m_threshold) {
 
@@ -270,7 +270,7 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
     }
   }
 
-  bool in_check = attacks_square(position, position.kingpos[color], color ^ 1);
+  bool in_check = attacks_square_new(position, position.kingpos[color], color ^ 1);
   int best_score = ScoreNone, raised_alpha = false;
   Move best_move = MoveNone;
 
@@ -456,7 +456,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     }
   }
 
-  bool in_check = attacks_square(position, position.kingpos[color], color ^ 1);
+  bool in_check = attacks_square_new(position, position.kingpos[color], color ^ 1);
 
   // We can't do any eval-based pruning if in check.
 
