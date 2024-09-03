@@ -897,7 +897,6 @@ void print_pv(Position &position, ThreadInfo &thread_info) {
     if (!found_move) {
       break;
     }
-
     if (! is_legal(temp_pos, best_move)) {
       break;
     }

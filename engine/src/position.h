@@ -536,31 +536,41 @@ int is_legal(Position &position, Move move) { // Perform a move on the board.
   int from = extract_from(move), to = extract_to(move), color = position.color,
       opp_color = color ^ 1;
 
-  int to_piece = position.board[to];
-  int from_piece = position.board[from];
-  int ep_cap_square = SquareNone;
+
+  int from_piece = position.board[from], to_piece = from_piece;
+
+  int cap_piece = position.board[to];
+  int cap_square = cap_piece ? to : SquareNone;
 
   // en passant
-  if (get_piece_type(from_piece) == Pieces_BB::Pawn && to == position.ep_square) {
-    ep_cap_square = to + (color ? Directions::North : Directions::South);
-
-    position.board[ep_cap_square] = Pieces::Blank;
+  if (get_piece_type(from_piece) == Pieces_BB::Pawn &&
+      to == position.ep_square) {
+    cap_square = to + (color ? Directions::North : Directions::South);
+    cap_piece = Pieces::WPawn + opp_color;
   }
 
-  // Move the piece
-  position.board[to] = position.board[from];
-  position.board[from] = Pieces::Blank;
+  from = standard(from), to = standard(to);
+  if (cap_square != SquareNone){
+    cap_square = standard(cap_square);
+  }
+
+  Position temp_pos = position;
+
+  update_bb(position, from_piece, from, to_piece, to, cap_piece, cap_square);
 
   int new_king_pos = get_piece_type(from_piece) == Pieces_BB::King
-                         ? to
+                         ? StandardToMailbox[to]
                          : position.kingpos[color];
-  bool is_king_attacked = attacks_square(position, new_king_pos, opp_color);
 
-  // Restore
-  position.board[from] = from_piece;
-  position.board[to] = to_piece;
-  if (ep_cap_square != SquareNone)
-    position.board[ep_cap_square] = Pieces::WPawn + opp_color;
+  bool is_king_attacked = attacks_square_new(position, new_king_pos, opp_color);
 
+  position.colors_bb[color] -= (1ull << to) - (1ull << from);
+  position.pieces_bb[get_piece_type(from_piece)] += (1ull << from);
+  position.pieces_bb[get_piece_type(to_piece)] -= (1ull << to);
+
+  if (cap_square != SquareNone) {
+    position.colors_bb[color ^ 1] += (1ull << cap_square);
+    position.pieces_bb[get_piece_type(cap_piece)] += (1ull << cap_square);
+  }
   return !is_king_attacked;
 }
