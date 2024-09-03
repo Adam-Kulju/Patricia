@@ -252,7 +252,7 @@ bool attacks_square(const Position &position, int sq,
       break;
     }
 
-    temp_pos = sq + KnightAttacks[indx]; // Check for knight attacks
+    temp_pos = sq + KnightRays[indx]; // Check for knight attacks
     if (!out_of_board(temp_pos) &&
         get_color(position.board[temp_pos]) == color &&
         get_piece_type(position.board[temp_pos]) == Pieces::WKnight) {

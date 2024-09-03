@@ -121,11 +121,8 @@ int main(int argc, char *argv[]) {
   init_LMR();
   init_bbs();
 
-  Position_BB bb;
-  generate_bb("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", bb);
-
-  print_bb(get_bishop_attacks(a4, bb.colors[0] | bb.colors[1]));
-  print_bb(get_rook_attacks(a4, bb.colors[0] | bb.colors[1]));
+  print_bb(PawnAttacks[1][g4]);
+  print_bb(KnightAttacks[e7]);
   exit(0);
 
 

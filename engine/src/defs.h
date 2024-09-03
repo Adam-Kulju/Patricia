@@ -186,7 +186,7 @@ constexpr std::array<int8_t, 8> AttackRays = {
     Directions::South,     Directions::North,     Directions::Southeast,
     Directions::Southwest, Directions::Northeast, Directions::Northwest};
 
-constexpr std::array<int8_t, 8> KnightAttacks = {
+constexpr std::array<int8_t, 8> KnightRays = {
     Directions::East * 2 + Directions::North, // Directions Knights can move in
     Directions::East * 2 + Directions::South,
     Directions::South * 2 + Directions::East,

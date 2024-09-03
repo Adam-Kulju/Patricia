@@ -74,9 +74,9 @@ enum Square : int { // a1 = 0. a8 = 7, etc. thus a1 is the LSB and h8 is the
   SqNone
 };
 
-constexpr std::array<uint64_t, 8> Ranks = {0xFFull,       0xFFull << 8,  0xFFull << 16,
-                               0xFFull << 24, 0xFFull << 32, 0xFFull << 40,
-                               0xFFull << 48, 0xFFull << 56};
+constexpr std::array<uint64_t, 8> Ranks = {
+    0xFFull,       0xFFull << 8,  0xFFull << 16, 0xFFull << 24,
+    0xFFull << 32, 0xFFull << 40, 0xFFull << 48, 0xFFull << 56};
 
 constexpr std::array<uint64_t, 8> Files = {
     0x101010101010101ull,      0x101010101010101ull << 1,
@@ -115,6 +115,8 @@ std::array<uint64_t, 64> BishopMasks;
 MultiArray<uint64_t, 64, 512> BishopAttacks;
 MultiArray<uint64_t, 64, 4096> RookAttacks;
 MultiArray<uint64_t, 2, 64> PawnAttacks;
+std::array<uint64_t, 64> KingAttacks;
+std::array<uint64_t, 64> KnightAttacks;
 
 constexpr std::array<uint64_t, 64> BishopMagics = {
     0x2020420401002200, 0x05210A020A002118, 0x1110040454C00484,
@@ -173,7 +175,7 @@ int get_lsb(uint64_t bb) { return __builtin_ctzll(bb); }
 
 int pop_lsb(uint64_t &bb) {
   int s = get_lsb(bb);
-  bb &= (bb-1);
+  bb &= (bb - 1);
   return s;
 }
 
@@ -278,6 +280,74 @@ void fill_rook_attacks() {
   }
 }
 
+void fill_king_attacks() {
+  for (int square = a1; square < SqNone; square++) {
+    uint64_t occ = 0;
+    int s_file = std::max(0, get_file(square) - 1),
+        s_rank = std::max(0, get_rank(square) - 1);
+
+    for (int file = s_file; file <= std::min(s_file + 2, 7); file++) {
+      for (int rank = s_rank; rank <= std::min(s_rank + 2, 7); rank++) {
+
+        if (file < 0 || rank < 0 || (file + rank * 8 == square)) {
+          continue;
+        }
+
+        occ |= (1ull << (file + rank * 8));
+      }
+    }
+    KingAttacks[square] = occ;
+  }
+}
+
+void fill_knight_attacks() {
+  int knight_moves_file[8] = {-2, -2, -1, 1, 2, 2, 1, -1};
+  int knight_moves_rank[8] = {-1, 1, 2, 2, 1, -1, -2, -2};
+
+  for (int square = a1; square < SqNone; square++) {
+
+    uint64_t occ = 0;
+    int s_file = get_file(square), s_rank = get_rank(square);
+
+    for (int i = 0; i < 8; i++) {
+      int file = s_file + knight_moves_file[i];
+      int rank = s_rank + knight_moves_rank[i];
+
+      if (file >= 0 && file <= 7 && rank >= 0 && rank <= 7) {
+        occ |= (1ull << (file + rank * 8));
+      }
+    }
+
+    KnightAttacks[square] = occ;
+  }
+}
+
+void fill_pawn_attacks() {
+  std::memset(&PawnAttacks, 0, sizeof(PawnAttacks));
+
+  for (int square = a2; square < SqNone; square++) {
+    if (get_file(square) > 0) {
+      PawnAttacks[Colors::White][square] |=
+          (1ull << (square + Directions_BB::Northwest));
+    }
+    if (get_file(square) < 7) {
+      PawnAttacks[Colors::White][square] |=
+          (1ull << (square + Directions_BB::Northeast));
+    }
+  }
+
+  for (int square = h7; square >= a1; square--) {
+    if (get_file(square) > 0) {
+      PawnAttacks[Colors::Black][square] |=
+          (1ull << (square + Directions_BB::Southwest));
+    }
+    if (get_file(square) < 7) {
+      PawnAttacks[Colors::Black][square] |=
+          (1ull << (square + Directions_BB::Southeast));
+    }
+  }
+}
+
 uint64_t get_bishop_attacks(int sq, uint64_t occ) {
   return BishopAttacks[sq][(occ & BishopMasks[sq]) * BishopMagics[sq] >> 55];
 }
@@ -298,6 +368,9 @@ void init_bbs() {
 
   fill_bishop_attacks();
   fill_rook_attacks();
+  fill_king_attacks();
+  fill_knight_attacks();
+  fill_pawn_attacks();
 }
 
 void generate_bb(std::string fen, Position_BB &pos) {

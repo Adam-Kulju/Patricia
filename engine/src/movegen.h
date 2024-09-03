@@ -75,7 +75,7 @@ int movegen(const Position &position, std::span<Move> move_list,
 
     // Handle knights
     else if (type == Pieces::WKnight) {
-      for (int moves : KnightAttacks) {
+      for (int moves : KnightRays) {
         int to = from + moves;
         if (!out_of_board(to) && !friendly_square(color, position.board[to])) {
           move_list[idx++] = pack_move(from, to, 0);
@@ -194,7 +194,7 @@ int cheapest_attacker(const Position &position, int sq, int color,
       break;
     }
 
-    temp_pos = sq + KnightAttacks[idx]; // Check for knight attacks
+    temp_pos = sq + KnightRays[idx]; // Check for knight attacks
 
     if (!out_of_board(temp_pos) &&
         get_color(position.board[temp_pos]) == color &&
