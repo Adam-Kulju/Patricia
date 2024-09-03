@@ -89,7 +89,7 @@ struct MoveInfo {
 
 struct Position_BB {
   std::array<uint64_t, 2> colors;
-  std::array<uint64_t, 6> pieces;
+  std::array<uint64_t, 7> pieces;
 };
 
 struct Position {
