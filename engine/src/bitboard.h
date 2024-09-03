@@ -283,13 +283,15 @@ void fill_rook_attacks() {
 void fill_king_attacks() {
   for (int square = a1; square < SqNone; square++) {
     uint64_t occ = 0;
-    int s_file = std::max(0, get_file(square) - 1),
-        s_rank = std::max(0, get_rank(square) - 1);
+    int left   = std::max(0, get_file(square) - 1),
+        right  = std::min(7, get_file(square) + 1),
+        bottom = std::max(0, get_rank(square) - 1),
+        top    = std::min(7, get_rank(square) + 1);
 
-    for (int file = s_file; file <= std::min(s_file + 2, 7); file++) {
-      for (int rank = s_rank; rank <= std::min(s_rank + 2, 7); rank++) {
+    for (int file = left; file <= right; file++) {
+      for (int rank = bottom; rank <= top; rank++) {
 
-        if (file < 0 || rank < 0 || (file + rank * 8 == square)) {
+        if (file + rank * 8 == square) {
           continue;
         }
 
