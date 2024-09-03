@@ -373,7 +373,7 @@ void init_bbs() {
   fill_pawn_attacks();
 }
 
-void generate_bb(std::string fen, Position_BB &pos) {
+void generate_bb(std::string fen, Position &pos) {
   std::memset(&pos, 0, sizeof(pos));
   int sq = a8;
 
@@ -414,15 +414,15 @@ void generate_bb(std::string fen, Position_BB &pos) {
 
       bool color_indx = islower(c);
 
-      pos.pieces[index] |= (1ull << sq);
-      pos.colors[color_indx] |= (1ull << sq);
+      pos.pieces_bb[index] |= (1ull << sq);
+      pos.colors_bb[color_indx] |= (1ull << sq);
 
       sq += Directions_BB::East;
     }
   }
 }
 
-void update_bb(Position_BB &pos, int from_piece, int from, int to_piece, int to,
+void update_bb(Position &pos, int from_piece, int from, int to_piece, int to,
                int captured_piece, int capture_sq) {
   
   int color = from_piece & 1;
@@ -430,38 +430,38 @@ void update_bb(Position_BB &pos, int from_piece, int from, int to_piece, int to,
   int to_type = to_piece / 2;
   int capt_type = captured_piece / 2;
 
-  pos.colors[color] += (1ull << to) - (1ull << from);
-  pos.pieces[from_type] -= (1ull << from);
-  pos.pieces[to_type] += (1ull << to);
+  pos.colors_bb[color] += (1ull << to) - (1ull << from);
+  pos.pieces_bb[from_type] -= (1ull << from);
+  pos.pieces_bb[to_type] += (1ull << to);
 
   if (capture_sq != SquareNone) {
-    pos.colors[color ^ 1] -= (1ull << capture_sq);
-    pos.pieces[capt_type] -= (1ull << capture_sq);
+    pos.colors_bb[color ^ 1] -= (1ull << capture_sq);
+    pos.pieces_bb[capt_type] -= (1ull << capture_sq);
   }
 }
 
-void print_bbs(Position_BB &pos) {
+void print_bbs(Position &pos) {
   printf("Pawn bitboard:\n");
-  print_bb(pos.pieces[Pieces_BB::Pawn]);
+  print_bb(pos.pieces_bb[Pieces_BB::Pawn]);
 
   printf("Knight bitboard:\n");
-  print_bb(pos.pieces[Pieces_BB::Knight]);
+  print_bb(pos.pieces_bb[Pieces_BB::Knight]);
 
   printf("Bishop bitboard:\n");
-  print_bb(pos.pieces[Pieces_BB::Bishop]);
+  print_bb(pos.pieces_bb[Pieces_BB::Bishop]);
 
   printf("Rook bitboard:\n");
-  print_bb(pos.pieces[Pieces_BB::Rook]);
+  print_bb(pos.pieces_bb[Pieces_BB::Rook]);
 
   printf("Queen bitboard:\n");
-  print_bb(pos.pieces[Pieces_BB::Queen]);
+  print_bb(pos.pieces_bb[Pieces_BB::Queen]);
 
   printf("King bitboard:\n");
-  print_bb(pos.pieces[Pieces_BB::King]);
+  print_bb(pos.pieces_bb[Pieces_BB::King]);
 
   printf("White Piece bitboard:\n");
-  print_bb(pos.colors[Colors::White]);
+  print_bb(pos.colors_bb[Colors::White]);
 
   printf("Black Piece bitboard:\n");
-  print_bb(pos.colors[Colors::Black]);
+  print_bb(pos.colors_bb[Colors::Black]);
 }

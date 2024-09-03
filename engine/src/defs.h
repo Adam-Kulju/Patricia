@@ -87,15 +87,11 @@ struct MoveInfo {
   std::array<int, ListSize> scores;
 };
 
-struct Position_BB {
-  std::array<uint64_t, 2> colors;
-  std::array<uint64_t, 7> pieces;
-};
-
 struct Position {
   uint64_t zobrist_key;                   // hash key
   std::array<uint8_t, 0x80> board;        // Stores the board itself
-  Position_BB pos;
+  std::array<uint64_t, 2> colors_bb;
+  std::array<uint64_t, 7> pieces_bb;
   std::array<uint8_t, 10> material_count; // Stores material
   MultiArray<bool, 2, 2> castling_rights; // castling rights
   std::array<uint8_t, 2> kingpos;         // Stores King positions
