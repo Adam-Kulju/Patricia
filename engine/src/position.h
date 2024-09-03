@@ -101,7 +101,7 @@ void set_board(Position &position, ThreadInfo &thread_info,
                std::string f) { // Sets the board to a given fen.
   std::memset(&position, 0, sizeof(Position));
 
-  generate_bb(f, position.pos);
+  generate_bb(f, position);
 
   std::istringstream fen(f);
   std::string fen_pos;
@@ -444,7 +444,7 @@ void make_move(Position &position, Move move,
                    zobrist_keys[get_zobrist_key(Pieces::WRook + color,
                                                 converted_rank + 7)];
 
-      update_bb(position.pos, Pieces::WRook + color, converted_rank + 7,
+      update_bb(position, Pieces::WRook + color, converted_rank + 7,
                 Pieces::WRook + color, converted_rank + 5, Pieces::Blank,
                 SquareNone);
     }
@@ -459,7 +459,7 @@ void make_move(Position &position, Move move,
                                        converted_rank + 3)] ^
           zobrist_keys[get_zobrist_key(Pieces::WRook + color, converted_rank)];
 
-      update_bb(position.pos, Pieces::WRook + color, converted_rank,
+      update_bb(position, Pieces::WRook + color, converted_rank,
                 Pieces::WRook + color, converted_rank + 3, Pieces::Blank,
                 SquareNone);
     }
@@ -496,7 +496,7 @@ void make_move(Position &position, Move move,
     captured_square = standard(captured_square);
   }
 
-  update_bb(position.pos, from_piece, standard(from), to_piece, standard(to),
+  update_bb(position, from_piece, standard(from), to_piece, standard(to),
             captured_piece, captured_square);
 
   position.color ^= 1;
