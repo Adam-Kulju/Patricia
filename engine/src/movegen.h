@@ -27,7 +27,7 @@ int movegen(const Position &position, std::span<Move> move_list,
     int type = get_piece_type(piece);
 
     // Handle pawns
-    if (type == Pieces::WPawn) {
+    if (type == Pieces_BB::Pawn) {
       int to = from + pawn_dir;
       int c_left = to + Directions::West;
       int c_right = to + Directions::East;
@@ -74,7 +74,7 @@ int movegen(const Position &position, std::span<Move> move_list,
     }
 
     // Handle knights
-    else if (type == Pieces::WKnight) {
+    else if (type == Pieces_BB::Knight) {
       for (int moves : KnightRays) {
         int to = from + moves;
         if (!out_of_board(to) && !friendly_square(color, position.board[to])) {
@@ -83,7 +83,7 @@ int movegen(const Position &position, std::span<Move> move_list,
       }
     }
     // Handle kings
-    else if (type == Pieces::WKing) {
+    else if (type == Pieces_BB::King) {
       for (int moves : SliderAttacks[3]) {
         int to = from + moves;
         if (!out_of_board(to) && !friendly_square(color, position.board[to])) {
@@ -94,7 +94,7 @@ int movegen(const Position &position, std::span<Move> move_list,
 
     // Handle sliders
     else {
-      for (int dirs : SliderAttacks[type / 2 - 3]) {
+      for (int dirs : SliderAttacks[type - 3]) {
         int to = from + dirs;
 
         while (!out_of_board(to)) {
@@ -168,13 +168,13 @@ int cheapest_attacker(const Position &position, int sq, int color,
 
       int type = get_piece_type(piece);
 
-      if (type == Pieces::WQueen || (type == Pieces::WRook && idx < 4) ||
-          (type == Pieces::WBishop &&
+      if (type == Pieces_BB::Queen || (type == Pieces_BB::Rook && idx < 4) ||
+          (type == Pieces_BB::Bishop &&
            idx > 3)) { // A queen attack is a check from every direction, rooks
                        // and bishops only from orthogonal/diagonal directions
                        // respectively.
         attacker = true;
-      } else if (type == Pieces::WPawn) {
+      } else if (type == Pieces_BB::Pawn) {
         // Pawns and kings are only attackers if they're right next to the
         // square. Pawns additionally have to be on the right vector.
         if (temp_pos == sq + dirs &&
@@ -183,7 +183,7 @@ int cheapest_attacker(const Position &position, int sq, int color,
           attack_sq = temp_pos;
           return type;
         }
-      } else if (type == Pieces::WKing && temp_pos == sq + dirs) {
+      } else if (type == Pieces_BB::King && temp_pos == sq + dirs) {
         attacker = true;
       }
 
@@ -198,8 +198,8 @@ int cheapest_attacker(const Position &position, int sq, int color,
 
     if (!out_of_board(temp_pos) &&
         get_color(position.board[temp_pos]) == color &&
-        get_piece_type(position.board[temp_pos]) == Pieces::WKnight) {
-      lowest = Pieces::WKnight;
+        get_piece_type(position.board[temp_pos]) == Pieces_BB::Knight) {
+      lowest = Pieces_BB::Knight;
       attack_sq = temp_pos;
     }
   }
@@ -230,7 +230,7 @@ bool SEE(Position &position, Move move, int threshold) {
     }
 
     gain -= risk + 1;
-    risk = SeeValues[type];
+    risk = SeeValues[type * 2];
 
     if (gain + risk < threshold) {
       return false;
@@ -244,7 +244,7 @@ bool SEE(Position &position, Move move, int threshold) {
     }
 
     gain += risk - 1;
-    risk = SeeValues[type];
+    risk = SeeValues[type * 2];
 
     temp_pos.board[attack_sq] = Pieces::Blank;
   }

@@ -54,7 +54,7 @@ constexpr uint8_t Queen = 3;
 } // namespace Promos
 
 constexpr int get_piece_type(int x) {
-  return x & ~1;
+  return (x & ~1) / 2;
 }
 
 template <typename T, size_t N, size_t... Ns> struct MultiArrayImpl {

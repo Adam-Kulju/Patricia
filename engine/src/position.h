@@ -235,20 +235,20 @@ bool attacks_square(const Position &position, int sq,
 
       int type = get_piece_type(piece);
 
-      if (type == Pieces::WQueen || (type == Pieces::WRook && indx < 4) ||
-          (type == Pieces::WBishop &&
+      if (type == Pieces_BB::Queen || (type == Pieces_BB::Rook && indx < 4) ||
+          (type == Pieces_BB::Bishop &&
            indx > 3)) { // A queen attack is a check from every direction, rooks
                         // and bishops only from orthogonal/diagonal directions
                         // respectively.
         return true;
-      } else if (type == Pieces::WPawn) {
+      } else if (type == Pieces_BB::Pawn) {
         // Pawns and kings are only attackers if they're right next to the
         // square. Pawns additionally have to be on the right vector.
         if (temp_pos == sq + dirs &&
             (color ? (indx > 5) : (indx == 4 || indx == 5))) {
           return true;
         }
-      } else if (type == Pieces::WKing && temp_pos == sq + dirs) {
+      } else if (type == Pieces_BB::King && temp_pos == sq + dirs) {
         return true;
       }
       break;
@@ -257,7 +257,7 @@ bool attacks_square(const Position &position, int sq,
     temp_pos = sq + KnightRays[indx]; // Check for knight attacks
     if (!out_of_board(temp_pos) &&
         get_color(position.board[temp_pos]) == color &&
-        get_piece_type(position.board[temp_pos]) == Pieces::WKnight) {
+        get_piece_type(position.board[temp_pos]) == Pieces_BB::Knight) {
       return true;
     }
   }
@@ -281,7 +281,7 @@ void update_nnue_state(NNUE_State &nnue_state, Move move,
   int from_piece = position.board[from];
   int to_piece = from_piece, color = position.color;
 
-  if (get_piece_type(from_piece) == Pieces::WPawn &&
+  if (get_piece_type(from_piece) == Pieces_BB::Pawn &&
       get_rank_x88(to) == (color ? 0 : 7)) { // Grab promos
 
     to_piece = extract_promo(move) * 2 + 4 + color;
@@ -293,7 +293,7 @@ void update_nnue_state(NNUE_State &nnue_state, Move move,
     captured_piece = position.board[to], captured_square = to;
   }
   // en passant
-  else if (get_piece_type(from_piece) == Pieces::WPawn &&
+  else if (get_piece_type(from_piece) == Pieces_BB::Pawn &&
            to == position.ep_square) {
     captured_square = to + (color ? Directions::North : Directions::South);
     captured_piece = position.board[captured_square];
@@ -310,7 +310,7 @@ void update_nnue_state(NNUE_State &nnue_state, Move move,
                            captured_square);
   }
 
-  else if (get_piece_type(from_piece) == Pieces::WKing &&
+  else if (get_piece_type(from_piece) == Pieces_BB::King &&
            abs(to - from) ==
                Directions::East *
                    2) { // update the rook that moved if we castled
@@ -373,7 +373,7 @@ void make_move(Position &position, Move move,
     captured_piece = position.board[to], captured_square = to;
   }
   // en passant
-  else if (from_type == Pieces::WPawn && to == position.ep_square) {
+  else if (from_type == Pieces_BB::Pawn && to == position.ep_square) {
     position.material_count[opp_color]--;
     captured_square = to + (color ? Directions::North : Directions::South);
     captured_piece = position.board[captured_square];
@@ -385,7 +385,7 @@ void make_move(Position &position, Move move,
     position.board[captured_square] = Pieces::Blank;
   }
 
-  if (from_type == Pieces::WKing) {
+  if (from_type == Pieces_BB::King) {
     position.kingpos[color] = to;
   }
 
@@ -399,7 +399,7 @@ void make_move(Position &position, Move move,
 
   bool castle = false;
 
-  if (from_type == Pieces::WPawn) {
+  if (from_type == Pieces_BB::Pawn) {
     position.halfmoves = 0;
 
     // promotions
@@ -417,7 +417,7 @@ void make_move(Position &position, Move move,
   }
   // handle king moves and castling
 
-  else if (from_type == Pieces::WKing) {
+  else if (from_type == Pieces_BB::King) {
 
     // If the king moves, castling rights are gone.
     if (position.castling_rights[color][Sides::Queenside]) {
@@ -523,7 +523,7 @@ int is_legal(Position &position, Move move) { // Perform a move on the board.
   int ep_cap_square = SquareNone;
 
   // en passant
-  if (get_piece_type(from_piece) == Pieces::WPawn && to == position.ep_square) {
+  if (get_piece_type(from_piece) == Pieces_BB::Pawn && to == position.ep_square) {
     ep_cap_square = to + (color ? Directions::North : Directions::South);
 
     position.board[ep_cap_square] = Pieces::Blank;
@@ -533,7 +533,7 @@ int is_legal(Position &position, Move move) { // Perform a move on the board.
   position.board[to] = position.board[from];
   position.board[from] = Pieces::Blank;
 
-  int new_king_pos = get_piece_type(from_piece) == Pieces::WKing
+  int new_king_pos = get_piece_type(from_piece) == Pieces_BB::King
                          ? to
                          : position.kingpos[color];
   bool is_king_attacked = attacks_square(position, new_king_pos, opp_color);

@@ -92,15 +92,15 @@ int eval(const Position &position, ThreadInfo &thread_info) {
   // Patricia is much less dependent on explicit eval twiddling than before, but
   // there are still a few things I do.
 
+  int m_eval = material_eval(position);
+  int m_threshold = std::max({300, abs(eval) * 2 / 3, abs(eval) - 700});
+
   int bonus1 = 0, bonus2 = 0;
 
   /*
     // Give a small bonus if the position is much better than what material
     would
     // suggest
-
-    int m_eval = material_eval(position);
-    int m_threshold = std::max({300, abs(eval) * 2 / 3, abs(eval) - 700});
 
     if (eval > 0 && eval > m_eval + m_threshold) {
 
@@ -148,7 +148,7 @@ int eval(const Position &position, ThreadInfo &thread_info) {
   if (abs(eval) > 500) {
     eval = eval *
             (512 + total_mat_color(position, color ^ 1) / 8 -
-            (pop_count(position.pieces_bb[Pieces_BB::Pawn])) * 20) /
+            (position.material_count[0] + position.material_count[1]) * 20) /
             768;
   }
 
