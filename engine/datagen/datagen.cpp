@@ -130,10 +130,10 @@ std::string export_fen(const Position &position,
 
   if (position.ep_square != SquareNone) {
 
-    char file = get_file(position.ep_square) + 'a';
+    char file = get_file_x88(position.ep_square) + 'a';
     fen += file;
 
-    char rank = get_rank(position.ep_square) + '1';
+    char rank = get_rank_x88(position.ep_square) + '1';
 
     fen += rank;
     fen += " ";
