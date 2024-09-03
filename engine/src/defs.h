@@ -87,9 +87,15 @@ struct MoveInfo {
   std::array<int, ListSize> scores;
 };
 
+struct Position_BB {
+  std::array<uint64_t, 2> colors;
+  std::array<uint64_t, 6> pieces;
+};
+
 struct Position {
   uint64_t zobrist_key;                   // hash key
   std::array<uint8_t, 0x80> board;        // Stores the board itself
+  Position_BB pos;
   std::array<uint8_t, 10> material_count; // Stores material
   MultiArray<bool, 2, 2> castling_rights; // castling rights
   std::array<uint8_t, 2> kingpos;         // Stores King positions
@@ -220,8 +226,8 @@ std::uniform_int_distribution<int> dist(0, INT32_MAX);
 // Some simple util functions for various purposes
 
 bool out_of_board(uint8_t sq) { return sq & 0x88; }
-uint8_t get_rank(uint8_t sq) { return sq / 16; }
-uint8_t get_file(uint8_t sq) { return sq % 16; }
+uint8_t get_rank_x88(uint8_t sq) { return sq / 16; }
+uint8_t get_file_x88(uint8_t sq) { return sq % 16; }
 uint8_t flip_sq(uint8_t sq) { return sq ^ 112; }
 uint8_t get_color(uint8_t piece) { return piece & 1; }
 Move pack_move(uint8_t from, uint8_t to, uint8_t promo) {

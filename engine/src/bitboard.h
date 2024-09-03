@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 
 enum Square : int { // a1 = 0. a8 = 7, etc. thus a1 is the LSB and h8 is the
                     // MSB.
@@ -104,11 +105,6 @@ constexpr uint8_t Queen = 4;
 constexpr uint8_t King = 5;
 constexpr uint8_t PieceNone = 6;
 } // namespace Pieces_BB
-
-struct Position_BB {
-  std::array<uint64_t, 2> colors;
-  std::array<uint64_t, 6> pieces;
-};
 
 std::array<uint64_t, 64> RookMasks;
 std::array<uint64_t, 64> BishopMasks;
@@ -426,6 +422,7 @@ void generate_bb(std::string fen, Position_BB &pos) {
 
 void update_bb(Position_BB &pos, int from_piece, int from, int to_piece, int to,
                int captured_piece, int capture_sq) {
+  
   int color = from_piece & 1;
   int from_type = from_piece / 2 - 1;
   int to_type = to_piece / 2 - 1;

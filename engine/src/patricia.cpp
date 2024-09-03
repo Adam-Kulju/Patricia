@@ -121,11 +121,6 @@ int main(int argc, char *argv[]) {
   init_LMR();
   init_bbs();
 
-  print_bb(PawnAttacks[1][g4]);
-  print_bb(KnightAttacks[e7]);
-  exit(0);
-
-
   if (argc > 1) {
     if (std::string(argv[1]) == "perft") {
       new_game(*thread_info, TT);
