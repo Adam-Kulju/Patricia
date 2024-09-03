@@ -212,9 +212,8 @@ constexpr MultiArray<int8_t, 4, 8> SliderAttacks = {
 
 };
 
-constexpr std::array<int, 14> SeeValues = {
-    0,   0,   100, 100,  450,  450,   450,
-    450, 650, 650, 1250, 1250, 10000, 10000}; // SEE values for different pieces
+    constexpr std::array<int, 7> SeeValues = {
+    0,   100, 450, 450, 650, 1250, 10000}; // SEE values for different pieces
 
 std::random_device rd;
 std::uniform_int_distribution<int> dist(0, INT32_MAX);

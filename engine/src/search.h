@@ -74,7 +74,7 @@ int16_t total_mat_color(const Position &position, int color) {
 
   int m = 0;
   for (int i = 0; i < 5; i++) {
-    m += position.material_count[i * 2 + color] * SeeValues[i * 2 + 2];
+    m += position.material_count[i * 2 + color] * SeeValues[i + 1];
   }
   return m;
 }

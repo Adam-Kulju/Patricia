@@ -209,8 +209,8 @@ int cheapest_attacker(const Position &position, int sq, int color,
 bool SEE(Position &position, Move move, int threshold) {
 
   int color = position.color, from = extract_from(move), to = extract_to(move),
-      gain = SeeValues[position.board[to]],
-      risk = SeeValues[position.board[from]];
+      gain = SeeValues[get_piece_type(position.board[to])],
+      risk = SeeValues[get_piece_type(position.board[from])];
 
   if (gain < threshold) {
     // If taking the piece isn't good enough return
@@ -230,7 +230,7 @@ bool SEE(Position &position, Move move, int threshold) {
     }
 
     gain -= risk + 1;
-    risk = SeeValues[type * 2];
+    risk = SeeValues[type];
 
     if (gain + risk < threshold) {
       return false;
@@ -244,7 +244,7 @@ bool SEE(Position &position, Move move, int threshold) {
     }
 
     gain += risk - 1;
-    risk = SeeValues[type * 2];
+    risk = SeeValues[type];
 
     temp_pos.board[attack_sq] = Pieces::Blank;
   }
@@ -295,8 +295,8 @@ void score_moves(Position &position, ThreadInfo &thread_info,
           to_piece = position.board[extract_to(move)];
 
       scored_moves.scores[idx] = GoodCaptureBaseScore +
-                                 SeeValues[to_piece] * 100 -
-                                 SeeValues[from_piece] / 100 -
+                                 SeeValues[get_piece_type(to_piece)] * 100 -
+                                 SeeValues[get_piece_type(from_piece)] / 100 -
                                  TTMoveScore * !SEE(position, move, -107);
 
       int piece = position.board[extract_from(move)], to = extract_to(move);
