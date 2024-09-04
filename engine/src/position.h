@@ -214,7 +214,7 @@ void set_board(Position &position, ThreadInfo &thread_info,
   position.halfmoves = halfmoves;
 }
 
-bool attacks_square(const Position &position, int sq,
+uint64_t attacks_square(const Position &position, int sq,
                     int color) { // Do we attack the square at position "sq"?
 
   uint64_t bishops = position.pieces_bb[Pieces_BB::Bishop] | position.pieces_bb[Pieces_BB::Queen];
