@@ -91,9 +91,9 @@ std::pair<size_t, size_t> feature_indices(int piece, int sq) {
   const size_t color = piece & 1;
 
   const auto whiteIdx =
-      color * color_stride + base * piece_stride + static_cast<size_t>(sq ^ 56);
+      color * color_stride + base * piece_stride + static_cast<size_t>(sq);
   const auto blackIdx = (color ^ 1) * color_stride + base * piece_stride +
-                        (static_cast<size_t>(sq));
+                        (static_cast<size_t>(sq ^ 56));
 
   return {whiteIdx, blackIdx};
 }
@@ -262,7 +262,7 @@ void NNUE_State::reset_nnue(Position position) {
   for (int square : StandardToMailbox) {
     if (position.board[square] != Pieces::Blank) {
       update_feature<true>(position.board[square],
-                           MailboxToStandard_NNUE[square]);
+                           MailboxToStandard[square]);
     }
   }
 }

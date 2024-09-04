@@ -285,11 +285,11 @@ void update_nnue_state(NNUE_State &nnue_state, Move move,
   }
 
   int to_square = to;
-  from = MailboxToStandard_NNUE[from], to = MailboxToStandard_NNUE[to];
+  from = MailboxToStandard[from], to = MailboxToStandard[to];
 
   if (captured_piece) {
     captured_square =
-        MailboxToStandard_NNUE[captured_square]; // update the piece that was
+        MailboxToStandard[captured_square]; // update the piece that was
                                                  // captured if applicable
     nnue_state.add_sub_sub(from_piece, from, to_piece, to, captured_piece,
                            captured_square);
@@ -305,14 +305,14 @@ void update_nnue_state(NNUE_State &nnue_state, Move move,
     if (get_file_x88(to_square) > 4) {
 
       nnue_state.add_add_sub_sub(from_piece, from, to, Pieces::WRook + color,
-                                 MailboxToStandard_NNUE[indx + 7],
-                                 MailboxToStandard_NNUE[indx + 5]);
+                                 MailboxToStandard[indx + 7],
+                                 MailboxToStandard[indx + 5]);
 
     } else {
 
       nnue_state.add_add_sub_sub(from_piece, from, to, Pieces::WRook + color,
-                                 MailboxToStandard_NNUE[indx],
-                                 MailboxToStandard_NNUE[indx + 3]);
+                                 MailboxToStandard[indx],
+                                 MailboxToStandard[indx + 3]);
     }
   }
 
