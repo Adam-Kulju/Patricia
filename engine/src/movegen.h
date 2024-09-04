@@ -120,7 +120,7 @@ int movegen(const Position &position, std::span<Move> move_list,
   }
 
   // queenside castling
-  int king_pos = position.kingpos[color];
+  int king_pos = StandardToMailbox[get_king_pos(position, color)];
   // Requirements: the king and rook cannot have moved, all squares between them
   // must be empty, and the king can not go through check.
   // (It can't end up in check either, but that gets filtered just like any
@@ -129,7 +129,7 @@ int movegen(const Position &position, std::span<Move> move_list,
       position.board[king_pos - 1] == Pieces::Blank &&
       position.board[king_pos - 2] == Pieces::Blank &&
       position.board[king_pos - 3] == Pieces::Blank &&
-      !attacks_square(position, king_pos - 1, opp_color)) {
+      !attacks_square(position, MailboxToStandard[king_pos - 1], opp_color)) {
     move_list[idx++] = pack_move(king_pos, (king_pos - 2), 0);
   }
 
@@ -137,7 +137,7 @@ int movegen(const Position &position, std::span<Move> move_list,
   if (position.castling_rights[color][Sides::Kingside] &&
       position.board[king_pos + 1] == Pieces::Blank &&
       position.board[king_pos + 2] == Pieces::Blank &&
-      !attacks_square(position, king_pos + 1, opp_color)) {
+      !attacks_square(position, MailboxToStandard[king_pos + 1], opp_color)) {
     move_list[idx++] = pack_move(king_pos, (king_pos + 2), 0);
   }
   return idx;

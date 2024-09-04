@@ -15,7 +15,7 @@ perft(int depth, Position &position, bool first,
   uint64_t total_nodes = 0;
   int nmoves =
       movegen(position, list,
-              attacks_square(position, position.kingpos[position.color],
+              attacks_square(position, get_king_pos(position, position.color),
                              position.color ^ 1));
   for (int i = 0; i < nmoves;
        i++) // Loop through all of the moves, skipping illegal ones.
