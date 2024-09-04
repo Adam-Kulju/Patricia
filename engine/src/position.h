@@ -321,8 +321,7 @@ void update_nnue_state(NNUE_State &nnue_state, Move move,
   }
 }
 
-void make_move(Position &position, Move move,
-               ThreadInfo &thread_info) { // Perform a move on the board.
+void make_move(Position &position, Move move) { // Perform a move on the board.
 
   position.halfmoves++;
 
@@ -494,7 +493,7 @@ void make_move(Position &position, Move move,
   __builtin_prefetch(&TT[hash_to_idx(temp_hash)]);
 }
 
-int is_legal(Position &position, Move move) { // Perform a move on the board.
+bool is_legal(Position &position, Move move) { // Perform a move on the board.
 
   int from = extract_from(move), to = extract_to(move), color = position.color,
       opp_color = color ^ 1;
