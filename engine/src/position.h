@@ -517,8 +517,6 @@ int is_legal(Position &position, Move move) { // Perform a move on the board.
     cap_square = standard(cap_square);
   }
 
-  Position temp_pos = position;
-
   update_bb(position, from_piece, from, to_piece, to, cap_piece, cap_square);
 
   int new_king_pos = get_piece_type(from_piece) == Pieces_BB::King
