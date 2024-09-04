@@ -143,67 +143,46 @@ int movegen(const Position &position, std::span<Move> move_list,
   return idx;
 }
 
-int cheapest_attacker(const Position &position, int sq, int color,
-                      int &attack_sq) {
+int cheapest_attacker(Position &position, int sq, int color, uint64_t& occ) {
   // Finds the cheapest attacker for a given square on a given board.
+  //printf("nnnnnnnnnnnnnn\nnnnnnnnnnnnnnnn\nnnnnnnnnnnnn\n\n");
+  //print_bbs(position);
+  sq = standard(sq);
 
-  int opp_color = color ^ 1, idx = -1;
+  uint64_t attacks = attacks_square(position, sq, color, occ);
+  uint64_t temp = 0ull;
+  int value = Pieces_BB::PieceNone;
 
-  int lowest = Pieces::Blank + 20;
-
-  for (int dirs : AttackRays) {
-    idx++;
-    int temp_pos = sq + dirs;
-
-    while (!out_of_board(temp_pos)) {
-      int piece = position.board[temp_pos];
-      if (!piece) {
-        temp_pos += dirs;
-        continue;
-      } else if (get_color(piece) == opp_color) {
-        break;
-      }
-
-      bool attacker = false;
-
-      int type = get_piece_type(piece);
-
-      if (type == Pieces_BB::Queen || (type == Pieces_BB::Rook && idx < 4) ||
-          (type == Pieces_BB::Bishop &&
-           idx > 3)) { // A queen attack is a check from every direction, rooks
-                       // and bishops only from orthogonal/diagonal directions
-                       // respectively.
-        attacker = true;
-      } else if (type == Pieces_BB::Pawn) {
-        // Pawns and kings are only attackers if they're right next to the
-        // square. Pawns additionally have to be on the right vector.
-        if (temp_pos == sq + dirs &&
-            (color ? (idx > 5) : (idx == 4 || idx == 5))) {
-
-          attack_sq = temp_pos;
-          return type;
-        }
-      } else if (type == Pieces_BB::King && temp_pos == sq + dirs) {
-        attacker = true;
-      }
-
-      if (attacker && type < lowest) {
-        lowest = type;
-        attack_sq = temp_pos;
-      }
-      break;
-    }
-
-    temp_pos = sq + KnightRays[idx]; // Check for knight attacks
-
-    if (!out_of_board(temp_pos) &&
-        get_color(position.board[temp_pos]) == color &&
-        get_piece_type(position.board[temp_pos]) == Pieces_BB::Knight) {
-      lowest = Pieces_BB::Knight;
-      attack_sq = temp_pos;
-    }
+  if (!attacks) {
+    return Pieces_BB::PieceNone;
   }
-  return lowest;
+
+  else if ((temp = attacks & position.pieces_bb[Pieces_BB::Pawn])) {
+    value = Pieces_BB::Pawn;
+  }
+
+  else if ((temp = attacks & position.pieces_bb[Pieces_BB::Knight])) {
+    value = Pieces_BB::Knight;
+  }
+
+  else if ((temp = attacks & position.pieces_bb[Pieces_BB::Bishop])) {
+    value = Pieces_BB::Bishop;
+  }
+
+  else if ((temp = attacks & position.pieces_bb[Pieces_BB::Rook])) {
+    value = Pieces_BB::Rook;
+  }
+
+  else if ((temp = attacks & position.pieces_bb[Pieces_BB::Queen])) {
+    value = Pieces_BB::Queen;
+  }
+
+  else if ((temp = attacks & position.pieces_bb[Pieces_BB::King])) {
+    value = Pieces_BB::King;
+  }
+
+  occ -= (temp & -int64_t(temp));
+  return value;
 }
 
 bool SEE(Position &position, Move move, int threshold) {
@@ -217,15 +196,15 @@ bool SEE(Position &position, Move move, int threshold) {
     return false;
   }
 
-  Position temp_pos = position;
-  temp_pos.board[from] = Pieces::Blank;
+  uint64_t occ = (position.colors_bb[Colors::White] |
+                 position.colors_bb[Colors::Black]) - (1ull << standard(from));
 
-  int None = 20, attack_sq = 0;
+  int attack_sq = 0;
 
   while (gain - risk < threshold) {
-    int type = cheapest_attacker(temp_pos, to, color ^ 1, attack_sq);
+    int type = cheapest_attacker(position, to, color ^ 1, occ);
 
-    if (type == None) {
+    if (type == Pieces_BB::PieceNone) {
       return true;
     }
 
@@ -235,18 +214,15 @@ bool SEE(Position &position, Move move, int threshold) {
     if (gain + risk < threshold) {
       return false;
     }
-    temp_pos.board[attack_sq] = Pieces::Blank;
 
-    type = cheapest_attacker(temp_pos, to, color, attack_sq);
+    type = cheapest_attacker(position, to, color, occ);
 
-    if (type == None) {
+    if (type == Pieces_BB::PieceNone) {
       return false;
     }
 
     gain += risk - 1;
     risk = SeeValues[type];
-
-    temp_pos.board[attack_sq] = Pieces::Blank;
   }
 
   return true;

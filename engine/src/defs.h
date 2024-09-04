@@ -158,18 +158,6 @@ constexpr std::array<uint8_t, 64> StandardToMailbox =
         0x54, 0x55, 0x56, 0x57, 0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66,
         0x67, 0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x76, 0x77};
 
-constexpr std::array<uint8_t, 0x80> MailboxToStandard_NNUE = {
-    // Needed for NNUE inference because trainers use 0 = a8, while my board has
-    // 0 = a1.
-    56, 57, 58, 59, 60, 61, 62, 63, 99, 99, 99, 99, 99, 99, 99, 99, 48, 49, 50,
-    51, 52, 53, 54, 55, 99, 99, 99, 99, 99, 99, 99, 99, 40, 41, 42, 43, 44, 45,
-    46, 47, 99, 99, 99, 99, 99, 99, 99, 99, 32, 33, 34, 35, 36, 37, 38, 39, 99,
-    99, 99, 99, 99, 99, 99, 99, 24, 25, 26, 27, 28, 29, 30, 31, 99, 99, 99, 99,
-    99, 99, 99, 99, 16, 17, 18, 19, 20, 21, 22, 23, 99, 99, 99, 99, 99, 99, 99,
-    99, 8,  9,  10, 11, 12, 13, 14, 15, 99, 99, 99, 99, 99, 99, 99, 99, 0,  1,
-    2,  3,  4,  5,  6,  7,  99, 99, 99, 99, 99, 99, 99, 99,
-};
-
 constexpr std::array<uint8_t, 0x80> MailboxToStandard = {
     // Used to convert mailbox position into standard position, useful for hash
     // keys etc.
@@ -181,11 +169,6 @@ constexpr std::array<uint8_t, 0x80> MailboxToStandard = {
     99, 48, 49, 50, 51, 52, 53, 54, 55, 99, 99, 99, 99, 99, 99, 99, 99, 56, 57,
     58, 59, 60, 61, 62, 63, 99, 99, 99, 99, 99, 99, 99, 99,
 };
-
-constexpr std::array<int8_t, 8> AttackRays = {
-    Directions::East,      Directions::West, // Directions sliders can move in
-    Directions::South,     Directions::North,     Directions::Southeast,
-    Directions::Southwest, Directions::Northeast, Directions::Northwest};
 
 constexpr std::array<int8_t, 8> KnightRays = {
     Directions::East * 2 + Directions::North, // Directions Knights can move in

@@ -214,7 +214,7 @@ void set_board(Position &position, ThreadInfo &thread_info,
   position.halfmoves = halfmoves;
 }
 
-bool attacks_square(const Position &position, int sq,
+uint64_t attacks_square(const Position &position, int sq,
                     int color) { // Do we attack the square at position "sq"?
 
   uint64_t bishops = position.pieces_bb[Pieces_BB::Bishop] | position.pieces_bb[Pieces_BB::Queen];
@@ -228,6 +228,21 @@ bool attacks_square(const Position &position, int sq,
                        (KingAttacks[sq]             & position.pieces_bb[Pieces_BB::King]);
 
   return attackers & position.colors_bb[color];
+}
+
+uint64_t attacks_square(const Position &position, int sq,
+                    int color, uint64_t occ) { // Do we attack the square at position "sq"?
+
+  uint64_t bishops = position.pieces_bb[Pieces_BB::Bishop] | position.pieces_bb[Pieces_BB::Queen];
+  uint64_t rooks = position.pieces_bb[Pieces_BB::Rook] | position.pieces_bb[Pieces_BB::Queen];
+
+  uint64_t attackers = (PawnAttacks[color^1][sq]    & position.pieces_bb[Pieces_BB::Pawn]) |
+                       (KnightAttacks[sq]           & position.pieces_bb[Pieces_BB::Knight]) |
+                       (get_bishop_attacks(sq, occ) & bishops) |
+                       (get_rook_attacks(sq, occ)   & rooks) |
+                       (KingAttacks[sq]             & position.pieces_bb[Pieces_BB::King]);
+
+  return attackers & position.colors_bb[color] & occ;
 }
 
 bool is_queen_promo(Move move) { return extract_promo(move) == 3; }
@@ -270,11 +285,11 @@ void update_nnue_state(NNUE_State &nnue_state, Move move,
   }
 
   int to_square = to;
-  from = MailboxToStandard_NNUE[from], to = MailboxToStandard_NNUE[to];
+  from = MailboxToStandard[from], to = MailboxToStandard[to];
 
   if (captured_piece) {
     captured_square =
-        MailboxToStandard_NNUE[captured_square]; // update the piece that was
+        MailboxToStandard[captured_square]; // update the piece that was
                                                  // captured if applicable
     nnue_state.add_sub_sub(from_piece, from, to_piece, to, captured_piece,
                            captured_square);
@@ -290,14 +305,14 @@ void update_nnue_state(NNUE_State &nnue_state, Move move,
     if (get_file_x88(to_square) > 4) {
 
       nnue_state.add_add_sub_sub(from_piece, from, to, Pieces::WRook + color,
-                                 MailboxToStandard_NNUE[indx + 7],
-                                 MailboxToStandard_NNUE[indx + 5]);
+                                 MailboxToStandard[indx + 7],
+                                 MailboxToStandard[indx + 5]);
 
     } else {
 
       nnue_state.add_add_sub_sub(from_piece, from, to, Pieces::WRook + color,
-                                 MailboxToStandard_NNUE[indx],
-                                 MailboxToStandard_NNUE[indx + 3]);
+                                 MailboxToStandard[indx],
+                                 MailboxToStandard[indx + 3]);
     }
   }
 
@@ -501,8 +516,6 @@ int is_legal(Position &position, Move move) { // Perform a move on the board.
   if (cap_square != SquareNone){
     cap_square = standard(cap_square);
   }
-
-  Position temp_pos = position;
 
   update_bb(position, from_piece, from, to_piece, to, cap_piece, cap_square);
 
