@@ -54,7 +54,7 @@ constexpr uint8_t Queen = 3;
 } // namespace Promos
 
 constexpr int get_piece_type(int x) {
-  return x & ~1;
+  return x / 2;
 }
 
 template <typename T, size_t N, size_t... Ns> struct MultiArrayImpl {
@@ -90,6 +90,8 @@ struct MoveInfo {
 struct Position {
   uint64_t zobrist_key;                   // hash key
   std::array<uint8_t, 0x80> board;        // Stores the board itself
+  std::array<uint64_t, 2> colors_bb;
+  std::array<uint64_t, 7> pieces_bb;
   std::array<uint8_t, 10> material_count; // Stores material
   MultiArray<bool, 2, 2> castling_rights; // castling rights
   std::array<uint8_t, 2> kingpos;         // Stores King positions
@@ -186,7 +188,7 @@ constexpr std::array<int8_t, 8> AttackRays = {
     Directions::South,     Directions::North,     Directions::Southeast,
     Directions::Southwest, Directions::Northeast, Directions::Northwest};
 
-constexpr std::array<int8_t, 8> KnightAttacks = {
+constexpr std::array<int8_t, 8> KnightRays = {
     Directions::East * 2 + Directions::North, // Directions Knights can move in
     Directions::East * 2 + Directions::South,
     Directions::South * 2 + Directions::East,
@@ -210,9 +212,8 @@ constexpr MultiArray<int8_t, 4, 8> SliderAttacks = {
 
 };
 
-constexpr std::array<int, 14> SeeValues = {
-    0,   0,   100, 100,  450,  450,   450,
-    450, 650, 650, 1250, 1250, 10000, 10000}; // SEE values for different pieces
+    constexpr std::array<int, 7> SeeValues = {
+    0,   100, 450, 450, 650, 1250, 10000}; // SEE values for different pieces
 
 std::random_device rd;
 std::uniform_int_distribution<int> dist(0, INT32_MAX);
@@ -220,8 +221,8 @@ std::uniform_int_distribution<int> dist(0, INT32_MAX);
 // Some simple util functions for various purposes
 
 bool out_of_board(uint8_t sq) { return sq & 0x88; }
-uint8_t get_rank(uint8_t sq) { return sq / 16; }
-uint8_t get_file(uint8_t sq) { return sq % 16; }
+uint8_t get_rank_x88(uint8_t sq) { return sq / 16; }
+uint8_t get_file_x88(uint8_t sq) { return sq % 16; }
 uint8_t flip_sq(uint8_t sq) { return sq ^ 112; }
 uint8_t get_color(uint8_t piece) { return piece & 1; }
 Move pack_move(uint8_t from, uint8_t to, uint8_t promo) {
