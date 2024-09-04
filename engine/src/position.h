@@ -140,7 +140,6 @@ void set_board(Position &position, ThreadInfo &thread_info,
         break;
       case 'K':
         position.board[i] = Pieces::WKing;
-        position.kingpos[Colors::White] = i;
         break;
       case 'p':
         position.board[i] = Pieces::BPawn;
@@ -164,7 +163,6 @@ void set_board(Position &position, ThreadInfo &thread_info,
         break;
       case 'k':
         position.board[i] = Pieces::BKing;
-        position.kingpos[Colors::Black] = i;
         break;
       default:
         printf("Error parsing FEN: %s\n", f.c_str());
@@ -218,56 +216,6 @@ void set_board(Position &position, ThreadInfo &thread_info,
 
 bool attacks_square(const Position &position, int sq,
                     int color) { // Do we attack the square at position "sq"?
-  int opp_color = color ^ 1, indx = -1;
-
-  for (int dirs : AttackRays) {
-    indx++;
-    int temp_pos = sq + dirs;
-
-    while (!out_of_board(temp_pos)) {
-      int piece = position.board[temp_pos];
-      if (!piece) {
-        temp_pos += dirs;
-        continue;
-      } else if (get_color(piece) == opp_color) {
-        break;
-      }
-
-      int type = get_piece_type(piece);
-
-      if (type == Pieces_BB::Queen || (type == Pieces_BB::Rook && indx < 4) ||
-          (type == Pieces_BB::Bishop &&
-           indx > 3)) { // A queen attack is a check from every direction, rooks
-                        // and bishops only from orthogonal/diagonal directions
-                        // respectively.
-        return true;
-      } else if (type == Pieces_BB::Pawn) {
-        // Pawns and kings are only attackers if they're right next to the
-        // square. Pawns additionally have to be on the right vector.
-        if (temp_pos == sq + dirs &&
-            (color ? (indx > 5) : (indx == 4 || indx == 5))) {
-          return true;
-        }
-      } else if (type == Pieces_BB::King && temp_pos == sq + dirs) {
-        return true;
-      }
-      break;
-    }
-
-    temp_pos = sq + KnightRays[indx]; // Check for knight attacks
-    if (!out_of_board(temp_pos) &&
-        get_color(position.board[temp_pos]) == color &&
-        get_piece_type(position.board[temp_pos]) == Pieces_BB::Knight) {
-      return true;
-    }
-  }
-  return false;
-}
-
-bool attacks_square_new(const Position &position, int sq,
-                    int color) { // Do we attack the square at position "sq"?
-
-  sq = MailboxToStandard[sq];
 
   uint64_t bishops = position.pieces_bb[Pieces_BB::Bishop] | position.pieces_bb[Pieces_BB::Queen];
   uint64_t rooks = position.pieces_bb[Pieces_BB::Rook] | position.pieces_bb[Pieces_BB::Queen];
@@ -290,6 +238,10 @@ bool is_cap(const Position &position, Move &move) {
           (to == position.ep_square && position.board[extract_from(move)] ==
                                            Pieces::WPawn + position.color) ||
           is_queen_promo((move)));
+}
+
+int get_king_pos(const Position &position, int color) {
+  return get_lsb(position.colors_bb[color] & position.pieces_bb[Pieces_BB::King]);
 }
 
 void update_nnue_state(NNUE_State &nnue_state, Move move,
@@ -401,10 +353,6 @@ void make_move(Position &position, Move move,
     // Update hash key for the piece that was taken
     // (not covered above)
     position.board[captured_square] = Pieces::Blank;
-  }
-
-  if (from_type == Pieces_BB::King) {
-    position.kingpos[color] = to;
   }
 
   // Move the piece
@@ -559,10 +507,10 @@ int is_legal(Position &position, Move move) { // Perform a move on the board.
   update_bb(position, from_piece, from, to_piece, to, cap_piece, cap_square);
 
   int new_king_pos = get_piece_type(from_piece) == Pieces_BB::King
-                         ? StandardToMailbox[to]
-                         : position.kingpos[color];
+                         ? to
+                         : get_king_pos(position, color);
 
-  bool is_king_attacked = attacks_square_new(position, new_king_pos, opp_color);
+  bool is_king_attacked = attacks_square(position, new_king_pos, opp_color);
 
   position.colors_bb[color] -= (1ull << to) - (1ull << from);
   position.pieces_bb[get_piece_type(from_piece)] += (1ull << from);

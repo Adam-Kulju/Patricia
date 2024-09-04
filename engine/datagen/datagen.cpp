@@ -153,7 +153,7 @@ Move random_move(Position &position,
 
   bool color = position.color;
 
-  bool in_check = attacks_square(position, position.kingpos[color], color ^ 1);
+  bool in_check = attacks_square(position, get_king_pos(position, color), color ^ 1);
   MoveInfo moves;
   int num_moves = movegen(position, moves.moves, in_check);
 
@@ -238,7 +238,7 @@ void play_game(ThreadInfo &thread_info, uint64_t &num_fens, int id,
     bool color = position.color;
     std::string fen = export_fen(position, thread_info);
     bool in_check =
-        attacks_square(position, position.kingpos[color], color ^ 1);
+        attacks_square(position, get_king_pos(position, color), color ^ 1);
 
     if (random_move(position, thread_info) == MoveNone) {
       break;
