@@ -143,47 +143,41 @@ int movegen(const Position &position, std::span<Move> move_list,
   return idx;
 }
 
-int cheapest_attacker(Position &position, int sq, int color, uint64_t occ) {
+int cheapest_attacker(Position &position, int sq, int color, uint64_t& occ) {
   // Finds the cheapest attacker for a given square on a given board.
   //printf("nnnnnnnnnnnnnn\nnnnnnnnnnnnnnnn\nnnnnnnnnnnnn\n\n");
   //print_bbs(position);
   sq = standard(sq);
 
-  uint64_t attacks = attacks_square(position, sq, color);
+  uint64_t attacks = attacks_square(position, sq, color, occ);
   uint64_t temp;
   int value;
 
   if (!attacks) {
-    return 20;
+    return Pieces_BB::PieceNone;
   }
 
   else if ((temp = attacks & position.pieces_bb[Pieces_BB::Pawn])) {
-    position.pieces_bb[Pieces_BB::Pawn] -= (temp & -int64_t(temp));
     value = Pieces_BB::Pawn;
   }
 
   else if ((temp = attacks & position.pieces_bb[Pieces_BB::Knight])) {
-    position.pieces_bb[Pieces_BB::Knight] -= (temp & -int64_t(temp));
     value = Pieces_BB::Knight;
   }
 
   else if ((temp = attacks & position.pieces_bb[Pieces_BB::Bishop])) {
-    position.pieces_bb[Pieces_BB::Bishop] -= (temp & -int64_t(temp));
     value = Pieces_BB::Bishop;
   }
 
   else if ((temp = attacks & position.pieces_bb[Pieces_BB::Rook])) {
-    position.pieces_bb[Pieces_BB::Rook] -= (temp & -int64_t(temp));
     value = Pieces_BB::Rook;
   }
 
   else if ((temp = attacks & position.pieces_bb[Pieces_BB::Queen])) {
-    position.pieces_bb[Pieces_BB::Queen] -= (temp & -int64_t(temp));
     value = Pieces_BB::Queen;
   }
 
   else if ((temp = attacks & position.pieces_bb[Pieces_BB::King])) {
-    position.pieces_bb[Pieces_BB::King] -= (temp & -int64_t(temp));
     value = Pieces_BB::King;
   }
 
@@ -202,17 +196,15 @@ bool SEE(Position &position, Move move, int threshold) {
     return false;
   }
 
-  Position temp_pos = position;
   uint64_t occ = (position.colors_bb[Colors::White] |
                  position.colors_bb[Colors::Black]) - (1ull << standard(from));
-  temp_pos.pieces_bb[get_piece_type(position.board[from])] -= (1ull << standard(from));
 
-  int None = 20, attack_sq = 0;
+  int attack_sq = 0;
 
   while (gain - risk < threshold) {
-    int type = cheapest_attacker(temp_pos, to, color ^ 1, occ);
+    int type = cheapest_attacker(position, to, color ^ 1, occ);
 
-    if (type == None) {
+    if (type == Pieces_BB::PieceNone) {
       return true;
     }
 
@@ -223,9 +215,9 @@ bool SEE(Position &position, Move move, int threshold) {
       return false;
     }
 
-    type = cheapest_attacker(temp_pos, to, color, occ);
+    type = cheapest_attacker(position, to, color, occ);
 
-    if (type == None) {
+    if (type == Pieces_BB::PieceNone) {
       return false;
     }
 
