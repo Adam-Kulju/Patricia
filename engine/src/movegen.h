@@ -150,8 +150,8 @@ int cheapest_attacker(Position &position, int sq, int color, uint64_t& occ) {
   sq = standard(sq);
 
   uint64_t attacks = attacks_square(position, sq, color, occ);
-  uint64_t temp;
-  int value;
+  uint64_t temp = 0ull;
+  int value = Pieces_BB::PieceNone;
 
   if (!attacks) {
     return Pieces_BB::PieceNone;

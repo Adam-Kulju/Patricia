@@ -182,11 +182,6 @@ constexpr std::array<uint8_t, 0x80> MailboxToStandard = {
     58, 59, 60, 61, 62, 63, 99, 99, 99, 99, 99, 99, 99, 99,
 };
 
-constexpr std::array<int8_t, 8> AttackRays = {
-    Directions::East,      Directions::West, // Directions sliders can move in
-    Directions::South,     Directions::North,     Directions::Southeast,
-    Directions::Southwest, Directions::Northeast, Directions::Northwest};
-
 constexpr std::array<int8_t, 8> KnightRays = {
     Directions::East * 2 + Directions::North, // Directions Knights can move in
     Directions::East * 2 + Directions::South,
