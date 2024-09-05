@@ -10,13 +10,98 @@ constexpr int GoodCaptureBaseScore = 2000000;
 constexpr int BadCaptureBaseScore = -2000000;
 constexpr int KillerMoveScore = 100000;
 
+uint64_t shift_pawns(uint64_t bb, int dir) {
+  if (dir >= 0) {
+    return bb << dir;
+  } else {
+    return bb >> -dir;
+  }
+}
+
+void pawn_moves(const Position &position, std::span<Move> move_list, int &key) {
+
+  uint8_t color = position.color;
+  uint64_t third_rank = color ? Ranks[5] : Ranks[2];
+  uint64_t seventh_rank = color ? Ranks[1] : Ranks[6];
+  int8_t dir = color ? Directions_BB::South : Directions_BB::North;
+  int8_t left = color ? Directions_BB::Southwest : Directions_BB::Northwest;
+  int8_t right = color ? Directions_BB::Southeast : Directions_BB::Northeast;
+
+  uint64_t empty_squares = ~(position.colors_bb[0] | position.colors_bb[1]);
+  uint64_t our_promos = position.pieces_bb[Pieces_BB::Pawn] &
+                        position.colors_bb[color] & seventh_rank;
+  uint64_t our_non_promos = position.pieces_bb[Pieces_BB::Pawn] &
+                            position.colors_bb[color] & (~seventh_rank);
+
+  uint64_t move_1 = shift_pawns(our_non_promos, dir) & empty_squares;
+  uint64_t move_2 =
+      shift_pawns(move_1 & third_rank, dir) & empty_squares;
+
+  while (move_1) {
+    int to = StandardToMailbox[pop_lsb(move_1)];
+    move_list[key++] = pack_move(to - (2 * dir), to, 0);
+  }
+  while (move_2) {
+    int to = StandardToMailbox[pop_lsb(move_2)];
+    move_list[key++] = pack_move(to - (4 * dir), to, 0);
+  }
+
+  uint64_t cap_left = shift_pawns(our_non_promos & ~Files[0], left) &
+                      position.colors_bb[color ^ 1];
+  uint64_t cap_right = shift_pawns(our_non_promos & ~Files[7], right) &
+                       position.colors_bb[color ^ 1];
+
+  while (cap_left) {
+    int to = StandardToMailbox[pop_lsb(cap_left)];
+    move_list[key++] = pack_move(to - (left + dir), to, 0);
+  }
+  while (cap_right) {
+    int to = StandardToMailbox[pop_lsb(cap_right)];
+    move_list[key++] = pack_move(to - (right + dir), to, 0);
+  }
+
+  if (position.ep_square != SquareNone) {
+    uint64_t ep_captures =
+        our_non_promos & PawnAttacks[color ^ 1][standard(position.ep_square)];
+    while (ep_captures) {
+      int from = StandardToMailbox[pop_lsb(ep_captures)];
+      move_list[key++] = pack_move(from, position.ep_square, 0);
+    }
+  }
+
+  uint64_t move_promo = shift_pawns(our_promos, dir) & empty_squares;
+  uint64_t cap_left_promo = shift_pawns(our_promos & ~Files[0], left) &
+                            position.colors_bb[color ^ 1];
+  uint64_t cap_right_promo = shift_pawns(our_promos & ~Files[7], right) &
+                             position.colors_bb[color ^ 1];
+
+  while (move_promo) {
+    int to = StandardToMailbox[pop_lsb(move_promo)];
+    for (int i = 0; i < 4; i++) {
+      move_list[key++] = pack_move(to - (2 * dir), to, i);
+    }
+  }
+  while (cap_left_promo) {
+    int to = StandardToMailbox[pop_lsb(cap_left_promo)];
+    for (int i = 0; i < 4; i++) {
+      move_list[key++] = pack_move(to - (left + dir), to, i);
+    }
+  }
+  while (cap_right_promo) {
+    int to = StandardToMailbox[pop_lsb(cap_right_promo)];
+    for (int i = 0; i < 4; i++) {
+      move_list[key++] = pack_move(to - (right + dir), to, i);
+    }
+  }
+}
+
 int movegen(const Position &position, std::span<Move> move_list,
             bool in_check) {
-  uint8_t color = position.color;
-  int pawn_dir = color ? Directions::South : Directions::North,
-      promotion_rank = color ? 0 : 7, first_rank = color ? 6 : 1,
-      opp_color = color ^ 1;
+  uint8_t color = position.color, opp_color = color ^ 1;
   int idx = 0;
+
+  pawn_moves(position, move_list, idx);
+
   for (uint8_t from : StandardToMailbox) {
 
     int piece = position.board[from];
@@ -28,49 +113,6 @@ int movegen(const Position &position, std::span<Move> move_list,
 
     // Handle pawns
     if (type == Pieces_BB::Pawn) {
-      int to = from + pawn_dir;
-      int c_left = to + Directions::West;
-      int c_right = to + Directions::East;
-
-      // A pawn push one square forward
-      if (position.board[to] == Pieces::Blank) {
-
-        move_list[idx++] = pack_move(from, to, 0);
-        if (get_rank_x88(to) == promotion_rank) {
-          for (int promo : {1, 2, 3}) {
-            move_list[idx++] = pack_move(from, to, promo);
-          }
-        }
-        // two squares forwards
-        else if (get_rank_x88(from) == first_rank &&
-                 position.board[to + pawn_dir] == Pieces::Blank) {
-          move_list[idx++] = pack_move(from, (to + pawn_dir), 0);
-        }
-      }
-
-      // Pawn capture to the left
-      if (!out_of_board(c_left) &&
-          (c_left == position.ep_square ||
-           enemy_square(color, position.board[c_left]))) {
-        move_list[idx++] = pack_move(from, c_left, 0);
-        if (get_rank_x88(to) == promotion_rank) {
-          for (int promo : {Promos::Bishop, Promos::Rook,
-                            Promos::Queen}) { // knight is implicit via zero
-            move_list[idx++] = pack_move(from, c_left, promo);
-          }
-        }
-      }
-      // Pawn capture to the right
-      if (!out_of_board(c_right) &&
-          (c_right == position.ep_square ||
-           enemy_square(color, position.board[c_right]))) {
-        move_list[idx++] = pack_move(from, c_right, 0);
-        if (get_rank_x88(to) == promotion_rank) {
-          for (int promo : {Promos::Bishop, Promos::Rook, Promos::Queen}) {
-            move_list[idx++] = pack_move(from, c_right, promo);
-          }
-        }
-      }
     }
 
     // Handle knights
