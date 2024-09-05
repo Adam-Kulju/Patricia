@@ -33,9 +33,9 @@ struct ThreadInfo {
 
   NNUE_State nnue_state;
 
-  MultiArray<int16_t, 14, 0x80> HistoryScores;
-  MultiArray<int16_t, 14, 0x80, 14, 0x80> ContHistScores;
-  MultiArray<int16_t, 14, 0x80> CapHistScores;
+  MultiArray<int16_t, 14, 64> HistoryScores;
+  MultiArray<int16_t, 14, 64, 14, 64> ContHistScores;
+  MultiArray<int16_t, 14, 64> CapHistScores;
   std::array<Move, MaxSearchDepth + 1> KillerMoves;
 
   uint8_t current_iter;
@@ -185,10 +185,10 @@ uint64_t calculate(const Position &position) { // Calculates the zobrist key of
   // Useful when initializing positions, in search though
   // incremental updates are faster.
   uint64_t hash = 0;
-  for (int indx : StandardToMailbox) {
+  for (int indx = 0; indx < 64; indx++) {
     int piece = position.board[indx];
     if (piece) {
-      hash ^= zobrist_keys[get_zobrist_key(piece, standard(indx))];
+      hash ^= zobrist_keys[get_zobrist_key(piece, indx)];
     }
   }
   if (position.color) {

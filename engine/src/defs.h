@@ -24,15 +24,26 @@ constexpr uint8_t BQueen = 11;
 constexpr uint8_t WKing = 12;
 constexpr uint8_t BKing = 13;
 }; // namespace Pieces
+
+namespace PieceTypes {
+constexpr uint8_t PieceNone = 0;
+constexpr uint8_t Pawn = 1;
+constexpr uint8_t Knight = 2;
+constexpr uint8_t Bishop = 3;
+constexpr uint8_t Rook = 4;
+constexpr uint8_t Queen = 5;
+constexpr uint8_t King = 6;
+} // namespace PieceTypes
+
 namespace Directions {
-constexpr int8_t North = 16;
-constexpr int8_t South = -16;
+constexpr int8_t North = 8;
+constexpr int8_t South = -8;
 constexpr int8_t East = 1;
 constexpr int8_t West = -1;
-constexpr int8_t Northeast = 17;
-constexpr int8_t Southeast = -15;
-constexpr int8_t Northwest = 15;
-constexpr int8_t Southwest = -17;
+constexpr int8_t Northeast = 9;
+constexpr int8_t Southeast = -7;
+constexpr int8_t Northwest = 7;
+constexpr int8_t Southwest = -9;
 } // namespace Directions
 namespace Sides {
 constexpr int8_t Kingside = 1;
@@ -53,9 +64,7 @@ constexpr uint8_t Rook = 2;
 constexpr uint8_t Queen = 3;
 } // namespace Promos
 
-constexpr int get_piece_type(int x) {
-  return x / 2;
-}
+constexpr int get_piece_type(int x) { return x / 2; }
 
 template <typename T, size_t N, size_t... Ns> struct MultiArrayImpl {
   using Type = std::array<typename MultiArrayImpl<T, Ns...>::Type, N>;
@@ -88,8 +97,8 @@ struct MoveInfo {
 };
 
 struct Position {
-  uint64_t zobrist_key;                   // hash key
-  std::array<uint8_t, 0x80> board;        // Stores the board itself
+  uint64_t zobrist_key;          // hash key
+  std::array<uint8_t, 64> board; // Stores the board itself
   std::array<uint64_t, 2> colors_bb;
   std::array<uint64_t, 7> pieces_bb;
   std::array<uint8_t, 10> material_count; // Stores material
@@ -121,9 +130,9 @@ constexpr int MaxAge = 1 << 6;
 struct TTEntry {
   uint16_t position_key; // The lower 16 bits of the hash key are stored
   int16_t static_eval;
-  int16_t score;  // Score of the position
-  Move best_move; // Best move in the position
-  uint8_t depth;  // Depth that the entry was searched to
+  int16_t score;     // Score of the position
+  Move best_move;    // Best move in the position
+  uint8_t depth;     // Depth that the entry was searched to
   uint8_t age_bound; // Age (upper 6 bits) and bound (lower 2 bits)
 
   uint8_t get_type();
@@ -131,13 +140,9 @@ struct TTEntry {
   int get_age();
 };
 
-uint8_t TTEntry::get_type() {
-  return age_bound & 0b11;
-}
+uint8_t TTEntry::get_type() { return age_bound & 0b11; }
 
-int TTEntry::get_age() {
-  return age_bound >> 2;
-}
+int TTEntry::get_age() { return age_bound >> 2; }
 
 struct TTBucket {
   std::array<TTEntry, BucketEntries> entries;
@@ -149,63 +154,15 @@ struct RootMoveInfo {
   uint64_t nodes;
 };
 
-constexpr std::array<uint8_t, 64> StandardToMailbox =
-    { // Used to convert standard board position into mailbox position
-        0x0,  0x1,  0x2,  0x3,  0x4,  0x5,  0x6,  0x7,  0x10, 0x11, 0x12,
-        0x13, 0x14, 0x15, 0x16, 0x17, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25,
-        0x26, 0x27, 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x40,
-        0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x50, 0x51, 0x52, 0x53,
-        0x54, 0x55, 0x56, 0x57, 0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66,
-        0x67, 0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x76, 0x77};
-
-constexpr std::array<uint8_t, 0x80> MailboxToStandard = {
-    // Used to convert mailbox position into standard position, useful for hash
-    // keys etc.
-    0,  1,  2,  3,  4,  5,  6,  7,  99, 99, 99, 99, 99, 99, 99, 99, 8,  9,  10,
-    11, 12, 13, 14, 15, 99, 99, 99, 99, 99, 99, 99, 99, 16, 17, 18, 19, 20, 21,
-    22, 23, 99, 99, 99, 99, 99, 99, 99, 99, 24, 25, 26, 27, 28, 29, 30, 31, 99,
-    99, 99, 99, 99, 99, 99, 99, 32, 33, 34, 35, 36, 37, 38, 39, 99, 99, 99, 99,
-    99, 99, 99, 99, 40, 41, 42, 43, 44, 45, 46, 47, 99, 99, 99, 99, 99, 99, 99,
-    99, 48, 49, 50, 51, 52, 53, 54, 55, 99, 99, 99, 99, 99, 99, 99, 99, 56, 57,
-    58, 59, 60, 61, 62, 63, 99, 99, 99, 99, 99, 99, 99, 99,
-};
-
-constexpr std::array<int8_t, 8> KnightRays = {
-    Directions::East * 2 + Directions::North, // Directions Knights can move in
-    Directions::East * 2 + Directions::South,
-    Directions::South * 2 + Directions::East,
-    Directions::South * 2 + Directions::West,
-    Directions::West * 2 + Directions::South,
-    Directions::West * 2 + Directions::North,
-    Directions::North * 2 + Directions::West,
-    Directions::North * 2 + Directions::East};
-
-constexpr MultiArray<int8_t, 4, 8> SliderAttacks = {
-    {// Attack vectors for bishops through kings
-     {Directions::Southeast, Directions::Southwest, Directions::Northeast,
-      Directions::Northwest},
-     {Directions::East, Directions::West, Directions::South, Directions::North},
-     {Directions::East, Directions::West, Directions::South, Directions::North,
-      Directions::Southeast, Directions::Southwest, Directions::Northeast,
-      Directions::Northwest},
-     {Directions::East, Directions::West, Directions::South, Directions::North,
-      Directions::Southeast, Directions::Southwest, Directions::Northeast,
-      Directions::Northwest}}
-
-};
-
-    constexpr std::array<int, 7> SeeValues = {
-    0,   100, 450, 450, 650, 1250, 10000}; // SEE values for different pieces
+constexpr std::array<int, 7> SeeValues = {
+    0, 100, 450, 450, 650, 1250, 10000}; // SEE values for different pieces
 
 std::random_device rd;
 std::uniform_int_distribution<int> dist(0, INT32_MAX);
 
 // Some simple util functions for various purposes
 
-bool out_of_board(uint8_t sq) { return sq & 0x88; }
-uint8_t get_rank_x88(uint8_t sq) { return sq / 16; }
-uint8_t get_file_x88(uint8_t sq) { return sq % 16; }
-uint8_t flip_sq(uint8_t sq) { return sq ^ 112; }
+uint8_t flip_sq(uint8_t sq) { return sq ^ 56; }
 uint8_t get_color(uint8_t piece) { return piece & 1; }
 Move pack_move(uint8_t from, uint8_t to, uint8_t promo) {
   return (from << 9) + (to << 2) + promo;
@@ -214,16 +171,9 @@ uint8_t extract_from(Move move) { return move >> 9; }
 uint8_t extract_to(Move move) { return (move >> 2) & 127; }
 uint8_t extract_promo(Move move) { return move & 3; }
 
-bool friendly_square(uint8_t color, uint8_t piece) {
-  return (piece && (piece & 1) == color);
-}
-bool enemy_square(uint8_t color, uint8_t piece) {
-  return (piece && (piece & 1) != color);
-}
 uint16_t get_zobrist_key(uint8_t piece, uint8_t sq) {
   return ((piece - 2) * 64) + sq;
 }
-uint8_t standard(uint8_t mailbox) { return MailboxToStandard[mailbox]; }
 
 constexpr int32_t side_index = 772;
 constexpr int32_t ep_index = 773;

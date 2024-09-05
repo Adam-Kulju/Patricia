@@ -259,10 +259,10 @@ void NNUE_State::reset_nnue(Position position) {
   m_curr = &m_accumulator_stack[0];
   m_curr->init(g_nnue.feature_bias);
 
-  for (int square : StandardToMailbox) {
+  for (int square = a1; square < SqNone; square++) {
     if (position.board[square] != Pieces::Blank) {
       update_feature<true>(position.board[square],
-                           MailboxToStandard[square]);
+                           square);
     }
   }
 }

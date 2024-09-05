@@ -90,28 +90,6 @@ constexpr MultiArray<uint64_t, 2, 2> CastlingBBs = {{
     {0b00001110ull << 56, 0b01100000ull << 56},
 }};
 
-
-namespace Directions_BB {
-constexpr int8_t North = 8;
-constexpr int8_t South = -8;
-constexpr int8_t East = 1;
-constexpr int8_t West = -1;
-constexpr int8_t Northeast = 9;
-constexpr int8_t Southeast = -7;
-constexpr int8_t Northwest = 7;
-constexpr int8_t Southwest = -9;
-} // namespace Directions_BB
-
-namespace Pieces_BB {
-constexpr uint8_t PieceNone = 0;
-constexpr uint8_t Pawn = 1;
-constexpr uint8_t Knight = 2;
-constexpr uint8_t Bishop = 3;
-constexpr uint8_t Rook = 4;
-constexpr uint8_t Queen = 5;
-constexpr uint8_t King = 6;
-} // namespace Pieces_BB
-
 std::array<uint64_t, 64> RookMasks;
 std::array<uint64_t, 64> BishopMasks;
 MultiArray<uint64_t, 64, 512> BishopAttacks;
@@ -334,22 +312,22 @@ void fill_pawn_attacks() {
   for (int square = a1; square <= h7; square++) {
     if (get_file(square) > 0) {
       PawnAttacks[Colors::White][square] |=
-          (1ull << (square + Directions_BB::Northwest));
+          (1ull << (square + Directions::Northwest));
     }
     if (get_file(square) < 7) {
       PawnAttacks[Colors::White][square] |=
-          (1ull << (square + Directions_BB::Northeast));
+          (1ull << (square + Directions::Northeast));
     }
   }
 
   for (int square = a2; square <= h8; square++) {
     if (get_file(square) > 0) {
       PawnAttacks[Colors::Black][square] |=
-          (1ull << (square + Directions_BB::Southwest));
+          (1ull << (square + Directions::Southwest));
     }
     if (get_file(square) < 7) {
       PawnAttacks[Colors::Black][square] |=
-          (1ull << (square + Directions_BB::Southeast));
+          (1ull << (square + Directions::Southeast));
     }
   }
 }
@@ -390,27 +368,27 @@ void generate_bb(std::string fen, Position &pos) {
       sq -= 8; // drop rank
       sq -= 8; // reset at file a
     } else if (isdigit(c)) {
-      sq += Directions_BB::East * (c - '0');
+      sq += Directions::East * (c - '0');
     } else {
       int index;
       switch (tolower(c)) {
       case 'p':
-        index = Pieces_BB::Pawn;
+        index = PieceTypes::Pawn;
         break;
       case 'n':
-        index = Pieces_BB::Knight;
+        index = PieceTypes::Knight;
         break;
       case 'b':
-        index = Pieces_BB::Bishop;
+        index = PieceTypes::Bishop;
         break;
       case 'r':
-        index = Pieces_BB::Rook;
+        index = PieceTypes::Rook;
         break;
       case 'q':
-        index = Pieces_BB::Queen;
+        index = PieceTypes::Queen;
         break;
       case 'k':
-        index = Pieces_BB::King;
+        index = PieceTypes::King;
         break;
       default:
         printf("Unexpected error occured parsing FEN!\n");
@@ -423,7 +401,7 @@ void generate_bb(std::string fen, Position &pos) {
       pos.pieces_bb[index] |= (1ull << sq);
       pos.colors_bb[color_indx] |= (1ull << sq);
 
-      sq += Directions_BB::East;
+      sq += Directions::East;
     }
   }
 }
@@ -446,24 +424,24 @@ void update_bb(Position &pos, int from_piece, int from, int to_piece, int to,
   }
 }
 
-void print_bbs(Position &pos) {
+void print_bbs(const Position &pos) {
   printf("Pawn bitboard:\n");
-  print_bb(pos.pieces_bb[Pieces_BB::Pawn]);
+  print_bb(pos.pieces_bb[PieceTypes::Pawn]);
 
   printf("Knight bitboard:\n");
-  print_bb(pos.pieces_bb[Pieces_BB::Knight]);
+  print_bb(pos.pieces_bb[PieceTypes::Knight]);
 
   printf("Bishop bitboard:\n");
-  print_bb(pos.pieces_bb[Pieces_BB::Bishop]);
+  print_bb(pos.pieces_bb[PieceTypes::Bishop]);
 
   printf("Rook bitboard:\n");
-  print_bb(pos.pieces_bb[Pieces_BB::Rook]);
+  print_bb(pos.pieces_bb[PieceTypes::Rook]);
 
   printf("Queen bitboard:\n");
-  print_bb(pos.pieces_bb[Pieces_BB::Queen]);
+  print_bb(pos.pieces_bb[PieceTypes::Queen]);
 
   printf("King bitboard:\n");
-  print_bb(pos.pieces_bb[Pieces_BB::King]);
+  print_bb(pos.pieces_bb[PieceTypes::King]);
 
   printf("White Piece bitboard:\n");
   print_bb(pos.colors_bb[Colors::White]);
