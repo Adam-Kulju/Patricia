@@ -1090,6 +1090,7 @@ finish:
 
 void search_position(Position &position, ThreadInfo &thread_info,
                      std::vector<TTBucket> &TT) {
+
   thread_info.position = position;
   thread_info.thread_id = 0;
   thread_info.nodes = 0;

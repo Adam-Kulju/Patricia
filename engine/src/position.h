@@ -13,14 +13,14 @@ internal_to_uci(const Position &position,
       promo = extract_promo(move);
 
   std::string uci{};
-  uci += get_file_x88(from) + 'a';
-  uci += get_rank_x88(from) + '1';
+  uci += get_file(from) + 'a';
+  uci += get_rank(from) + '1';
 
-  uci += get_file_x88(to) + 'a';
-  uci += get_rank_x88(to) + '1';
+  uci += get_file(to) + 'a';
+  uci += get_rank(to) + '1';
 
   if (position.board[from] - position.color == Pieces::WPawn &&
-      get_rank_x88(to) == (position.color ? 0 : 7)) {
+      get_rank(to) == (position.color ? 0 : 7)) {
     uci += "nbrq"[promo];
   }
 
@@ -35,13 +35,12 @@ Move uci_to_internal(std::string uci) {
   if (uci[4] != '\0') {
     promo = std::string("nbrq").find(uci[4]);
   }
-  return pack_move((from_rank * 16 + from_file), (to_rank * 16 + to_file),
-                   promo);
+  return pack_move((from_rank * 8 + from_file), (to_rank * 8 + to_file), promo);
 }
 
 void print_board(
     Position position) { // Prints the board. Very helpful for debugging.
-  for (int i = 0x70; i >= 0;) {
+  for (int i = 56; i >= 0;) {
     printf("+---+---+---+---+---+---+---+---+\n");
     for (int n = i; n != i + 8; n++) {
       printf("| ");
@@ -92,7 +91,7 @@ void print_board(
       }
     }
     printf("|\n");
-    i -= 0x10;
+    i -= 8;
   }
   printf("+---+---+---+---+---+---+---+---+\n\n");
 }
@@ -107,13 +106,13 @@ void set_board(Position &position, ThreadInfo &thread_info,
   std::string fen_pos;
   fen >> fen_pos;
   int indx = 0;
-  for (int i = 0x70; i >= 0 && fen_pos[indx] != '\0'; i++, indx++) {
+  for (int i = 56; i >= 0 && fen_pos[indx] != '\0'; i++, indx++) {
     if (fen_pos[indx] == '/') {
-      i -= 0x19; // the '/' denotes that we've reached the end of the file. If
-                 // we're on the second file, our index is going to be 0x18.
-                 // This needs to be at 0 next iteration for the first rank to
-                 // be set up,
-                 // so we subtract 0x19 and then the loop adds 1.
+      i -= 17; // the '/' denotes that we've reached the end of the file. If
+               // we're on the second file, our index is going to be 16.
+               // This needs to be at 0 next iteration for the first rank to
+               // be set up,
+               // so we subtract 17 and then the loop adds 1.
     } else if (std::isdigit(fen_pos[indx])) {
       i += fen_pos[indx] - '1';
     } else {
@@ -201,7 +200,7 @@ void set_board(Position &position, ThreadInfo &thread_info,
   } else {
     uint8_t file = (ep_square[0] - 'a');
     uint8_t rank = (ep_square[1] - '1');
-    position.ep_square = rank * 16 + file;
+    position.ep_square = rank * 8 + file;
   }
 
   int halfmoves;
@@ -214,33 +213,42 @@ void set_board(Position &position, ThreadInfo &thread_info,
   position.halfmoves = halfmoves;
 }
 
-uint64_t attacks_square(const Position &position, int sq,
-                    int color) { // Do we attack the square at position "sq"?
+uint64_t
+attacks_square(const Position &position, int sq,
+               int color) { // Do we attack the square at position "sq"?
 
-  uint64_t bishops = position.pieces_bb[Pieces_BB::Bishop] | position.pieces_bb[Pieces_BB::Queen];
-  uint64_t rooks = position.pieces_bb[Pieces_BB::Rook] | position.pieces_bb[Pieces_BB::Queen];
-  uint64_t occ = position.colors_bb[Colors::White] | position.colors_bb[Colors::Black];
+  uint64_t bishops = position.pieces_bb[PieceTypes::Bishop] |
+                     position.pieces_bb[PieceTypes::Queen];
+  uint64_t rooks = position.pieces_bb[PieceTypes::Rook] |
+                   position.pieces_bb[PieceTypes::Queen];
+  uint64_t occ =
+      position.colors_bb[Colors::White] | position.colors_bb[Colors::Black];
 
-  uint64_t attackers = (PawnAttacks[color^1][sq]    & position.pieces_bb[Pieces_BB::Pawn]) |
-                       (KnightAttacks[sq]           & position.pieces_bb[Pieces_BB::Knight]) |
-                       (get_bishop_attacks(sq, occ) & bishops) |
-                       (get_rook_attacks(sq, occ)   & rooks) |
-                       (KingAttacks[sq]             & position.pieces_bb[Pieces_BB::King]);
+  uint64_t attackers =
+      (PawnAttacks[color ^ 1][sq] & position.pieces_bb[PieceTypes::Pawn]) |
+      (KnightAttacks[sq] & position.pieces_bb[PieceTypes::Knight]) |
+      (get_bishop_attacks(sq, occ) & bishops) |
+      (get_rook_attacks(sq, occ) & rooks) |
+      (KingAttacks[sq] & position.pieces_bb[PieceTypes::King]);
 
   return attackers & position.colors_bb[color];
 }
 
-uint64_t attacks_square(const Position &position, int sq,
-                    int color, uint64_t occ) { // Do we attack the square at position "sq"?
+uint64_t
+attacks_square(const Position &position, int sq, int color,
+               uint64_t occ) { // Do we attack the square at position "sq"?
 
-  uint64_t bishops = position.pieces_bb[Pieces_BB::Bishop] | position.pieces_bb[Pieces_BB::Queen];
-  uint64_t rooks = position.pieces_bb[Pieces_BB::Rook] | position.pieces_bb[Pieces_BB::Queen];
+  uint64_t bishops = position.pieces_bb[PieceTypes::Bishop] |
+                     position.pieces_bb[PieceTypes::Queen];
+  uint64_t rooks = position.pieces_bb[PieceTypes::Rook] |
+                   position.pieces_bb[PieceTypes::Queen];
 
-  uint64_t attackers = (PawnAttacks[color^1][sq]    & position.pieces_bb[Pieces_BB::Pawn]) |
-                       (KnightAttacks[sq]           & position.pieces_bb[Pieces_BB::Knight]) |
-                       (get_bishop_attacks(sq, occ) & bishops) |
-                       (get_rook_attacks(sq, occ)   & rooks) |
-                       (KingAttacks[sq]             & position.pieces_bb[Pieces_BB::King]);
+  uint64_t attackers =
+      (PawnAttacks[color ^ 1][sq] & position.pieces_bb[PieceTypes::Pawn]) |
+      (KnightAttacks[sq] & position.pieces_bb[PieceTypes::Knight]) |
+      (get_bishop_attacks(sq, occ) & bishops) |
+      (get_rook_attacks(sq, occ) & rooks) |
+      (KingAttacks[sq] & position.pieces_bb[PieceTypes::King]);
 
   return attackers & position.colors_bb[color] & occ;
 }
@@ -256,7 +264,8 @@ bool is_cap(const Position &position, Move &move) {
 }
 
 int get_king_pos(const Position &position, int color) {
-  return get_lsb(position.colors_bb[color] & position.pieces_bb[Pieces_BB::King]);
+  return get_lsb(position.colors_bb[color] &
+                 position.pieces_bb[PieceTypes::King]);
 }
 
 void update_nnue_state(NNUE_State &nnue_state, Move move,
@@ -266,8 +275,8 @@ void update_nnue_state(NNUE_State &nnue_state, Move move,
   int from_piece = position.board[from];
   int to_piece = from_piece, color = position.color;
 
-  if (get_piece_type(from_piece) == Pieces_BB::Pawn &&
-      get_rank_x88(to) == (color ? 0 : 7)) { // Grab promos
+  if (get_piece_type(from_piece) == PieceTypes::Pawn &&
+      get_rank(to) == (color ? 0 : 7)) { // Grab promos
 
     to_piece = extract_promo(move) * 2 + 4 + color;
   }
@@ -278,41 +287,35 @@ void update_nnue_state(NNUE_State &nnue_state, Move move,
     captured_piece = position.board[to], captured_square = to;
   }
   // en passant
-  else if (get_piece_type(from_piece) == Pieces_BB::Pawn &&
+  else if (get_piece_type(from_piece) == PieceTypes::Pawn &&
            to == position.ep_square) {
     captured_square = to + (color ? Directions::North : Directions::South);
     captured_piece = position.board[captured_square];
   }
 
   int to_square = to;
-  from = MailboxToStandard[from], to = MailboxToStandard[to];
 
   if (captured_piece) {
-    captured_square =
-        MailboxToStandard[captured_square]; // update the piece that was
-                                                 // captured if applicable
     nnue_state.add_sub_sub(from_piece, from, to_piece, to, captured_piece,
                            captured_square);
   }
 
-  else if (get_piece_type(from_piece) == Pieces_BB::King &&
+  else if (get_piece_type(from_piece) == PieceTypes::King &&
            abs(to - from) ==
                Directions::East *
                    2) { // update the rook that moved if we castled
 
-    int indx = color ? 0x70 : 0;
+    int indx = color ? 56 : 0;
 
-    if (get_file_x88(to_square) > 4) {
+    if (get_file(to_square) > 4) {
 
       nnue_state.add_add_sub_sub(from_piece, from, to, Pieces::WRook + color,
-                                 MailboxToStandard[indx + 7],
-                                 MailboxToStandard[indx + 5]);
+                                 indx + 7, indx + 5);
 
     } else {
 
       nnue_state.add_add_sub_sub(from_piece, from, to, Pieces::WRook + color,
-                                 MailboxToStandard[indx],
-                                 MailboxToStandard[indx + 3]);
+                                 indx, indx + 3);
     }
   }
 
@@ -341,7 +344,7 @@ void make_move(Position &position, Move move) { // Perform a move on the board.
   int from = extract_from(move), to = extract_to(move), color = position.color,
       opp_color = color ^ 1, captured_piece = Pieces::Blank,
       captured_square = SquareNone;
-  int base_rank = (color ? 0x70 : 0);
+  int base_rank = (color ? 56 : 0);
   int ep_square = SquareNone;
 
   int from_piece = position.board[from];
@@ -349,21 +352,20 @@ void make_move(Position &position, Move move) { // Perform a move on the board.
 
   // update material counts and 50 move rules for a capture
   if (position.board[to]) {
-    temp_hash ^=
-        zobrist_keys[get_zobrist_key(position.board[to], standard(to))];
+    temp_hash ^= zobrist_keys[get_zobrist_key(position.board[to], to)];
     // Update hash key for the piece that was taken
     position.halfmoves = 0;
     position.material_count[position.board[to] - 2]--;
     captured_piece = position.board[to], captured_square = to;
   }
   // en passant
-  else if (from_type == Pieces_BB::Pawn && to == position.ep_square) {
+  else if (from_type == PieceTypes::Pawn && to == position.ep_square) {
     position.material_count[opp_color]--;
     captured_square = to + (color ? Directions::North : Directions::South);
     captured_piece = position.board[captured_square];
 
     temp_hash ^= zobrist_keys[get_zobrist_key(position.board[captured_square],
-                                              standard(captured_square))];
+                                              captured_square)];
     // Update hash key for the piece that was taken
     // (not covered above)
     position.board[captured_square] = Pieces::Blank;
@@ -379,11 +381,11 @@ void make_move(Position &position, Move move) { // Perform a move on the board.
 
   bool castle = false;
 
-  if (from_type == Pieces_BB::Pawn) {
+  if (from_type == PieceTypes::Pawn) {
     position.halfmoves = 0;
 
     // promotions
-    if (get_rank_x88(to) == (color ? 0 : 7)) {
+    if (get_rank(to) == (color ? 0 : 7)) {
       to_piece = extract_promo(move) * 2 + 4 + color;
       position.board[to] = to_piece;
       position.material_count[color]--, position.material_count[to_piece - 2]++;
@@ -397,7 +399,7 @@ void make_move(Position &position, Move move) { // Perform a move on the board.
   }
   // handle king moves and castling
 
-  else if (from_type == Pieces_BB::King) {
+  else if (from_type == PieceTypes::King) {
 
     // If the king moves, castling rights are gone.
     if (position.castling_rights[color][Sides::Queenside]) {
@@ -411,21 +413,17 @@ void make_move(Position &position, Move move) { // Perform a move on the board.
       position.castling_rights[color][Sides::Kingside] = false;
     }
 
-    int converted_rank =
-        standard(base_rank); // get the rank that castling's happening on
-
     // kingside castle
     if (to == from + Directions::East + Directions::East) {
       castle = true;
       position.board[base_rank + 5] = position.board[base_rank + 7];
       position.board[base_rank + 7] = Pieces::Blank;
-      temp_hash ^= zobrist_keys[get_zobrist_key(Pieces::WRook + color,
-                                                converted_rank + 5)] ^
-                   zobrist_keys[get_zobrist_key(Pieces::WRook + color,
-                                                converted_rank + 7)];
+      temp_hash ^=
+          zobrist_keys[get_zobrist_key(Pieces::WRook + color, base_rank + 5)] ^
+          zobrist_keys[get_zobrist_key(Pieces::WRook + color, base_rank + 7)];
 
-      update_bb(position, Pieces::WRook + color, converted_rank + 7,
-                Pieces::WRook + color, converted_rank + 5, Pieces::Blank,
+      update_bb(position, Pieces::WRook + color, base_rank + 7,
+                Pieces::WRook + color, base_rank + 5, Pieces::Blank,
                 SquareNone);
     }
 
@@ -435,12 +433,11 @@ void make_move(Position &position, Move move) { // Perform a move on the board.
       position.board[base_rank + 3] = position.board[base_rank];
       position.board[base_rank] = Pieces::Blank;
       temp_hash ^=
-          zobrist_keys[get_zobrist_key(Pieces::WRook + color,
-                                       converted_rank + 3)] ^
-          zobrist_keys[get_zobrist_key(Pieces::WRook + color, converted_rank)];
+          zobrist_keys[get_zobrist_key(Pieces::WRook + color, base_rank + 3)] ^
+          zobrist_keys[get_zobrist_key(Pieces::WRook + color, base_rank)];
 
-      update_bb(position, Pieces::WRook + color, converted_rank,
-                Pieces::WRook + color, converted_rank + 3, Pieces::Blank,
+      update_bb(position, Pieces::WRook + color, base_rank,
+                Pieces::WRook + color, base_rank + 3, Pieces::Blank,
                 SquareNone);
     }
   }
@@ -449,7 +446,7 @@ void make_move(Position &position, Move move) { // Perform a move on the board.
   // side to false, because if it's not a rook it means either the rook left
   // that square or the king left its original square.
   if (from == base_rank || from == base_rank + 7) {
-    int side = get_file_x88(from) < 4 ? Sides::Queenside : Sides::Kingside;
+    int side = get_file(from) < 4 ? Sides::Queenside : Sides::Kingside;
     if (position.castling_rights[color][side]) {
       position.castling_rights[color][side] = false;
       temp_hash ^= zobrist_keys[castling_index + color * 2 + side];
@@ -461,23 +458,19 @@ void make_move(Position &position, Move move) { // Perform a move on the board.
 
   if (to == flip_sq(base_rank) || to == flip_sq(base_rank + 7)) {
 
-    int side = get_file_x88(to) < 4 ? Sides::Queenside : Sides::Kingside;
+    int side = get_file(to) < 4 ? Sides::Queenside : Sides::Kingside;
     if (position.castling_rights[opp_color][side]) {
       position.castling_rights[opp_color][side] = false;
       temp_hash ^= zobrist_keys[castling_index + opp_color * 2 + side];
     }
   }
 
-  temp_hash ^= zobrist_keys[get_zobrist_key(from_piece, standard(from))];
-  temp_hash ^= zobrist_keys[get_zobrist_key(to_piece, standard(to))];
+  temp_hash ^= zobrist_keys[get_zobrist_key(from_piece, from)];
+  temp_hash ^= zobrist_keys[get_zobrist_key(to_piece, to)];
   temp_hash ^= zobrist_keys[side_index];
 
-  if (captured_square != SquareNone) {
-    captured_square = standard(captured_square);
-  }
-
-  update_bb(position, from_piece, standard(from), to_piece, standard(to),
-            captured_piece, captured_square);
+  update_bb(position, from_piece, from, to_piece, to, captured_piece,
+            captured_square);
 
   position.color ^= 1;
 
@@ -489,7 +482,6 @@ void make_move(Position &position, Move move) { // Perform a move on the board.
   position.ep_square = ep_square;
   position.zobrist_key = temp_hash;
 
-
   __builtin_prefetch(&TT[hash_to_idx(temp_hash)]);
 }
 
@@ -498,27 +490,21 @@ bool is_legal(Position &position, Move move) { // Perform a move on the board.
   int from = extract_from(move), to = extract_to(move), color = position.color,
       opp_color = color ^ 1;
 
-
   int from_piece = position.board[from], to_piece = from_piece;
 
   int cap_piece = position.board[to];
   int cap_square = cap_piece ? to : SquareNone;
 
   // en passant
-  if (get_piece_type(from_piece) == Pieces_BB::Pawn &&
+  if (get_piece_type(from_piece) == PieceTypes::Pawn &&
       to == position.ep_square) {
     cap_square = to + (color ? Directions::North : Directions::South);
     cap_piece = Pieces::WPawn + opp_color;
   }
 
-  from = standard(from), to = standard(to);
-  if (cap_square != SquareNone){
-    cap_square = standard(cap_square);
-  }
-
   update_bb(position, from_piece, from, to_piece, to, cap_piece, cap_square);
 
-  int new_king_pos = get_piece_type(from_piece) == Pieces_BB::King
+  int new_king_pos = get_piece_type(from_piece) == PieceTypes::King
                          ? to
                          : get_king_pos(position, color);
 

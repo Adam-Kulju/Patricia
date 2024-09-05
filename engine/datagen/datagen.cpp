@@ -28,15 +28,17 @@ std::chrono::steady_clock::time_point start_time;
 std::string export_fen(const Position &position,
                        const ThreadInfo &thread_info) {
 
-  int pos = 0x70;
   std::string fen = "";
+  bool subtracted = true;
 
-  for (int pos = 0x70; pos >= 0; pos++) {
-    if (out_of_board(pos)) {
-      pos -= 0x19;
+  for (int pos = 56; pos >= 0; pos++) {
+
+    if (pos % 8 == 0 && !subtracted) {
+      pos -= 17;
       if (pos >= -1) {
         fen += "/";
       }
+      subtracted = true;
     }
 
     else if (position.board[pos] != Pieces::Blank) {
@@ -84,15 +86,18 @@ std::string export_fen(const Position &position,
         print_board(position);
         std::exit(1);
       }
+
+      subtracted = false;
     }
 
     else {
       int empty_squares = 0;
+      subtracted = false;
 
       do {
         empty_squares++;
         pos++;
-      } while (position.board[pos] == Pieces::Blank && !out_of_board(pos));
+      } while (position.board[pos] == Pieces::Blank && pos % 8 != 0);
 
       fen += std::to_string(empty_squares);
       pos--;
@@ -130,10 +135,10 @@ std::string export_fen(const Position &position,
 
   if (position.ep_square != SquareNone) {
 
-    char file = get_file_x88(position.ep_square) + 'a';
+    char file = get_file(position.ep_square) + 'a';
     fen += file;
 
-    char rank = get_rank_x88(position.ep_square) + '1';
+    char rank = get_rank(position.ep_square) + '1';
 
     fen += rank;
     fen += " ";
@@ -197,7 +202,7 @@ void play_game(ThreadInfo &thread_info, uint64_t &num_fens, int id,
       }
 
       ss_push(position, thread_info, move);
-      make_move(position, move, thread_info);
+      make_move(position, move);
     }
   }
 
@@ -215,9 +220,19 @@ void play_game(ThreadInfo &thread_info, uint64_t &num_fens, int id,
       }
 
       ss_push(position, thread_info, move); // fill the game hist stack as we go
-      make_move(position, move, thread_info);
+      make_move(position, move);
     }
   }
+
+  /*set_board(position, thread_info, "rnbqkbnr/4pppp/8/p2P4/p1pP1PP1/7P/1PP5/RNBQKBNR b KQkq - 0 7");
+  print_board(position);
+  print_bbs(position);
+  Move moves[256];
+  int g = movegen(position, moves, 0);
+  for (int i = 0; i < g; i++){
+    printf("%i %i\n", extract_from(moves[i]), extract_to(moves[i]));
+  }
+  exit(0);*/
 
   std::string fens[5000] = {""};
   int fkey = 0;
@@ -297,7 +312,7 @@ void play_game(ThreadInfo &thread_info, uint64_t &num_fens, int id,
 
     ss_push(position, thread_info, best_move); // fill the game hist stack as we go
 
-    make_move(position, best_move, thread_info);
+    make_move(position, best_move);
 
     if (!(is_noisy ||
           in_check)) { // If the best move isn't a noisy move and we're not in
@@ -355,6 +370,7 @@ void run(int id) {
 int main(int argc, char *argv[]) {
 
   init_LMR();
+  init_bbs();
 
   if (argc > 1) {
     num_threads = std::atoi(argv[1]);

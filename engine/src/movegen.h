@@ -23,26 +23,26 @@ void pawn_moves(const Position &position, std::span<Move> move_list, int &key) {
   uint8_t color = position.color;
   uint64_t third_rank = color ? Ranks[5] : Ranks[2];
   uint64_t seventh_rank = color ? Ranks[1] : Ranks[6];
-  int8_t dir = color ? Directions_BB::South : Directions_BB::North;
-  int8_t left = color ? Directions_BB::Southwest : Directions_BB::Northwest;
-  int8_t right = color ? Directions_BB::Southeast : Directions_BB::Northeast;
+  int8_t dir = color ? Directions::South : Directions::North;
+  int8_t left = color ? Directions::Southwest : Directions::Northwest;
+  int8_t right = color ? Directions::Southeast : Directions::Northeast;
 
   uint64_t empty_squares = ~(position.colors_bb[0] | position.colors_bb[1]);
-  uint64_t our_promos = position.pieces_bb[Pieces_BB::Pawn] &
+  uint64_t our_promos = position.pieces_bb[PieceTypes::Pawn] &
                         position.colors_bb[color] & seventh_rank;
-  uint64_t our_non_promos = position.pieces_bb[Pieces_BB::Pawn] &
+  uint64_t our_non_promos = position.pieces_bb[PieceTypes::Pawn] &
                             position.colors_bb[color] & (~seventh_rank);
 
   uint64_t move_1 = shift_pawns(our_non_promos, dir) & empty_squares;
   uint64_t move_2 = shift_pawns(move_1 & third_rank, dir) & empty_squares;
 
   while (move_1) {
-    int to = StandardToMailbox[pop_lsb(move_1)];
-    move_list[key++] = pack_move(to - (2 * dir), to, 0);
+    int to = pop_lsb(move_1);
+    move_list[key++] = pack_move(to - (dir), to, 0);
   }
   while (move_2) {
-    int to = StandardToMailbox[pop_lsb(move_2)];
-    move_list[key++] = pack_move(to - (4 * dir), to, 0);
+    int to = pop_lsb(move_2);
+    move_list[key++] = pack_move(to - (2 * dir), to, 0);
   }
 
   uint64_t cap_left = shift_pawns(our_non_promos & ~Files[0], left) &
@@ -51,19 +51,19 @@ void pawn_moves(const Position &position, std::span<Move> move_list, int &key) {
                        position.colors_bb[color ^ 1];
 
   while (cap_left) {
-    int to = StandardToMailbox[pop_lsb(cap_left)];
-    move_list[key++] = pack_move(to - (left + dir), to, 0);
+    int to = pop_lsb(cap_left);
+    move_list[key++] = pack_move(to - (left), to, 0);
   }
   while (cap_right) {
-    int to = StandardToMailbox[pop_lsb(cap_right)];
-    move_list[key++] = pack_move(to - (right + dir), to, 0);
+    int to = pop_lsb(cap_right);
+    move_list[key++] = pack_move(to - (right), to, 0);
   }
 
   if (position.ep_square != SquareNone) {
     uint64_t ep_captures =
-        our_non_promos & PawnAttacks[color ^ 1][standard(position.ep_square)];
+        our_non_promos & PawnAttacks[color ^ 1][position.ep_square];
     while (ep_captures) {
-      int from = StandardToMailbox[pop_lsb(ep_captures)];
+      int from = pop_lsb(ep_captures);
       move_list[key++] = pack_move(from, position.ep_square, 0);
     }
   }
@@ -75,21 +75,21 @@ void pawn_moves(const Position &position, std::span<Move> move_list, int &key) {
                              position.colors_bb[color ^ 1];
 
   while (move_promo) {
-    int to = StandardToMailbox[pop_lsb(move_promo)];
+    int to = pop_lsb(move_promo);
     for (int i = 0; i < 4; i++) {
-      move_list[key++] = pack_move(to - (2 * dir), to, i);
+      move_list[key++] = pack_move(to - (dir), to, i);
     }
   }
   while (cap_left_promo) {
-    int to = StandardToMailbox[pop_lsb(cap_left_promo)];
+    int to = pop_lsb(cap_left_promo);
     for (int i = 0; i < 4; i++) {
-      move_list[key++] = pack_move(to - (left + dir), to, i);
+      move_list[key++] = pack_move(to - (left), to, i);
     }
   }
   while (cap_right_promo) {
-    int to = StandardToMailbox[pop_lsb(cap_right_promo)];
+    int to = pop_lsb(cap_right_promo);
     for (int i = 0; i < 4; i++) {
-      move_list[key++] = pack_move(to - (right + dir), to, i);
+      move_list[key++] = pack_move(to - (right), to, i);
     }
   }
 }
@@ -98,7 +98,7 @@ int movegen(const Position &position, std::span<Move> move_list,
             bool in_check) {
 
   uint8_t color = position.color,
-          king_pos = StandardToMailbox[get_king_pos(position, color)];
+          king_pos = get_king_pos(position, color);
   int opp_color = color ^ 1;
   int idx = 0;
   uint64_t stm_pieces = position.colors_bb[color];
@@ -106,13 +106,13 @@ int movegen(const Position &position, std::span<Move> move_list,
 
   pawn_moves(position, move_list, idx);
 
-  uint64_t knights = position.pieces_bb[Pieces_BB::Knight] & stm_pieces;
+  uint64_t knights = position.pieces_bb[PieceTypes::Knight] & stm_pieces;
   while (knights) {
     int from = pop_lsb(knights);
     uint64_t to = KnightAttacks[from] & ~stm_pieces;
     while (to) {
       move_list[idx++] =
-          pack_move(StandardToMailbox[from], StandardToMailbox[pop_lsb(to)], 0);
+          pack_move(from, pop_lsb(to), 0);
     }
   }
 
@@ -120,30 +120,30 @@ int movegen(const Position &position, std::span<Move> move_list,
   uint64_t king_attacks = KingAttacks[king] & ~stm_pieces;
   while (king_attacks) {
     move_list[idx++] =
-        pack_move(king_pos, StandardToMailbox[pop_lsb(king_attacks)], 0);
+        pack_move(king_pos, pop_lsb(king_attacks), 0);
   }
 
-  uint64_t diagonals = (position.pieces_bb[Pieces_BB::Bishop] |
-                        position.pieces_bb[Pieces_BB::Queen]) &
+  uint64_t diagonals = (position.pieces_bb[PieceTypes::Bishop] |
+                        position.pieces_bb[PieceTypes::Queen]) &
                        stm_pieces;
   while (diagonals) {
     int from = pop_lsb(diagonals);
     uint64_t to = get_bishop_attacks(from, occ) & ~stm_pieces;
     while (to) {
       move_list[idx++] =
-          pack_move(StandardToMailbox[from], StandardToMailbox[pop_lsb(to)], 0);
+          pack_move(from, pop_lsb(to), 0);
     }
   }
 
-  uint64_t orthogonals = (position.pieces_bb[Pieces_BB::Rook] |
-                          position.pieces_bb[Pieces_BB::Queen]) &
+  uint64_t orthogonals = (position.pieces_bb[PieceTypes::Rook] |
+                          position.pieces_bb[PieceTypes::Queen]) &
                          stm_pieces;
   while (orthogonals) {
     int from = pop_lsb(orthogonals);
     uint64_t to = get_rook_attacks(from, occ) & ~stm_pieces;
     while (to) {
       move_list[idx++] =
-          pack_move(StandardToMailbox[from], StandardToMailbox[pop_lsb(to)], 0);
+          pack_move(from, pop_lsb(to), 0);
     }
   }
 
@@ -158,13 +158,13 @@ int movegen(const Position &position, std::span<Move> move_list,
 
   if (position.castling_rights[color][Sides::Queenside] &&
       !(occ & CastlingBBs[color][Sides::Queenside]) &&
-      !attacks_square(position, MailboxToStandard[king_pos - 1], opp_color)) {
+      !attacks_square(position, king_pos - 1, opp_color)) {
     move_list[idx++] = pack_move(king_pos, king_pos - 2, 0);
   }
 
   if (position.castling_rights[color][Sides::Kingside] &&
       !(occ & CastlingBBs[color][Sides::Kingside]) &&
-      !attacks_square(position, MailboxToStandard[king_pos + 1], opp_color)) {
+      !attacks_square(position, king_pos + 1, opp_color)) {
     move_list[idx++] = pack_move(king_pos, king_pos + 2, 0);
   }
 
@@ -175,38 +175,36 @@ int cheapest_attacker(Position &position, int sq, int color, uint64_t &occ) {
   // Finds the cheapest attacker for a given square on a given board.
   // printf("nnnnnnnnnnnnnn\nnnnnnnnnnnnnnnn\nnnnnnnnnnnnn\n\n");
   // print_bbs(position);
-  sq = standard(sq);
-
   uint64_t attacks = attacks_square(position, sq, color, occ);
   uint64_t temp = 0ull;
-  int value = Pieces_BB::PieceNone;
+  int value = PieceTypes::PieceNone;
 
   if (!attacks) {
-    return Pieces_BB::PieceNone;
+    return PieceTypes::PieceNone;
   }
 
-  else if ((temp = attacks & position.pieces_bb[Pieces_BB::Pawn])) {
-    value = Pieces_BB::Pawn;
+  else if ((temp = attacks & position.pieces_bb[PieceTypes::Pawn])) {
+    value = PieceTypes::Pawn;
   }
 
-  else if ((temp = attacks & position.pieces_bb[Pieces_BB::Knight])) {
-    value = Pieces_BB::Knight;
+  else if ((temp = attacks & position.pieces_bb[PieceTypes::Knight])) {
+    value = PieceTypes::Knight;
   }
 
-  else if ((temp = attacks & position.pieces_bb[Pieces_BB::Bishop])) {
-    value = Pieces_BB::Bishop;
+  else if ((temp = attacks & position.pieces_bb[PieceTypes::Bishop])) {
+    value = PieceTypes::Bishop;
   }
 
-  else if ((temp = attacks & position.pieces_bb[Pieces_BB::Rook])) {
-    value = Pieces_BB::Rook;
+  else if ((temp = attacks & position.pieces_bb[PieceTypes::Rook])) {
+    value = PieceTypes::Rook;
   }
 
-  else if ((temp = attacks & position.pieces_bb[Pieces_BB::Queen])) {
-    value = Pieces_BB::Queen;
+  else if ((temp = attacks & position.pieces_bb[PieceTypes::Queen])) {
+    value = PieceTypes::Queen;
   }
 
-  else if ((temp = attacks & position.pieces_bb[Pieces_BB::King])) {
-    value = Pieces_BB::King;
+  else if ((temp = attacks & position.pieces_bb[PieceTypes::King])) {
+    value = PieceTypes::King;
   }
 
   occ -= (temp & -int64_t(temp));
@@ -226,14 +224,14 @@ bool SEE(Position &position, Move move, int threshold) {
 
   uint64_t occ =
       (position.colors_bb[Colors::White] | position.colors_bb[Colors::Black]) -
-      (1ull << standard(from));
+      (1ull << from);
 
   int attack_sq = 0;
 
   while (gain - risk < threshold) {
     int type = cheapest_attacker(position, to, color ^ 1, occ);
 
-    if (type == Pieces_BB::PieceNone) {
+    if (type == PieceTypes::PieceNone) {
       return true;
     }
 
@@ -246,7 +244,7 @@ bool SEE(Position &position, Move move, int threshold) {
 
     type = cheapest_attacker(position, to, color, occ);
 
-    if (type == Pieces_BB::PieceNone) {
+    if (type == PieceTypes::PieceNone) {
       return false;
     }
 
