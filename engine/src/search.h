@@ -317,7 +317,7 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
     }
 
     Position moved_position = position;
-    make_move(moved_position, move, thread_info);
+    make_move(moved_position, move);
 
     update_nnue_state(thread_info.nnue_state, move, position);
 
@@ -516,7 +516,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       // still beat beta on a reduced search, we can prune the node.
 
       Position temp_pos = position;
-      make_move(temp_pos, MoveNone, thread_info);
+      make_move(temp_pos, MoveNone);
 
       ss_push(position, thread_info, MoveNone);
 
@@ -651,7 +651,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     }
 
     Position moved_position = position;
-    make_move(moved_position, move, thread_info);
+    make_move(moved_position, move);
 
     update_nnue_state(thread_info.nnue_state, move, position);
 
@@ -903,7 +903,7 @@ void print_pv(Position &position, ThreadInfo &thread_info) {
 
     printf("%s ", internal_to_uci(temp_pos, best_move).c_str());
 
-    make_move(temp_pos, best_move, thread_info);
+    make_move(temp_pos, best_move);
 
     indx++;
     color ^= 1;

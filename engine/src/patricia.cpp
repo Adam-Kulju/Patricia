@@ -3,41 +3,6 @@
 #include <memory>
 #include <stdio.h>
 
-uint64_t
-perft(int depth, Position &position, bool first,
-      ThreadInfo &thread_info) // Performs a perft search to the desired depth,
-                               // displaying results for each move at the root.
-{
-  if (!depth) {
-    return 1; // a terminal node
-  } 
-  std::array<Move, ListSize> list;
-  uint64_t total_nodes = 0;
-  int nmoves =
-      movegen(position, list,
-              attacks_square(position, get_king_pos(position, position.color),
-                             position.color ^ 1));
-  for (int i = 0; i < nmoves;
-       i++) // Loop through all of the moves, skipping illegal ones.
-  {
-    if (! is_legal(position, list[i])) {
-      continue;
-    }
-    Position new_position = position;
-    make_move(new_position, list[i], thread_info);
-
-    uint64_t nodes = perft(depth - 1, new_position, false, thread_info);
-    
-    if (first) {
-      printf("%s: %" PRIu64 "\n", internal_to_uci(position, list[i]).c_str(),
-             nodes);
-    }
-    total_nodes += nodes;
-  }
-
-  return total_nodes;
-}
-
 void bench(Position &position, ThreadInfo &thread_info) {
   std::vector<std::string> fens = {
       "2r2k2/8/4P1R1/1p6/8/P4K1N/7b/2B5 b - - 0 55\0",
@@ -122,22 +87,7 @@ int main(int argc, char *argv[]) {
   init_bbs();
 
   if (argc > 1) {
-    if (std::string(argv[1]) == "perft") {
-      new_game(*thread_info, TT);
-      set_board(position, *thread_info,
-                "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
-      thread_info->start_time = std::chrono::steady_clock::now();
-
-      uint64_t nodes = perft(atoi(argv[2]), position, true, *thread_info);
-
-      printf("%" PRIu64 " nodes %" PRIu64 " nps\n", nodes,
-           (uint64_t)(nodes * 1000 /
-                      (time_elapsed(thread_info->start_time))));
-
-      std::exit(0);
-    }
-
-    else if (std::string(argv[1]) == "bench") {
+    if (std::string(argv[1]) == "bench") {
       bench(position, *thread_info);
     }
   }

@@ -22,6 +22,47 @@ void run_thread(Position &position, ThreadInfo &thread_info, std::thread &s) {
   }
 }
 
+uint64_t
+perft(int depth, Position &position, bool first)
+                               // Performs a perft search to the desired depth,
+                               // displaying results for each move at the root.
+{
+  std::array<Move, ListSize> list;
+  uint64_t total_nodes = 0;
+  int nmoves =
+      movegen(position, list,
+              attacks_square(position, get_king_pos(position, position.color),
+                             position.color ^ 1));
+
+  if (depth <= 1) {
+    for (int i = 0; i < nmoves; i++)
+    {
+      total_nodes += is_legal(position, list[i]);
+    }
+    return total_nodes;
+  }
+
+  for (int i = 0; i < nmoves;
+       i++) // Loop through all of the moves, skipping illegal ones.
+  {
+    if (! is_legal(position, list[i])) {
+      continue;
+    }
+    Position new_position = position;
+    make_move(new_position, list[i]);
+
+    uint64_t nodes = perft(depth - 1, new_position, false);
+    
+    if (first) {
+      printf("%s: %" PRIu64 "\n", internal_to_uci(position, list[i]).c_str(),
+             nodes);
+    }
+    total_nodes += nodes;
+  }
+
+  return total_nodes;
+}
+
 void uci(ThreadInfo &thread_info, Position &position) {
   setvbuf(stdin, NULL, _IONBF, 0);
   setvbuf(stdout, NULL, _IONBF, 0);
@@ -188,7 +229,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
         while (input_stream >> moves) {
           Move move = uci_to_internal(moves);
           ss_push(position, thread_info, move); // fill the game hist stack as we go
-          make_move(position, move, thread_info);
+          make_move(position, move);
         }
       }
 
@@ -241,6 +282,17 @@ void uci(ThreadInfo &thread_info, Position &position) {
 
     run:
       run_thread(position, thread_info, s);
+    }
+    else if (command == "perft") {
+      int depth;
+      input_stream >> depth;
+      auto start_time = std::chrono::steady_clock::now();
+
+      uint64_t nodes = perft(depth, position, true);
+
+      printf("%" PRIu64 " nodes %" PRIu64 " nps\n", nodes,
+           (uint64_t)(nodes * 1000 /
+                      (time_elapsed(start_time))));
     }
   }
 }
