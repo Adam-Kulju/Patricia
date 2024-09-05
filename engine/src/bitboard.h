@@ -85,6 +85,12 @@ constexpr std::array<uint64_t, 8> Files = {
     0x101010101010101ull << 4, 0x101010101010101ull << 5,
     0x101010101010101ull << 6, 0x101010101010101ull << 7};
 
+constexpr MultiArray<uint64_t, 2, 2> CastlingBBs = {{
+    {0b00001110ull, 0b01100000ull},
+    {0b00001110ull << 56, 0b01100000ull << 56},
+}};
+
+
 namespace Directions_BB {
 constexpr int8_t North = 8;
 constexpr int8_t South = -8;

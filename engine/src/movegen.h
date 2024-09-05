@@ -34,8 +34,7 @@ void pawn_moves(const Position &position, std::span<Move> move_list, int &key) {
                             position.colors_bb[color] & (~seventh_rank);
 
   uint64_t move_1 = shift_pawns(our_non_promos, dir) & empty_squares;
-  uint64_t move_2 =
-      shift_pawns(move_1 & third_rank, dir) & empty_squares;
+  uint64_t move_2 = shift_pawns(move_1 & third_rank, dir) & empty_squares;
 
   while (move_1) {
     int to = StandardToMailbox[pop_lsb(move_1)];
@@ -70,8 +69,8 @@ void pawn_moves(const Position &position, std::span<Move> move_list, int &key) {
   }
 
   uint64_t move_promo = shift_pawns(our_promos, dir) & empty_squares;
-  uint64_t cap_left_promo = shift_pawns(our_promos & ~Files[0], left) &
-                            position.colors_bb[color ^ 1];
+  uint64_t cap_left_promo =
+      shift_pawns(our_promos & ~Files[0], left) & position.colors_bb[color ^ 1];
   uint64_t cap_right_promo = shift_pawns(our_promos & ~Files[7], right) &
                              position.colors_bb[color ^ 1];
 
@@ -97,98 +96,85 @@ void pawn_moves(const Position &position, std::span<Move> move_list, int &key) {
 
 int movegen(const Position &position, std::span<Move> move_list,
             bool in_check) {
-  uint8_t color = position.color, opp_color = color ^ 1;
+
+  uint8_t color = position.color,
+          king_pos = StandardToMailbox[get_king_pos(position, color)];
+  int opp_color = color ^ 1;
   int idx = 0;
+  uint64_t stm_pieces = position.colors_bb[color];
+  uint64_t occ = position.colors_bb[0] | position.colors_bb[1];
 
   pawn_moves(position, move_list, idx);
 
-  for (uint8_t from : StandardToMailbox) {
-
-    int piece = position.board[from];
-    if (piece == Pieces::Blank || get_color(piece) != color) {
-      continue;
-    }
-
-    int type = get_piece_type(piece);
-
-    // Handle pawns
-    if (type == Pieces_BB::Pawn) {
-    }
-
-    // Handle knights
-    else if (type == Pieces_BB::Knight) {
-      for (int moves : KnightRays) {
-        int to = from + moves;
-        if (!out_of_board(to) && !friendly_square(color, position.board[to])) {
-          move_list[idx++] = pack_move(from, to, 0);
-        }
-      }
-    }
-    // Handle kings
-    else if (type == Pieces_BB::King) {
-      for (int moves : SliderAttacks[3]) {
-        int to = from + moves;
-        if (!out_of_board(to) && !friendly_square(color, position.board[to])) {
-          move_list[idx++] = pack_move(from, to, 0);
-        }
-      }
-    }
-
-    // Handle sliders
-    else {
-      for (int dirs : SliderAttacks[type - 3]) {
-        int to = from + dirs;
-
-        while (!out_of_board(to)) {
-
-          int to_piece = position.board[to];
-          if (!to_piece) {
-            move_list[idx++] = pack_move(from, to, 0);
-            to += dirs;
-            continue;
-          } else if (get_color(to_piece) ==
-                     opp_color) { // add the move for captures and immediately
-                                  // break
-            move_list[idx++] = pack_move(from, to, 0);
-          }
-          break;
-        }
-      }
+  uint64_t knights = position.pieces_bb[Pieces_BB::Knight] & stm_pieces;
+  while (knights) {
+    int from = pop_lsb(knights);
+    uint64_t to = KnightAttacks[from] & ~stm_pieces;
+    while (to) {
+      move_list[idx++] =
+          pack_move(StandardToMailbox[from], StandardToMailbox[pop_lsb(to)], 0);
     }
   }
+
+  uint64_t king = get_king_pos(position, color);
+  uint64_t king_attacks = KingAttacks[king] & ~stm_pieces;
+  while (king_attacks) {
+    move_list[idx++] =
+        pack_move(king_pos, StandardToMailbox[pop_lsb(king_attacks)], 0);
+  }
+
+  uint64_t diagonals = (position.pieces_bb[Pieces_BB::Bishop] |
+                        position.pieces_bb[Pieces_BB::Queen]) &
+                       stm_pieces;
+  while (diagonals) {
+    int from = pop_lsb(diagonals);
+    uint64_t to = get_bishop_attacks(from, occ) & ~stm_pieces;
+    while (to) {
+      move_list[idx++] =
+          pack_move(StandardToMailbox[from], StandardToMailbox[pop_lsb(to)], 0);
+    }
+  }
+
+  uint64_t orthogonals = (position.pieces_bb[Pieces_BB::Rook] |
+                          position.pieces_bb[Pieces_BB::Queen]) &
+                         stm_pieces;
+  while (orthogonals) {
+    int from = pop_lsb(orthogonals);
+    uint64_t to = get_rook_attacks(from, occ) & ~stm_pieces;
+    while (to) {
+      move_list[idx++] =
+          pack_move(StandardToMailbox[from], StandardToMailbox[pop_lsb(to)], 0);
+    }
+  }
+
   if (in_check) { // If we're in check there's no point in
                   // seeing if we can castle (can be optimized)
     return idx;
   }
-
-  // queenside castling
-  int king_pos = StandardToMailbox[get_king_pos(position, color)];
   // Requirements: the king and rook cannot have moved, all squares between them
   // must be empty, and the king can not go through check.
   // (It can't end up in check either, but that gets filtered just like any
   // illegal move.)
+
   if (position.castling_rights[color][Sides::Queenside] &&
-      position.board[king_pos - 1] == Pieces::Blank &&
-      position.board[king_pos - 2] == Pieces::Blank &&
-      position.board[king_pos - 3] == Pieces::Blank &&
+      !(occ & CastlingBBs[color][Sides::Queenside]) &&
       !attacks_square(position, MailboxToStandard[king_pos - 1], opp_color)) {
-    move_list[idx++] = pack_move(king_pos, (king_pos - 2), 0);
+    move_list[idx++] = pack_move(king_pos, king_pos - 2, 0);
   }
 
-  // kingside castling
   if (position.castling_rights[color][Sides::Kingside] &&
-      position.board[king_pos + 1] == Pieces::Blank &&
-      position.board[king_pos + 2] == Pieces::Blank &&
+      !(occ & CastlingBBs[color][Sides::Kingside]) &&
       !attacks_square(position, MailboxToStandard[king_pos + 1], opp_color)) {
-    move_list[idx++] = pack_move(king_pos, (king_pos + 2), 0);
+    move_list[idx++] = pack_move(king_pos, king_pos + 2, 0);
   }
+
   return idx;
 }
 
-int cheapest_attacker(Position &position, int sq, int color, uint64_t& occ) {
+int cheapest_attacker(Position &position, int sq, int color, uint64_t &occ) {
   // Finds the cheapest attacker for a given square on a given board.
-  //printf("nnnnnnnnnnnnnn\nnnnnnnnnnnnnnnn\nnnnnnnnnnnnn\n\n");
-  //print_bbs(position);
+  // printf("nnnnnnnnnnnnnn\nnnnnnnnnnnnnnnn\nnnnnnnnnnnnn\n\n");
+  // print_bbs(position);
   sq = standard(sq);
 
   uint64_t attacks = attacks_square(position, sq, color, occ);
@@ -238,8 +224,9 @@ bool SEE(Position &position, Move move, int threshold) {
     return false;
   }
 
-  uint64_t occ = (position.colors_bb[Colors::White] |
-                 position.colors_bb[Colors::Black]) - (1ull << standard(from));
+  uint64_t occ =
+      (position.colors_bb[Colors::White] | position.colors_bb[Colors::Black]) -
+      (1ull << standard(from));
 
   int attack_sq = 0;
 
