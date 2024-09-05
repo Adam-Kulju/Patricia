@@ -325,6 +325,11 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
     int score = -qsearch(-beta, -alpha, moved_position, thread_info, TT);
     ss_pop(thread_info);
 
+    if (thread_info.stop) {
+      // return if we ran out of time for search
+      return best_score;
+    }
+    
     if (score > best_score) {
       best_score = score;
       if (score > alpha) {
