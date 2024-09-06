@@ -147,7 +147,7 @@ int eval(const Position &position, ThreadInfo &thread_info) {
 
   if (abs(eval) > 500) {
     eval = eval *
-            (512 + total_mat_color(position, color ^ 1) / 8 -
+            (512 + total_mat_color(position, root_color ^ 1) / 8 -
             (position.material_count[0] + position.material_count[1]) * 20) /
             768;
   }
