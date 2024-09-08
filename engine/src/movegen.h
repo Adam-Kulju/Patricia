@@ -18,7 +18,8 @@ uint64_t shift_pawns(uint64_t bb, int dir) {
   }
 }
 
-void pawn_moves(const Position &position, std::span<Move> move_list, int &key) {
+void pawn_moves(const Position &position, uint64_t check_filter,
+                std::span<Move> move_list, int &key) {
 
   uint8_t color = position.color;
   uint64_t third_rank = color ? Ranks[5] : Ranks[2];
@@ -34,7 +35,9 @@ void pawn_moves(const Position &position, std::span<Move> move_list, int &key) {
                             position.colors_bb[color] & (~seventh_rank);
 
   uint64_t move_1 = shift_pawns(our_non_promos, dir) & empty_squares;
-  uint64_t move_2 = shift_pawns(move_1 & third_rank, dir) & empty_squares;
+  uint64_t move_2 =
+      shift_pawns(move_1 & third_rank, dir) & empty_squares & check_filter;
+  move_1 &= check_filter;
 
   while (move_1) {
     int to = pop_lsb(move_1);
@@ -46,9 +49,9 @@ void pawn_moves(const Position &position, std::span<Move> move_list, int &key) {
   }
 
   uint64_t cap_left = shift_pawns(our_non_promos & ~Files[0], left) &
-                      position.colors_bb[color ^ 1];
+                      position.colors_bb[color ^ 1] & check_filter;
   uint64_t cap_right = shift_pawns(our_non_promos & ~Files[7], right) &
-                       position.colors_bb[color ^ 1];
+                       position.colors_bb[color ^ 1] & check_filter;
 
   while (cap_left) {
     int to = pop_lsb(cap_left);
@@ -68,11 +71,12 @@ void pawn_moves(const Position &position, std::span<Move> move_list, int &key) {
     }
   }
 
-  uint64_t move_promo = shift_pawns(our_promos, dir) & empty_squares;
-  uint64_t cap_left_promo =
-      shift_pawns(our_promos & ~Files[0], left) & position.colors_bb[color ^ 1];
+  uint64_t move_promo =
+      shift_pawns(our_promos, dir) & empty_squares & check_filter;
+  uint64_t cap_left_promo = shift_pawns(our_promos & ~Files[0], left) &
+                            position.colors_bb[color ^ 1] & check_filter;
   uint64_t cap_right_promo = shift_pawns(our_promos & ~Files[7], right) &
-                             position.colors_bb[color ^ 1];
+                             position.colors_bb[color ^ 1] & check_filter;
 
   while (move_promo) {
     int to = pop_lsb(move_promo);
@@ -95,32 +99,38 @@ void pawn_moves(const Position &position, std::span<Move> move_list, int &key) {
 }
 
 int movegen(const Position &position, std::span<Move> move_list,
-            bool in_check) {
+            uint64_t checkers) {
 
-  uint8_t color = position.color,
-          king_pos = get_king_pos(position, color);
+  uint8_t color = position.color, king_pos = get_king_pos(position, color);
   int opp_color = color ^ 1;
   int idx = 0;
   uint64_t stm_pieces = position.colors_bb[color];
   uint64_t occ = position.colors_bb[0] | position.colors_bb[1];
-
-  pawn_moves(position, move_list, idx);
-
-  uint64_t knights = position.pieces_bb[PieceTypes::Knight] & stm_pieces;
-  while (knights) {
-    int from = pop_lsb(knights);
-    uint64_t to = KnightAttacks[from] & ~stm_pieces;
-    while (to) {
-      move_list[idx++] =
-          pack_move(from, pop_lsb(to), 0);
-    }
-  }
+  uint64_t check_filter = ~0;
 
   uint64_t king = get_king_pos(position, color);
   uint64_t king_attacks = KingAttacks[king] & ~stm_pieces;
   while (king_attacks) {
-    move_list[idx++] =
-        pack_move(king_pos, pop_lsb(king_attacks), 0);
+    move_list[idx++] = pack_move(king_pos, pop_lsb(king_attacks), 0);
+  }
+
+  if (checkers) {
+    if (checkers & (checkers - 1)) {
+      return idx;
+    }
+
+    check_filter = BetweenBBs[king][get_lsb(checkers)];
+  }
+
+  pawn_moves(position, check_filter, move_list, idx);
+
+  uint64_t knights = position.pieces_bb[PieceTypes::Knight] & stm_pieces;
+  while (knights) {
+    int from = pop_lsb(knights);
+    uint64_t to = KnightAttacks[from] & ~stm_pieces & check_filter;
+    while (to) {
+      move_list[idx++] = pack_move(from, pop_lsb(to), 0);
+    }
   }
 
   uint64_t diagonals = (position.pieces_bb[PieceTypes::Bishop] |
@@ -128,10 +138,9 @@ int movegen(const Position &position, std::span<Move> move_list,
                        stm_pieces;
   while (diagonals) {
     int from = pop_lsb(diagonals);
-    uint64_t to = get_bishop_attacks(from, occ) & ~stm_pieces;
+    uint64_t to = get_bishop_attacks(from, occ) & ~stm_pieces & check_filter;
     while (to) {
-      move_list[idx++] =
-          pack_move(from, pop_lsb(to), 0);
+      move_list[idx++] = pack_move(from, pop_lsb(to), 0);
     }
   }
 
@@ -140,14 +149,13 @@ int movegen(const Position &position, std::span<Move> move_list,
                          stm_pieces;
   while (orthogonals) {
     int from = pop_lsb(orthogonals);
-    uint64_t to = get_rook_attacks(from, occ) & ~stm_pieces;
+    uint64_t to = get_rook_attacks(from, occ) & ~stm_pieces & check_filter;
     while (to) {
-      move_list[idx++] =
-          pack_move(from, pop_lsb(to), 0);
+      move_list[idx++] = pack_move(from, pop_lsb(to), 0);
     }
   }
 
-  if (in_check) { // If we're in check there's no point in
+  if (checkers) { // If we're in check there's no point in
                   // seeing if we can castle (can be optimized)
     return idx;
   }

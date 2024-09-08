@@ -90,6 +90,8 @@ constexpr MultiArray<uint64_t, 2, 2> CastlingBBs = {{
     {0b00001110ull << 56, 0b01100000ull << 56},
 }};
 
+MultiArray<uint64_t, 64, 64> BetweenBBs = {{0}};
+
 std::array<uint64_t, 64> RookMasks;
 std::array<uint64_t, 64> BishopMasks;
 MultiArray<uint64_t, 64, 512> BishopAttacks;
@@ -265,10 +267,10 @@ void fill_rook_attacks() {
 void fill_king_attacks() {
   for (int square = a1; square < SqNone; square++) {
     uint64_t occ = 0;
-    int left   = std::max(0, get_file(square) - 1),
-        right  = std::min(7, get_file(square) + 1),
+    int left = std::max(0, get_file(square) - 1),
+        right = std::min(7, get_file(square) + 1),
         bottom = std::max(0, get_rank(square) - 1),
-        top    = std::min(7, get_rank(square) + 1);
+        top = std::min(7, get_rank(square) + 1);
 
     for (int file = left; file <= right; file++) {
       for (int rank = bottom; rank <= top; rank++) {
@@ -355,6 +357,23 @@ void init_bbs() {
   fill_king_attacks();
   fill_knight_attacks();
   fill_pawn_attacks();
+
+  for (int square1 = a1; square1 < SqNone; square1++) {
+    for (int square2 = a1; square2 < SqNone; square2++) {
+
+      if (get_bishop_attacks(square1, 0) & (1ull << square2)) {
+
+        BetweenBBs[square1][square2] =
+            get_bishop_attacks(square1, 0) & get_bishop_attacks(square2, 0);
+
+      } else if (get_rook_attacks(square1, 0) & (1ull << square2)) {
+        BetweenBBs[square1][square2] =
+            get_rook_attacks(square1, 0) & get_rook_attacks(square2, 0);
+      }
+
+      BetweenBBs[square1][square2] |= (1ull << square2);
+    }
+  }
 }
 
 void generate_bb(std::string fen, Position &pos) {
@@ -408,7 +427,7 @@ void generate_bb(std::string fen, Position &pos) {
 
 void update_bb(Position &pos, int from_piece, int from, int to_piece, int to,
                int captured_piece, int capture_sq) {
-  
+
   int color = from_piece & 1;
   int from_type = from_piece / 2;
   int to_type = to_piece / 2;

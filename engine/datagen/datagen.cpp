@@ -157,10 +157,8 @@ Move random_move(Position &position,
                  ThreadInfo &thread_info) { // Get a random legal move
 
   bool color = position.color;
-
-  bool in_check = attacks_square(position, get_king_pos(position, color), color ^ 1);
   MoveInfo moves;
-  int num_moves = movegen(position, moves.moves, in_check);
+  int num_moves = movegen(position, moves.moves, attacks_square(position, get_king_pos(position, color), color ^ 1));
 
   MoveInfo legal_moves;
 
