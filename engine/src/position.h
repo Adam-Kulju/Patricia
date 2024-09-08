@@ -119,36 +119,46 @@ void set_board(Position &position, ThreadInfo &thread_info,
       switch (fen_pos[indx]) {
       case 'P':
         position.board[i] = Pieces::WPawn;
+        position.material_count[0]++;
         break;
       case 'N':
         position.board[i] = Pieces::WKnight;
+        position.material_count[2]++;
         break;
       case 'B':
         position.board[i] = Pieces::WBishop;
+        position.material_count[4]++;
         break;
       case 'R':
         position.board[i] = Pieces::WRook;
+        position.material_count[6]++;
         break;
       case 'Q':
         position.board[i] = Pieces::WQueen;
+        position.material_count[8]++;
         break;
       case 'K':
         position.board[i] = Pieces::WKing;
         break;
       case 'p':
         position.board[i] = Pieces::BPawn;
+        position.material_count[1]++;
         break;
       case 'n':
         position.board[i] = Pieces::BKnight;
+        position.material_count[3]++;
         break;
       case 'b':
         position.board[i] = Pieces::BBishop;
+        position.material_count[5]++;
         break;
       case 'r':
         position.board[i] = Pieces::BRook;
+        position.material_count[7]++;
         break;
       case 'q':
         position.board[i] = Pieces::BQueen;
+        position.material_count[9]++;
         break;
       case 'k':
         position.board[i] = Pieces::BKing;
@@ -345,10 +355,12 @@ void make_move(Position &position, Move move) { // Perform a move on the board.
     temp_hash ^= zobrist_keys[get_zobrist_key(position.board[to], to)];
     // Update hash key for the piece that was taken
     position.halfmoves = 0;
+    position.material_count[position.board[to] - 2]--;
     captured_piece = position.board[to], captured_square = to;
   }
   // en passant
   else if (from_type == PieceTypes::Pawn && to == position.ep_square) {
+    position.material_count[opp_color]--;
     captured_square = to + (color ? Directions::North : Directions::South);
     captured_piece = position.board[captured_square];
 
@@ -376,6 +388,7 @@ void make_move(Position &position, Move move) { // Perform a move on the board.
     if (get_rank(to) == (color ? 0 : 7)) {
       to_piece = extract_promo(move) * 2 + 4 + color;
       position.board[to] = to_piece;
+      position.material_count[color]--, position.material_count[to_piece - 2]++;
     }
 
     // double pawn push
