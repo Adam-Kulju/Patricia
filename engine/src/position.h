@@ -486,11 +486,17 @@ void make_move(Position &position, Move move) { // Perform a move on the board.
 }
 
 bool is_legal(Position &position, Move move) { // Perform a move on the board.
-
+  uint64_t occupied = position.colors_bb[Colors::White] | position.colors_bb[Colors::Black];
   int from = extract_from(move), to = extract_to(move), color = position.color,
       opp_color = color ^ 1;
 
   int from_piece = position.board[from], to_piece = from_piece;
+
+  if (get_piece_type(from_piece) == PieceTypes::King) {
+    return ! attacks_square(position, to, opp_color, occupied ^ (1ull << from));
+  }
+
+  int king_pos = get_king_pos(position, color);
 
   int cap_piece = position.board[to];
   int cap_square = cap_piece ? to : SquareNone;
@@ -504,11 +510,7 @@ bool is_legal(Position &position, Move move) { // Perform a move on the board.
 
   update_bb(position, from_piece, from, to_piece, to, cap_piece, cap_square);
 
-  int new_king_pos = get_piece_type(from_piece) == PieceTypes::King
-                         ? to
-                         : get_king_pos(position, color);
-
-  bool is_king_attacked = attacks_square(position, new_king_pos, opp_color);
+  bool is_king_attacked = attacks_square(position, king_pos, opp_color);
 
   position.colors_bb[color] -= (1ull << to) - (1ull << from);
   position.pieces_bb[get_piece_type(from_piece)] += (1ull << from);
