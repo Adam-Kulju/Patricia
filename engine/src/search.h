@@ -270,7 +270,7 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
     }
   }
 
-  bool in_check = attacks_square(position, get_king_pos(position, color), color ^ 1);
+  uint64_t in_check = attacks_square(position, get_king_pos(position, color), color ^ 1);
   int best_score = ScoreNone, raised_alpha = false;
   Move best_move = MoveNone;
 
@@ -461,7 +461,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     }
   }
 
-  bool in_check = attacks_square(position, get_king_pos(position, color), color ^ 1);
+  uint64_t in_check = attacks_square(position, get_king_pos(position, color), color ^ 1);
 
   // We can't do any eval-based pruning if in check.
 
