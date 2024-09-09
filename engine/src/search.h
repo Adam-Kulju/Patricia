@@ -510,7 +510,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
     if (depth <= RFPMaxDepth &&
         static_eval - RFPMargin * (depth - improving) >= beta) {
-      return static_eval;
+      return (static_eval + beta) / 2;
     }
     if (static_eval >= beta && depth >= NMPMinDepth &&
         has_non_pawn_material(position, color) &&
