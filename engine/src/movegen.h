@@ -179,85 +179,70 @@ int movegen(const Position &position, std::span<Move> move_list,
   return idx;
 }
 
-int cheapest_attacker(Position &position, int sq, int color, uint64_t &occ) {
-  // Finds the cheapest attacker for a given square on a given board.
-  // printf("nnnnnnnnnnnnnn\nnnnnnnnnnnnnnnn\nnnnnnnnnnnnn\n\n");
-  // print_bbs(position);
-  uint64_t attacks = attacks_square(position, sq, color, occ);
-  uint64_t temp = 0ull;
-  int value = PieceTypes::PieceNone;
-
-  if (!attacks) {
-    return PieceTypes::PieceNone;
-  }
-
-  else if ((temp = attacks & position.pieces_bb[PieceTypes::Pawn])) {
-    value = PieceTypes::Pawn;
-  }
-
-  else if ((temp = attacks & position.pieces_bb[PieceTypes::Knight])) {
-    value = PieceTypes::Knight;
-  }
-
-  else if ((temp = attacks & position.pieces_bb[PieceTypes::Bishop])) {
-    value = PieceTypes::Bishop;
-  }
-
-  else if ((temp = attacks & position.pieces_bb[PieceTypes::Rook])) {
-    value = PieceTypes::Rook;
-  }
-
-  else if ((temp = attacks & position.pieces_bb[PieceTypes::Queen])) {
-    value = PieceTypes::Queen;
-  }
-
-  else if ((temp = attacks & position.pieces_bb[PieceTypes::King])) {
-    value = PieceTypes::King;
-  }
-
-  occ -= (temp & -int64_t(temp));
-  return value;
-}
-
 bool SEE(Position &position, Move move, int threshold) {
 
-  int color = position.color, from = extract_from(move), to = extract_to(move),
-      gain = SeeValues[get_piece_type(position.board[to])],
-      risk = SeeValues[get_piece_type(position.board[from])];
+  int stm = position.color, from = extract_from(move), to = extract_to(move);
 
-  if (gain < threshold) {
+  int gain = SeeValues[get_piece_type(position.board[to])] - threshold;
+  if (gain < 0) {
     // If taking the piece isn't good enough return
     return false;
   }
 
+  gain -= SeeValues[get_piece_type(position.board[from])];
+  if (gain >= 0) {
+    return true;
+  }
+
+  // Store bishops and rooks here to more quickly determine later new revealed attackers
+  uint64_t bishops = position.pieces_bb[PieceTypes::Bishop] |
+                     position.pieces_bb[PieceTypes::Queen];
+  uint64_t rooks = position.pieces_bb[PieceTypes::Rook] |
+                   position.pieces_bb[PieceTypes::Queen];
+
   uint64_t occ =
       (position.colors_bb[Colors::White] | position.colors_bb[Colors::Black]) -
       (1ull << from);
+  uint64_t all_attackers = attacks_square(position, to, occ);
 
-  int attack_sq = 0;
+  while (true) {
+    stm ^= 1;
 
-  while (gain - risk < threshold) {
-    int type = cheapest_attacker(position, to, color ^ 1, occ);
+    all_attackers &= occ;
 
-    if (type == PieceTypes::PieceNone) {
-      return true;
+    uint64_t stm_attackers = all_attackers & position.colors_bb[stm];
+    
+    if (! stm_attackers) {
+      return stm != position.color;
     }
 
-    gain -= risk + 1;
-    risk = SeeValues[type];
+    // find cheapest attacker
+    int attackerType = PieceTypes::PieceNone;
 
-    if (gain + risk < threshold) {
-      return false;
+    for (int pt = PieceTypes::Pawn; pt <= PieceTypes::King; pt++) {
+      uint64_t match = stm_attackers & position.pieces_bb[pt];
+      if (match) {
+        occ -= get_lsb_bb(match);
+        attackerType = pt;
+        break;
+      }
     }
 
-    type = cheapest_attacker(position, to, color, occ);
-
-    if (type == PieceTypes::PieceNone) {
-      return false;
+    // A new slider behind might be revealed
+    if (attackerType == PieceTypes::Pawn || 
+        attackerType == PieceTypes::Bishop || 
+        attackerType == PieceTypes::Queen) {
+      all_attackers |= get_bishop_attacks(to, occ) & bishops;
+    } 
+    if (attackerType == PieceTypes::Rook ||
+             attackerType == PieceTypes::Queen) {
+      all_attackers |= get_rook_attacks(to, occ) & rooks;
     }
 
-    gain += risk - 1;
-    risk = SeeValues[type];
+    gain = - gain - SeeValues[attackerType] - 1;
+    if (gain >= 0) {
+      return stm == position.color;
+    }
   }
 
   return true;

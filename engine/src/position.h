@@ -253,6 +253,23 @@ attacks_square(const Position &position, int sq, int color,
   return attackers & position.colors_bb[color] & occ;
 }
 
+// Does anyone attack the square
+uint64_t attacks_square(const Position &position, int sq, uint64_t occ) {
+
+  uint64_t bishops = position.pieces_bb[PieceTypes::Bishop] |
+                     position.pieces_bb[PieceTypes::Queen];
+  uint64_t rooks = position.pieces_bb[PieceTypes::Rook] |
+                   position.pieces_bb[PieceTypes::Queen];
+
+  return
+      (PawnAttacks[Colors::White][sq] & position.colors_bb[Colors::Black] & position.pieces_bb[PieceTypes::Pawn]) |
+      (PawnAttacks[Colors::Black][sq] & position.colors_bb[Colors::White] & position.pieces_bb[PieceTypes::Pawn]) |
+      (KnightAttacks[sq] & position.pieces_bb[PieceTypes::Knight]) |
+      (get_bishop_attacks(sq, occ) & bishops) |
+      (get_rook_attacks(sq, occ) & rooks) |
+      (KingAttacks[sq] & position.pieces_bb[PieceTypes::King]);
+}
+
 uint64_t
 br_attacks_square(const Position &position, int sq, int color,
                uint64_t occ) { // Do we attack the square at position "sq"?
