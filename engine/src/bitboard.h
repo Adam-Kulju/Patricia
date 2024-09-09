@@ -163,6 +163,8 @@ int pop_lsb(uint64_t &bb) {
   return s;
 }
 
+uint64_t get_lsb_bb(uint64_t bb) { return bb & -int64_t(bb); }
+
 void print_bb(uint64_t bb) {
   printf("\n");
   for (int rank = 7; rank >= 0; rank--) {
