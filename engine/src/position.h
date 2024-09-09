@@ -253,6 +253,22 @@ attacks_square(const Position &position, int sq, int color,
   return attackers & position.colors_bb[color] & occ;
 }
 
+uint64_t
+br_attacks_square(const Position &position, int sq, int color,
+               uint64_t occ) { // Do we attack the square at position "sq"?
+
+  uint64_t bishops = position.pieces_bb[PieceTypes::Bishop] |
+                     position.pieces_bb[PieceTypes::Queen];
+  uint64_t rooks = position.pieces_bb[PieceTypes::Rook] |
+                   position.pieces_bb[PieceTypes::Queen];
+
+  uint64_t attackers =
+      (get_bishop_attacks(sq, occ) & bishops) |
+      (get_rook_attacks(sq, occ) & rooks);
+
+  return attackers & position.colors_bb[color] & occ;
+}
+
 bool is_queen_promo(Move move) { return extract_promo(move) == 3; }
 
 bool is_cap(const Position &position, Move &move) {
@@ -486,37 +502,31 @@ void make_move(Position &position, Move move) { // Perform a move on the board.
 }
 
 bool is_legal(Position &position, Move move) { // Perform a move on the board.
-
+  uint64_t occupied = position.colors_bb[Colors::White] | position.colors_bb[Colors::Black];
   int from = extract_from(move), to = extract_to(move), color = position.color,
       opp_color = color ^ 1;
 
-  int from_piece = position.board[from], to_piece = from_piece;
+  int from_piece = position.board[from];
 
-  int cap_piece = position.board[to];
-  int cap_square = cap_piece ? to : SquareNone;
+  if (get_piece_type(from_piece) == PieceTypes::King) {
+    return ! attacks_square(position, to, opp_color, occupied ^ (1ull << from));
+  }
+
+  int king_pos = get_king_pos(position, color);
 
   // en passant
   if (get_piece_type(from_piece) == PieceTypes::Pawn &&
       to == position.ep_square) {
-    cap_square = to + (color ? Directions::North : Directions::South);
-    cap_piece = Pieces::WPawn + opp_color;
+    int cap_square = to + (color ? Directions::North : Directions::South);
+    return ! br_attacks_square(position, king_pos, opp_color,
+               occupied ^ (1ull << from) ^ (1ull << to) ^ (1ull << cap_square));
   }
 
-  update_bb(position, from_piece, from, to_piece, to, cap_piece, cap_square);
-
-  int new_king_pos = get_piece_type(from_piece) == PieceTypes::King
-                         ? to
-                         : get_king_pos(position, color);
-
-  bool is_king_attacked = attacks_square(position, new_king_pos, opp_color);
-
-  position.colors_bb[color] -= (1ull << to) - (1ull << from);
-  position.pieces_bb[get_piece_type(from_piece)] += (1ull << from);
-  position.pieces_bb[get_piece_type(to_piece)] -= (1ull << to);
-
-  if (cap_square != SquareNone) {
-    position.colors_bb[color ^ 1] += (1ull << cap_square);
-    position.pieces_bb[get_piece_type(cap_piece)] += (1ull << cap_square);
+  if (position.board[to]) {
+    return ! (br_attacks_square(position, king_pos, opp_color, 
+                occupied ^ (1ull << from)) & ~(1ull << to));
   }
-  return !is_king_attacked;
+
+  return ! br_attacks_square(position, king_pos, opp_color,
+             occupied ^ (1ull << from) ^ (1ull << to));
 }

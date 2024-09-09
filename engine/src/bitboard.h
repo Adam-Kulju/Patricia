@@ -360,15 +360,16 @@ void init_bbs() {
 
   for (int square1 = a1; square1 < SqNone; square1++) {
     for (int square2 = a1; square2 < SqNone; square2++) {
+      uint64_t occ = (1ull << square1) | (1ull << square2);
 
       if (get_bishop_attacks(square1, 0) & (1ull << square2)) {
 
         BetweenBBs[square1][square2] =
-            get_bishop_attacks(square1, 0) & get_bishop_attacks(square2, 0);
+            get_bishop_attacks(square1, occ) & get_bishop_attacks(square2, occ);
 
       } else if (get_rook_attacks(square1, 0) & (1ull << square2)) {
         BetweenBBs[square1][square2] =
-            get_rook_attacks(square1, 0) & get_rook_attacks(square2, 0);
+            get_rook_attacks(square1, occ) & get_rook_attacks(square2, occ);
       }
 
       BetweenBBs[square1][square2] |= (1ull << square2);
