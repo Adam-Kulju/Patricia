@@ -525,6 +525,11 @@ bool is_legal(Position &position, Move move) { // Perform a move on the board.
               occupied ^ (1ull << from) ^ (1ull << to) ^ (1ull << cap_square));
   }
 
+  if (! cap_piece) {
+    return ! br_attacks_square(position, king_pos, opp_color,
+              occupied ^ (1ull << from) ^ (1ull << to));
+  }
+
   update_bb(position, from_piece, from, to_piece, to, cap_piece, cap_square);
 
   bool is_king_attacked = attacks_square(position, king_pos, opp_color);
