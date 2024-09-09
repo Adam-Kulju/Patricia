@@ -530,17 +530,20 @@ bool is_legal(Position &position, Move move) { // Perform a move on the board.
               occupied ^ (1ull << from) ^ (1ull << to));
   }
 
-  update_bb(position, from_piece, from, to_piece, to, cap_piece, cap_square);
+  position.colors_bb[color] += (1ull << to) - (1ull << from);
+  position.pieces_bb[get_piece_type(from_piece)] -= (1ull << from);
+  position.pieces_bb[get_piece_type(to_piece)] += (1ull << to);
+  position.colors_bb[color ^ 1] -= (1ull << cap_square);
+  position.pieces_bb[get_piece_type(cap_piece)] -= (1ull << cap_square);
 
-  bool is_king_attacked = attacks_square(position, king_pos, opp_color);
+  bool is_king_attacked = br_attacks_square(position, king_pos, opp_color, 
+                           position.colors_bb[Colors::White] | position.colors_bb[Colors::Black]);
 
   position.colors_bb[color] -= (1ull << to) - (1ull << from);
   position.pieces_bb[get_piece_type(from_piece)] += (1ull << from);
   position.pieces_bb[get_piece_type(to_piece)] -= (1ull << to);
+  position.colors_bb[color ^ 1] += (1ull << cap_square);
+  position.pieces_bb[get_piece_type(cap_piece)] += (1ull << cap_square);
 
-  if (cap_square != SquareNone) {
-    position.colors_bb[color ^ 1] += (1ull << cap_square);
-    position.pieces_bb[get_piece_type(cap_piece)] += (1ull << cap_square);
-  }
   return !is_king_attacked;
 }
