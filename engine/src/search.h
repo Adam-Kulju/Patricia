@@ -761,10 +761,6 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
           }
         }
       }
-
-      else if (root && !moves_played) {
-        return score;
-      }
     }
 
     if (is_capture) {
