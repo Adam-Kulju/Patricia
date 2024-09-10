@@ -1,6 +1,7 @@
 #pragma once
 #include "defs.h"
 #include "simd.h"
+#include "bitboard.h"
 #include <algorithm>
 #include <array>
 #include <cstdint>
@@ -21,7 +22,21 @@
 #undef W_MSVC
 #endif
 
-constexpr size_t INPUT_SIZE = 768;
+constexpr int Buckets[2][64] = {
+    {
+        0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3,
+        3, 3, 2, 2, 2, 2, 3, 3, 3, 3, 2, 2, 2, 2, 3, 3, 3, 3, 2, 2, 2, 2,
+        3, 3, 3, 3, 2, 2, 2, 2, 3, 3, 3, 3, 2, 2, 2, 2, 3, 3, 3, 3,
+    },
+
+    {
+        2, 2, 2, 2, 3, 3, 3, 3, 2, 2, 2, 2, 3, 3, 3, 3, 2, 2, 2, 2, 3, 3,
+        3, 3, 2, 2, 2, 2, 3, 3, 3, 3, 2, 2, 2, 2, 3, 3, 3, 3, 2, 2, 2, 2,
+        3, 3, 3, 3, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1,
+    }};
+
+constexpr size_t NUM_BUCKETS = 4;
+constexpr size_t INPUT_SIZE = 768 * NUM_BUCKETS;
 constexpr size_t LAYER1_SIZE = 768;
 
 constexpr int SCRELU_MIN = 0;
@@ -38,7 +53,7 @@ const auto QA_VEC = get_int16_vec(QA);
 constexpr int QAB = QA * QB;
 
 struct alignas(64) NNUE_Params {
-  std::array<int16_t, INPUT_SIZE * LAYER1_SIZE> feature_v;
+  std::array<int16_t, INPUT_SIZE * LAYER1_SIZE * NUM_BUCKETS> feature_v;
   std::array<int16_t, LAYER1_SIZE> feature_bias;
   std::array<int16_t, LAYER1_SIZE * 2> output_v;
   int16_t output_bias;
@@ -54,6 +69,14 @@ template <size_t HiddenSize> struct alignas(64) Accumulator {
   inline void init(std::span<const int16_t, HiddenSize> bias) {
     std::memcpy(white.data(), bias.data(), bias.size_bytes());
     std::memcpy(black.data(), bias.data(), bias.size_bytes());
+  }
+
+  inline void init_color(std::span<const int16_t, HiddenSize> bias, int color) {
+    if (color) {
+      std::memcpy(black.data(), bias.data(), bias.size_bytes());
+    } else {
+      std::memcpy(white.data(), bias.data(), bias.size_bytes());
+    }
   }
 };
 
@@ -154,17 +177,23 @@ public:
   Accumulator<LAYER1_SIZE> *m_curr;
 
   void add_sub(int from_piece, int from, int to_piece, int to);
-  void add_sub_sub(int from_piece, int from, int to_piece, int to, int captured, int captured_pos);
-  void add_add_sub_sub(int piece1, int from1, int to1, int piece2, int from2, int to2);
+  void add_sub_sub(int from_piece, int from, int to_piece, int to, int captured,
+                   int captured_pos);
+  void add_add_sub_sub(int piece1, int from1, int to1, int piece2, int from2,
+                       int to2);
   void pop();
   int evaluate(int color);
   void reset_nnue(Position position);
+  void reset_nnue_bucket(Position position, int color, int bucket);
 
-  template <bool Activate> inline void update_feature(int piece, int square);
+  template <bool Activate>
+  inline void update_feature(int piece, int square, int wbucket, int bbucket);
+  template <bool Activate>
+  inline void update_feature_color(int piece, int square, int color,
+                                   int bucket);
 
   NNUE_State() {}
 };
-
 
 void NNUE_State::add_sub(int from_piece, int from, int to_piece, int to) {
 
@@ -184,8 +213,8 @@ void NNUE_State::add_sub(int from_piece, int from, int to_piece, int to) {
   m_curr++;
 }
 
-void NNUE_State::add_sub_sub(int from_piece, int from, int to_piece, int to, int captured,
-                             int captured_sq) {
+void NNUE_State::add_sub_sub(int from_piece, int from, int to_piece, int to,
+                             int captured, int captured_sq) {
   const auto [white_from, black_from] = feature_indices(from_piece, from);
   const auto [white_to, black_to] = feature_indices(to_piece, to);
   const auto [white_capt, black_capt] = feature_indices(captured, captured_sq);
@@ -205,17 +234,18 @@ void NNUE_State::add_sub_sub(int from_piece, int from, int to_piece, int to, int
   m_curr++;
 }
 
-void NNUE_State::add_add_sub_sub(int piece1, int from1, int to1, int piece2, int from2, int to2){
+void NNUE_State::add_add_sub_sub(int piece1, int from1, int to1, int piece2,
+                                 int from2, int to2) {
   const auto [white_from1, black_from1] = feature_indices(piece1, from1);
   const auto [white_to1, black_to1] = feature_indices(piece1, to1);
   const auto [white_from2, black_from2] = feature_indices(piece2, from2);
   const auto [white_to2, black_to2] = feature_indices(piece2, to2);
 
-  for (size_t i = 0; i < LAYER1_SIZE; ++i){
+  for (size_t i = 0; i < LAYER1_SIZE; ++i) {
     m_curr[1].white[i] = m_curr->white[i] +
                          g_nnue.feature_v[white_to1 * LAYER1_SIZE + i] -
                          g_nnue.feature_v[white_from1 * LAYER1_SIZE + i] +
-                         g_nnue.feature_v[white_to2 * LAYER1_SIZE + i] - 
+                         g_nnue.feature_v[white_to2 * LAYER1_SIZE + i] -
                          g_nnue.feature_v[white_from2 * LAYER1_SIZE + i];
 
     m_curr[1].black[i] = m_curr->black[i] +
@@ -239,30 +269,58 @@ int NNUE_State::evaluate(int color) {
 }
 
 template <bool Activate>
-inline void NNUE_State::update_feature(int piece, int square) {
+inline void NNUE_State::update_feature(int piece, int square, int wbucket,
+                                       int bbucket) {
   const auto [white_idx, black_idx] = feature_indices(piece, square);
 
   if constexpr (Activate) {
     add_to_all(m_curr->white, m_curr->white, g_nnue.feature_v,
-               white_idx * LAYER1_SIZE);
+               (white_idx + LAYER1_SIZE * wbucket) * LAYER1_SIZE);
     add_to_all(m_curr->black, m_curr->black, g_nnue.feature_v,
-               black_idx * LAYER1_SIZE);
+               (black_idx + LAYER1_SIZE * bbucket) * LAYER1_SIZE);
   } else {
     subtract_from_all(m_curr->white, m_curr->white, g_nnue.feature_v,
-                      white_idx * LAYER1_SIZE);
+                      (white_idx + LAYER1_SIZE * wbucket) * LAYER1_SIZE);
     subtract_from_all(m_curr->black, m_curr->black, g_nnue.feature_v,
-                      black_idx * LAYER1_SIZE);
+                      (black_idx + LAYER1_SIZE * bbucket) * LAYER1_SIZE);
+  }
+}
+
+template <bool Activate>
+inline void NNUE_State::update_feature_color(int piece, int square, int color,
+                                             int bucket) {
+  const auto [white_idx, black_idx] = feature_indices(piece, square);
+  int idx = color ? black_idx : white_idx;
+
+  if constexpr (Activate) {
+    add_to_all(color ? m_curr[1].black : m_curr[1].white,
+               color ? m_curr->black : m_curr->white, g_nnue.feature_v,
+               (idx + LAYER1_SIZE * bucket) * LAYER1_SIZE);
+  } else {
+    subtract_from_all(color ? m_curr[1].black : m_curr[1].white,
+                      color ? m_curr->black : m_curr->white, g_nnue.feature_v,
+                      (idx + LAYER1_SIZE * bucket) * LAYER1_SIZE);
   }
 }
 
 void NNUE_State::reset_nnue(Position position) {
   m_curr = &m_accumulator_stack[0];
   m_curr->init(g_nnue.feature_bias);
+  int wbucket = Buckets[Colors::White][get_king_pos(position, Colors::White)];
+  int bbucket = Buckets[Colors::Black][get_king_pos(position, Colors::Black)];
 
   for (int square = a1; square < SqNone; square++) {
     if (position.board[square] != Pieces::Blank) {
-      update_feature<true>(position.board[square],
-                           square);
+      update_feature<true>(position.board[square], square, wbucket, bbucket);
+    }
+  }
+}
+
+void NNUE_State::reset_nnue_bucket(Position position, int color, int bucket) {
+  m_curr->init_color(g_nnue.feature_bias, color);
+    for (int square = a1; square < SqNone; square++) {
+    if (position.board[square] != Pieces::Blank) {
+      update_feature_color<true>(position.board[square], square, color, bucket);
     }
   }
 }

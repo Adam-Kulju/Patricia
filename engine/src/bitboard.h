@@ -163,6 +163,11 @@ int pop_lsb(uint64_t &bb) {
   return s;
 }
 
+int get_king_pos(const Position &position, int color) {
+  return get_lsb(position.colors_bb[color] &
+                 position.pieces_bb[PieceTypes::King]);
+}
+
 uint64_t get_lsb_bb(uint64_t bb) { return bb & -int64_t(bb); }
 
 void print_bb(uint64_t bb) {

@@ -106,6 +106,7 @@ struct Position {
   uint8_t ep_square;                      // stores ep square
   bool color;                             // whose side to move
   uint8_t halfmoves;
+  uint8_t bucket_changed;
 };
 
 constexpr int MaxSearchDepth = 127;

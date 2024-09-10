@@ -86,6 +86,11 @@ int main(int argc, char *argv[]) {
   init_LMR();
   init_bbs();
 
+  set_board(position, *thread_info, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+  thread_info->nnue_state.reset_nnue(position);
+  printf("%i\n", thread_info->nnue_state.evaluate(Colors::White));
+  exit(0);
+  
   if (argc > 1) {
     if (std::string(argv[1]) == "bench") {
       bench(position, *thread_info);

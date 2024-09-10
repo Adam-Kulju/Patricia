@@ -296,13 +296,19 @@ bool is_cap(const Position &position, Move &move) {
           is_queen_promo((move)));
 }
 
-int get_king_pos(const Position &position, int color) {
-  return get_lsb(position.colors_bb[color] &
-                 position.pieces_bb[PieceTypes::King]);
+void refresh_bucket(NNUE_State &nnue_state, const Position &position, int color){
+  int bucket = Buckets[color][get_king_pos(position, color)];
+  nnue_state.reset_nnue_bucket(position, color, bucket);
 }
 
 void update_nnue_state(NNUE_State &nnue_state, Move move,
-                       const Position &position) { // Updates the nnue state
+                       Position &position) { // Updates the nnue state
+
+  if (position.bucket_changed){
+    refresh_bucket(nnue_state, position, position.bucket_changed - 2);
+    position.bucket_changed = 0;
+    return;
+  }
 
   int from = extract_from(move), to = extract_to(move);
   int from_piece = position.board[from];
@@ -356,6 +362,7 @@ void update_nnue_state(NNUE_State &nnue_state, Move move,
     nnue_state.add_sub(from_piece, from, to_piece, to);
   }
 }
+
 
 void make_move(Position &position, Move move) { // Perform a move on the board.
 
@@ -433,6 +440,10 @@ void make_move(Position &position, Move move) { // Perform a move on the board.
   // handle king moves and castling
 
   else if (from_type == PieceTypes::King) {
+
+    if (Buckets[color][from] != Buckets[color][to]){
+      position.bucket_changed = 2 + color;
+    }
 
     // If the king moves, castling rights are gone.
     if (position.castling_rights[color][Sides::Queenside]) {
