@@ -35,6 +35,13 @@ constexpr uint8_t Queen = 5;
 constexpr uint8_t King = 6;
 } // namespace PieceTypes
 
+namespace MoveTypes {
+constexpr int8_t Normal = 0;
+constexpr int8_t EnPassant = 1;
+constexpr int8_t Castling = 2;
+constexpr int8_t Promotion = 3;
+}
+
 namespace Directions {
 constexpr int8_t North = 8;
 constexpr int8_t South = -8;
@@ -164,12 +171,16 @@ std::uniform_int_distribution<int> dist(0, INT32_MAX);
 
 uint8_t flip_sq(uint8_t sq) { return sq ^ 56; }
 uint8_t get_color(uint8_t piece) { return piece & 1; }
-Move pack_move(uint8_t from, uint8_t to, uint8_t promo) {
-  return (from << 9) + (to << 2) + promo;
+Move pack_move(uint8_t from, uint8_t to, int8_t type) {
+  return (from << 10) + (to << 4) + type;
 }
-uint8_t extract_from(Move move) { return move >> 9; }
-uint8_t extract_to(Move move) { return (move >> 2) & 127; }
-uint8_t extract_promo(Move move) { return move & 3; }
+Move pack_move_promo(uint8_t from, uint8_t to, uint8_t promo) {
+  return (from << 10) + (to << 4) + (promo << 2) + MoveTypes::Promotion;
+}
+uint8_t extract_from(Move move) { return move >> 10; }
+uint8_t extract_to(Move move) { return (move >> 4) & 63; }
+uint8_t extract_promo(Move move) { return (move >> 2) & 3; }
+uint8_t extract_type(Move move) { return move & 3; }
 
 uint16_t get_zobrist_key(uint8_t piece, uint8_t sq) {
   return ((piece - 2) * 64) + sq;

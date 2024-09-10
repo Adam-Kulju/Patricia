@@ -63,6 +63,23 @@ perft(int depth, Position &position, bool first)
   return total_nodes;
 }
 
+Move uci_to_internal(const Position& position, std::string uci) {
+  // Converts a uci move into an internal move.
+  std::array<Move, ListSize> list;
+  int nmoves =
+      movegen(position, list,
+              attacks_square(position, get_king_pos(position, position.color),
+                             position.color ^ 1));
+
+  for (int i = 0; i < nmoves; i++)
+  {
+    if (internal_to_uci(position, list[i]) == uci)
+      return list[i];
+  }
+  
+  return 0;
+}
+
 void uci(ThreadInfo &thread_info, Position &position) {
   setvbuf(stdin, NULL, _IONBF, 0);
   setvbuf(stdout, NULL, _IONBF, 0);
@@ -227,7 +244,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
 
         std::string moves;
         while (input_stream >> moves) {
-          Move move = uci_to_internal(moves);
+          Move move = uci_to_internal(position, moves);
           ss_push(position, thread_info, move); // fill the game hist stack as we go
           make_move(position, move);
         }

@@ -27,17 +27,6 @@ internal_to_uci(const Position &position,
   return uci;
 }
 
-Move uci_to_internal(std::string uci) {
-  // Converts a uci move into an internal move.
-
-  int from_file = uci[0] - 'a', from_rank = uci[1] - '1',
-      to_file = uci[2] - 'a', to_rank = uci[3] - '1', promo = 0;
-  if (uci[4] != '\0') {
-    promo = std::string("nbrq").find(uci[4]);
-  }
-  return pack_move((from_rank * 8 + from_file), (to_rank * 8 + to_file), promo);
-}
-
 void print_board(
     Position position) { // Prints the board. Very helpful for debugging.
   for (int i = 56; i >= 0;) {
