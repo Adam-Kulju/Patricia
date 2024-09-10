@@ -53,7 +53,7 @@ const auto QA_VEC = get_int16_vec(QA);
 constexpr int QAB = QA * QB;
 
 struct alignas(64) NNUE_Params {
-  std::array<int16_t, INPUT_SIZE * LAYER1_SIZE * NUM_BUCKETS> feature_v;
+  std::array<int16_t, INPUT_SIZE * LAYER1_SIZE> feature_v;
   std::array<int16_t, LAYER1_SIZE> feature_bias;
   std::array<int16_t, LAYER1_SIZE * 2> output_v;
   int16_t output_bias;
@@ -308,6 +308,7 @@ void NNUE_State::reset_nnue(Position position) {
   m_curr->init(g_nnue.feature_bias);
   int wbucket = Buckets[Colors::White][get_king_pos(position, Colors::White)];
   int bbucket = Buckets[Colors::Black][get_king_pos(position, Colors::Black)];
+  printf("%i %i\n", wbucket, bbucket);
 
   for (int square = a1; square < SqNone; square++) {
     if (position.board[square] != Pieces::Blank) {
