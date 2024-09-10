@@ -302,13 +302,7 @@ void refresh_bucket(NNUE_State &nnue_state, const Position &position, int color)
 }
 
 void update_nnue_state(NNUE_State &nnue_state, Move move,
-                       Position &position) { // Updates the nnue state
-
-  if (position.bucket_changed){
-    refresh_bucket(nnue_state, position, position.bucket_changed - 2);
-    position.bucket_changed = 0;
-    return;
-  }
+                       Position &position, Position &moved_position) { // Updates the nnue state
 
   int from = extract_from(move), to = extract_to(move);
   int from_piece = position.board[from];
@@ -360,6 +354,11 @@ void update_nnue_state(NNUE_State &nnue_state, Move move,
 
   else {
     nnue_state.add_sub(from_piece, from, to_piece, to);
+  }
+
+  if (moved_position.bucket_changed){
+    refresh_bucket(nnue_state, moved_position, moved_position.bucket_changed - 2);
+    moved_position.bucket_changed = 0;
   }
 }
 
