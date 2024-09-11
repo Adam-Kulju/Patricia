@@ -19,23 +19,11 @@ internal_to_uci(const Position &position,
   uci += get_file(to) + 'a';
   uci += get_rank(to) + '1';
 
-  if (position.board[from] - position.color == Pieces::WPawn &&
-      get_rank(to) == (position.color ? 0 : 7)) {
+  if (extract_type(move) == MoveTypes::Promotion) {
     uci += "nbrq"[promo];
   }
 
   return uci;
-}
-
-Move uci_to_internal(std::string uci) {
-  // Converts a uci move into an internal move.
-
-  int from_file = uci[0] - 'a', from_rank = uci[1] - '1',
-      to_file = uci[2] - 'a', to_rank = uci[3] - '1', promo = 0;
-  if (uci[4] != '\0') {
-    promo = std::string("nbrq").find(uci[4]);
-  }
-  return pack_move((from_rank * 8 + from_file), (to_rank * 8 + to_file), promo);
 }
 
 void print_board(
@@ -308,10 +296,8 @@ void update_nnue_state(NNUE_State &nnue_state, Move move,
   int from_piece = position.board[from];
   int to_piece = from_piece, color = position.color;
 
-  if (get_piece_type(from_piece) == PieceTypes::Pawn &&
-      get_rank(to) == (color ? 0 : 7)) { // Grab promos
-
-    to_piece = extract_promo(move) * 2 + 4 + color;
+  if (extract_type(move) == MoveTypes::Promotion) { // Grab promos
+    to_piece = (extract_promo(move) + 2) * 2 + color;
   }
 
   int captured_piece = Pieces::Blank, captured_square = SquareNone;
@@ -320,8 +306,7 @@ void update_nnue_state(NNUE_State &nnue_state, Move move,
     captured_piece = position.board[to], captured_square = to;
   }
   // en passant
-  else if (get_piece_type(from_piece) == PieceTypes::Pawn &&
-           to == position.ep_square) {
+  else if (extract_type(move) == MoveTypes::EnPassant) {
     captured_square = to + (color ? Directions::North : Directions::South);
     captured_piece = position.board[captured_square];
   }
@@ -333,10 +318,7 @@ void update_nnue_state(NNUE_State &nnue_state, Move move,
                            captured_square);
   }
 
-  else if (get_piece_type(from_piece) == PieceTypes::King &&
-           abs(to - from) ==
-               Directions::East *
-                   2) { // update the rook that moved if we castled
+  else if (extract_type(move) == MoveTypes::Castling) { // update the rook that moved if we castled
 
     int indx = color ? 56 : 0;
 
@@ -392,7 +374,7 @@ void make_move(Position &position, Move move) { // Perform a move on the board.
     captured_piece = position.board[to], captured_square = to;
   }
   // en passant
-  else if (from_type == PieceTypes::Pawn && to == position.ep_square) {
+  else if (extract_type(move) == MoveTypes::EnPassant) {
     position.material_count[opp_color]--;
     captured_square = to + (color ? Directions::North : Directions::South);
     captured_piece = position.board[captured_square];
@@ -418,7 +400,7 @@ void make_move(Position &position, Move move) { // Perform a move on the board.
     position.halfmoves = 0;
 
     // promotions
-    if (get_rank(to) == (color ? 0 : 7)) {
+    if (extract_type(move) == MoveTypes::Promotion) {
       to_piece = extract_promo(move) * 2 + 4 + color;
       position.board[to] = to_piece;
       position.material_count[color]--, position.material_count[to_piece - 2]++;
@@ -532,8 +514,7 @@ bool is_legal(Position &position, Move move) { // Perform a move on the board.
   int king_pos = get_king_pos(position, color);
 
   // en passant
-  if (get_piece_type(from_piece) == PieceTypes::Pawn &&
-      to == position.ep_square) {
+  if (extract_type(move) == MoveTypes::EnPassant) {
     int cap_square = to + (color ? Directions::North : Directions::South);
     return ! br_attacks_square(position, king_pos, opp_color,
                occupied ^ (1ull << from) ^ (1ull << to) ^ (1ull << cap_square));

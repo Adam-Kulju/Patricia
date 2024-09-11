@@ -41,11 +41,11 @@ void pawn_moves(const Position &position, uint64_t check_filter,
 
   while (move_1) {
     int to = pop_lsb(move_1);
-    move_list[key++] = pack_move(to - (dir), to, 0);
+    move_list[key++] = pack_move(to - (dir), to, MoveTypes::Normal);
   }
   while (move_2) {
     int to = pop_lsb(move_2);
-    move_list[key++] = pack_move(to - (2 * dir), to, 0);
+    move_list[key++] = pack_move(to - (2 * dir), to, MoveTypes::Normal);
   }
 
   uint64_t cap_left = shift_pawns(our_non_promos & ~Files[0], left) &
@@ -55,11 +55,11 @@ void pawn_moves(const Position &position, uint64_t check_filter,
 
   while (cap_left) {
     int to = pop_lsb(cap_left);
-    move_list[key++] = pack_move(to - (left), to, 0);
+    move_list[key++] = pack_move(to - (left), to, MoveTypes::Normal);
   }
   while (cap_right) {
     int to = pop_lsb(cap_right);
-    move_list[key++] = pack_move(to - (right), to, 0);
+    move_list[key++] = pack_move(to - (right), to, MoveTypes::Normal);
   }
 
   if (position.ep_square != SquareNone) {
@@ -67,7 +67,7 @@ void pawn_moves(const Position &position, uint64_t check_filter,
         our_non_promos & PawnAttacks[color ^ 1][position.ep_square];
     while (ep_captures) {
       int from = pop_lsb(ep_captures);
-      move_list[key++] = pack_move(from, position.ep_square, 0);
+      move_list[key++] = pack_move(from, position.ep_square, MoveTypes::EnPassant);
     }
   }
 
@@ -81,19 +81,19 @@ void pawn_moves(const Position &position, uint64_t check_filter,
   while (move_promo) {
     int to = pop_lsb(move_promo);
     for (int i = 0; i < 4; i++) {
-      move_list[key++] = pack_move(to - (dir), to, i);
+      move_list[key++] = pack_move_promo(to - (dir), to, i);
     }
   }
   while (cap_left_promo) {
     int to = pop_lsb(cap_left_promo);
     for (int i = 0; i < 4; i++) {
-      move_list[key++] = pack_move(to - (left), to, i);
+      move_list[key++] = pack_move_promo(to - (left), to, i);
     }
   }
   while (cap_right_promo) {
     int to = pop_lsb(cap_right_promo);
     for (int i = 0; i < 4; i++) {
-      move_list[key++] = pack_move(to - (right), to, i);
+      move_list[key++] = pack_move_promo(to - (right), to, i);
     }
   }
 }
@@ -111,7 +111,7 @@ int movegen(const Position &position, std::span<Move> move_list,
   uint64_t king = get_king_pos(position, color);
   uint64_t king_attacks = KingAttacks[king] & ~stm_pieces;
   while (king_attacks) {
-    move_list[idx++] = pack_move(king_pos, pop_lsb(king_attacks), 0);
+    move_list[idx++] = pack_move(king_pos, pop_lsb(king_attacks), MoveTypes::Normal);
   }
 
   if (checkers) {
@@ -129,7 +129,7 @@ int movegen(const Position &position, std::span<Move> move_list,
     int from = pop_lsb(knights);
     uint64_t to = KnightAttacks[from] & ~stm_pieces & check_filter;
     while (to) {
-      move_list[idx++] = pack_move(from, pop_lsb(to), 0);
+      move_list[idx++] = pack_move(from, pop_lsb(to), MoveTypes::Normal);
     }
   }
 
@@ -140,7 +140,7 @@ int movegen(const Position &position, std::span<Move> move_list,
     int from = pop_lsb(diagonals);
     uint64_t to = get_bishop_attacks(from, occ) & ~stm_pieces & check_filter;
     while (to) {
-      move_list[idx++] = pack_move(from, pop_lsb(to), 0);
+      move_list[idx++] = pack_move(from, pop_lsb(to), MoveTypes::Normal);
     }
   }
 
@@ -151,7 +151,7 @@ int movegen(const Position &position, std::span<Move> move_list,
     int from = pop_lsb(orthogonals);
     uint64_t to = get_rook_attacks(from, occ) & ~stm_pieces & check_filter;
     while (to) {
-      move_list[idx++] = pack_move(from, pop_lsb(to), 0);
+      move_list[idx++] = pack_move(from, pop_lsb(to), MoveTypes::Normal);
     }
   }
 
@@ -167,13 +167,13 @@ int movegen(const Position &position, std::span<Move> move_list,
   if (position.castling_rights[color][Sides::Queenside] &&
       !(occ & CastlingBBs[color][Sides::Queenside]) &&
       !attacks_square(position, king_pos - 1, opp_color)) {
-    move_list[idx++] = pack_move(king_pos, king_pos - 2, 0);
+    move_list[idx++] = pack_move(king_pos, king_pos - 2, MoveTypes::Castling);
   }
 
   if (position.castling_rights[color][Sides::Kingside] &&
       !(occ & CastlingBBs[color][Sides::Kingside]) &&
       !attacks_square(position, king_pos + 1, opp_color)) {
-    move_list[idx++] = pack_move(king_pos, king_pos + 2, 0);
+    move_list[idx++] = pack_move(king_pos, king_pos + 2, MoveTypes::Castling);
   }
 
   return idx;
