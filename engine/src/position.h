@@ -394,8 +394,6 @@ void make_move(Position &position, Move move) { // Perform a move on the board.
 
   // handle promotions and double pawn pushes
 
-  bool castle = false;
-
   if (from_type == PieceTypes::Pawn) {
     position.halfmoves = 0;
 
@@ -430,7 +428,6 @@ void make_move(Position &position, Move move) { // Perform a move on the board.
 
     // kingside castle
     if (to == from + Directions::East + Directions::East) {
-      castle = true;
       position.board[base_rank + 5] = position.board[base_rank + 7];
       position.board[base_rank + 7] = Pieces::Blank;
       temp_hash ^=
@@ -444,7 +441,6 @@ void make_move(Position &position, Move move) { // Perform a move on the board.
 
     // queenside castle
     else if (to == from + Directions::West + Directions::West) {
-      castle = true;
       position.board[base_rank + 3] = position.board[base_rank];
       position.board[base_rank] = Pieces::Blank;
       temp_hash ^=
@@ -500,7 +496,7 @@ void make_move(Position &position, Move move) { // Perform a move on the board.
   __builtin_prefetch(&TT[hash_to_idx(temp_hash)]);
 }
 
-bool is_legal(Position &position, Move move) { // Perform a move on the board.
+bool is_legal(const Position &position, Move move) { // Perform a move on the board.
   uint64_t occupied = position.colors_bb[Colors::White] | position.colors_bb[Colors::Black];
   int from = extract_from(move), to = extract_to(move), color = position.color,
       opp_color = color ^ 1;

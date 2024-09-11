@@ -179,6 +179,23 @@ int movegen(const Position &position, std::span<Move> move_list,
   return idx;
 }
 
+// Not to be used in performance critical areas
+int legal_movegen(const Position &position, std::span<Move> move_list) {
+  uint64_t checkers = attacks_square(position, 
+                                     get_king_pos(position, position.color), 
+                                     position.color ^ 1);
+  std::array<Move, ListSize> pseudo_list;
+  int pseudo_nmoves = movegen(position, pseudo_list, checkers);
+
+  int legal_nmoves = 0;
+  for (int i = 0; i < pseudo_nmoves; i++) {
+    if (is_legal(position, pseudo_list[i]))
+      move_list[legal_nmoves++] = pseudo_list[i];
+  }
+  
+  return legal_nmoves;
+}
+
 bool SEE(Position &position, Move move, int threshold) {
 
   int stm = position.color, from = extract_from(move), to = extract_to(move);
