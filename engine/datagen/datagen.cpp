@@ -158,22 +158,10 @@ Move random_move(Position &position,
 
   bool color = position.color;
   MoveInfo moves;
-  int num_moves = movegen(position, moves.moves, attacks_square(position, get_king_pos(position, color), color ^ 1));
+  int num_moves = legal_movegen(position, moves.moves);
 
-  MoveInfo legal_moves;
-
-  int num_legal = 0;
-  for (int i = 0; i < num_moves; i++) {
-    Move move = moves.moves[i];
-    if (is_legal(position, move)) {
-      legal_moves.moves[num_legal++] = move;
-    }
-  }
-  if (!num_legal) {
-    return MoveNone;
-  }
-  int rand_index = dist(rd) % (num_legal);
-  return legal_moves.moves[rand_index];
+  int rand_index = dist(rd) % (num_moves);
+  return moves.moves[rand_index];
 }
 
 void play_game(ThreadInfo &thread_info, uint64_t &num_fens, int id,

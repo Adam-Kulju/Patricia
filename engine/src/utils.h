@@ -18,7 +18,7 @@ struct ThreadInfo {
   uint16_t search_ply; // depth that we are in the search tree
 
   uint64_t nodes;      // Total nodes searched so far this search
-  RootMoveInfo root_moves[ListSize];
+  std::vector<RootMoveInfo> root_moves;
 
   std::chrono::steady_clock::time_point start_time; // Start time of the search
 
@@ -65,6 +65,14 @@ struct ThreadInfo {
 
   uint8_t searches = 0;
 };
+
+RootMoveInfo* find_root_move(ThreadInfo& thread_info, Move move) {
+  for (int i = 0; i < thread_info.root_moves.size(); i++) {
+    if (thread_info.root_moves[i].move == move)
+      return & thread_info.root_moves[i];
+  }
+  return nullptr;
+}
 
 struct ThreadData {
   std::vector<ThreadInfo> thread_infos;
