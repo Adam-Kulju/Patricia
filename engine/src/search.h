@@ -725,7 +725,6 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       best_score = score;
 
       if (score > alpha) {
-
         best_move = move;
         raised_alpha = true;
         alpha = score;
@@ -756,8 +755,11 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   }
 
   if (root) {
-    thread_info.best_moves[thread_info.multipv_index] = best_move;
+    if (best_move != MoveNone){
+      thread_info.best_moves[thread_info.multipv_index] = best_move;
+    }
     thread_info.best_scores[thread_info.multipv_index] = best_score;
+
   }
 
   if (best_score >= beta) {
