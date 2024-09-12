@@ -258,11 +258,11 @@ void play_game(ThreadInfo &thread_info, uint64_t &num_fens, int id,
     thread_info.start_time = std::chrono::steady_clock::now();
     search_position(position, thread_info, color ? TT : TT2);
 
-    int score = thread_info.score;
+    int score = thread_info.best_scores[0];
 
     int s = score;
 
-    Move best_move = thread_info.best_move;
+    Move best_move = thread_info.best_moves[0];
 
     if (color) {
       score *= -1;
@@ -305,10 +305,6 @@ void play_game(ThreadInfo &thread_info, uint64_t &num_fens, int id,
       // check, add the position to the ones to write to a file
       if (fkey > 4999) {
         printf("%i %i\n", fkey, thread_info.game_ply);
-        exit(0);
-      }
-      if (thread_info.score < -100000 || thread_info.score > 100000) {
-        print_board(position);
         exit(0);
       }
 
