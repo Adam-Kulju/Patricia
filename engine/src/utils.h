@@ -50,8 +50,6 @@ struct ThreadInfo {
   uint64_t max_nodes_searched = UINT64_MAX / 2;
   uint64_t opt_nodes_searched = UINT64_MAX / 2;
 
-  int32_t score = ScoreNone;
-  Move best_move = MoveNone;
   bool doing_datagen = false;
 
   bool is_human = false;
