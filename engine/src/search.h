@@ -145,9 +145,9 @@ int eval(const Position &position, ThreadInfo &thread_info) {
 
   if (abs(eval) > 500) {
     eval = eval *
-            (512 + total_mat_color(position, root_color ^ 1) / 8 -
+           (512 + total_mat_color(position, root_color ^ 1) / 8 -
             (position.material_count[0] + position.material_count[1]) * 20) /
-            768;
+           768;
   }
 
   return std::clamp(eval + bonus1 + bonus2, -MateScore, MateScore);
@@ -226,7 +226,7 @@ bool is_draw(const Position &position,
 
 int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
             std::vector<TTBucket> &TT) { // Performs a quiescence search on the
-                                        // given position.
+                                         // given position.
 
   if (out_of_time(thread_info)) {
     // return if out of time
@@ -248,7 +248,7 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
 
   uint64_t hash = position.zobrist_key;
   bool tt_hit;
-  TTEntry& entry = probe_entry(hash, tt_hit, thread_info.searches, TT);
+  TTEntry &entry = probe_entry(hash, tt_hit, thread_info.searches, TT);
 
   int entry_type = EntryTypes::None, tt_static_eval = ScoreNone,
       tt_score = ScoreNone; // Initialize TT variables and check for a hash hit
@@ -268,7 +268,8 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
     }
   }
 
-  uint64_t in_check = attacks_square(position, get_king_pos(position, color), color ^ 1);
+  uint64_t in_check =
+      attacks_square(position, get_king_pos(position, color), color ^ 1);
   int best_score = ScoreNone, raised_alpha = false;
   Move best_move = MoveNone;
 
@@ -304,7 +305,7 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
   for (int indx = 0; indx < num_moves; indx++) {
     Move move = get_next_move(moves.moves, moves.scores, indx, num_moves);
 
-    if (! is_legal(position, move)) {
+    if (!is_legal(position, move)) {
       continue;
     }
 
@@ -327,7 +328,7 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
       // return if we ran out of time for search
       return best_score;
     }
-    
+
     if (score > best_score) {
       best_score = score;
       if (score > alpha) {
@@ -351,18 +352,18 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
                : raised_alpha     ? EntryTypes::Exact
                                   : EntryTypes::UBound;
 
-  insert_entry(entry, hash, 0, best_move, static_eval, score_to_tt(best_score, ply),
-               entry_type, thread_info.searches);
+  insert_entry(entry, hash, 0, best_move, static_eval,
+               score_to_tt(best_score, ply), entry_type, thread_info.searches);
 
   return best_score;
 }
 
-template<bool is_pv>
+template <bool is_pv>
 int search(int alpha, int beta, int depth, bool cutnode, Position &position,
            ThreadInfo &thread_info,
            std::vector<TTBucket> &TT) { // Performs an alpha-beta search.
 
-  GameHistory* ss = & (thread_info.game_hist[thread_info.game_ply]);
+  GameHistory *ss = &(thread_info.game_hist[thread_info.game_ply]);
 
   if (!thread_info.search_ply) {
     thread_info.current_iter = depth;
@@ -435,7 +436,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   }
 
   bool tt_hit;
-  TTEntry& entry = probe_entry(hash, tt_hit, thread_info.searches, TT);
+  TTEntry &entry = probe_entry(hash, tt_hit, thread_info.searches, TT);
 
   int entry_type = EntryTypes::None, tt_static_eval = ScoreNone,
       tt_score = ScoreNone, tt_move = MoveNone;
@@ -458,7 +459,8 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     }
   }
 
-  uint64_t in_check = attacks_square(position, get_king_pos(position, color), color ^ 1);
+  uint64_t in_check =
+      attacks_square(position, get_king_pos(position, color), color ^ 1);
 
   // We can't do any eval-based pruning if in check.
 
@@ -474,8 +476,8 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       static_eval = tt_static_eval;
 
     if (!tt_hit) {
-      insert_entry(entry, hash, 0, MoveNone, static_eval, ScoreNone, EntryTypes::None,
-                   thread_info.searches);
+      insert_entry(entry, hash, 0, MoveNone, static_eval, ScoreNone,
+                   EntryTypes::None, thread_info.searches);
     }
   }
 
@@ -486,8 +488,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   // Improving: Is our eval better than it was last turn? If so we can prune
   // less in certain circumstances (or prune more if it's not)
 
-  if (ply > 1 && !in_check &&
-      static_eval > (ss-2)->static_eval) {
+  if (ply > 1 && !in_check && static_eval > (ss - 2)->static_eval) {
     improving = true;
   }
 
@@ -511,8 +512,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     }
     if (static_eval >= beta && depth >= NMPMinDepth &&
         has_non_pawn_material(position, color) &&
-        (ss-1)->played_move !=
-            MoveNone) {
+        (ss - 1)->played_move != MoveNone) {
 
       // Null Move Pruning (NMP): If we can give our opponent a free move and
       // still beat beta on a reduced search, we can prune the node.
@@ -525,7 +525,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       int R = NMPBase + depth / NMPDepthDiv +
               std::min(3, (static_eval - beta) / NMPEvalDiv);
       score = -search<false>(-alpha - 1, -alpha, depth - R, !cutnode, temp_pos,
-                      thread_info, TT);
+                             thread_info, TT);
 
       thread_info.search_ply--, thread_info.game_ply--;
       // we don't call ss_pop because the nnue state was never pushed
@@ -577,7 +577,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     if (move == excluded_move) {
       continue;
     }
-    if (! is_legal(position, move)) {
+    if (!is_legal(position, move)) {
       continue;
     }
 
@@ -630,7 +630,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
         int sBeta = entry.score - depth;
         thread_info.excluded_move = move;
         int sScore = search<false>(sBeta - 1, sBeta, (depth - 1) / 2, cutnode,
-                            position, thread_info, TT);
+                                   position, thread_info, TT);
 
         if (sScore < sBeta) {
           if (!is_pv && sScore + SEDoubleExtMargin < sBeta &&
@@ -672,9 +672,10 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
         // Captures get LMRd less because they're the most likely moves to beat
         // alpha/beta
         R /= 2;
-      }
-      else{
-        R -= thread_info.HistoryScores[position.board[extract_from(move)]][extract_to(move)] / 10000;
+      } else {
+        R -= thread_info.HistoryScores[position.board[extract_from(move)]]
+                                      [extract_to(move)] /
+             10000;
       }
 
       // Increase reduction if not in pv
@@ -690,7 +691,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
       // Reduced search, reduced window
       score = -search<false>(-alpha - 1, -alpha, depth - R + extension, true,
-                      moved_position, thread_info, TT);
+                             moved_position, thread_info, TT);
       if (score > alpha) {
         full_search = R > 1;
       }
@@ -699,13 +700,13 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     }
     if (full_search) {
       // Full search, null window
-      score = -search<false>(-alpha - 1, -alpha, depth - 1 + extension, !cutnode,
-                      moved_position, thread_info, TT);
+      score = -search<false>(-alpha - 1, -alpha, depth - 1 + extension,
+                             !cutnode, moved_position, thread_info, TT);
     }
     if ((score > alpha || !moves_played) && is_pv) {
       // Full search, full window
       score = -search<true>(-beta, -alpha, depth - 1 + extension, false,
-                      moved_position, thread_info, TT);
+                            moved_position, thread_info, TT);
     }
 
     ss_pop(thread_info);
@@ -716,7 +717,8 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     }
 
     if (root) {
-      find_root_move(thread_info, move)->nodes += (thread_info.nodes - curr_nodes);
+      find_root_move(thread_info, move)->nodes +=
+          (thread_info.nodes - curr_nodes);
     }
 
     if (score > best_score) {
@@ -728,9 +730,6 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
         alpha = score;
 
         if (score >= beta) {
-          if (root) {
-            thread_info.best_move = best_move;
-          }
           break;
         }
 
@@ -739,11 +738,6 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
           for (int n = 0; n < MaxSearchDepth + ply + 1; n++) {
             thread_info.pv[pv_index + 1 + n] =
                 thread_info.pv[pv_index + MaxSearchDepth + n];
-          }
-
-          if (root) {
-            thread_info.best_moves[thread_info.multipv_index] = best_move;
-            thread_info.best_scores[thread_info.multipv_index] = best_score;
           }
         }
       }
@@ -758,6 +752,14 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     }
 
     moves_played++;
+  }
+
+  if (root) {
+    if (best_move != MoveNone){
+      thread_info.best_moves[thread_info.multipv_index] = best_move;
+    }
+    thread_info.best_scores[thread_info.multipv_index] = best_score;
+
   }
 
   if (best_score >= beta) {
@@ -775,18 +777,15 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
     } else {
 
-      int their_last =
-          ply < 1 ? MoveNone : extract_to((ss-1)->played_move);
+      int their_last = ply < 1 ? MoveNone : extract_to((ss - 1)->played_move);
 
-      int their_piece =
-          (ply < 1 || their_last == MoveNone)
-              ? Pieces::Blank : (ss-1)->piece_moved;
+      int their_piece = (ply < 1 || their_last == MoveNone)
+                            ? Pieces::Blank
+                            : (ss - 1)->piece_moved;
 
-      int our_last =
-          ply < 2 ? MoveNone : extract_to((ss-2)->played_move);
-      int our_piece =
-          (ply < 2 || our_last == MoveNone)
-              ? Pieces::Blank : (ss-2)->piece_moved;
+      int our_last = ply < 2 ? MoveNone : extract_to((ss - 2)->played_move);
+      int our_piece = (ply < 2 || our_last == MoveNone) ? Pieces::Blank
+                                                        : (ss - 2)->piece_moved;
 
       for (int i = 0; i < num_quiets; i++) {
 
@@ -838,9 +837,9 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
   // Add the search results to the TT, accounting for mate scores
   if (!singular_search) {
-    insert_entry(entry, hash, depth, best_move,
-                 ss->static_eval, score_to_tt(best_score, ply),
-                 entry_type, thread_info.searches);
+    insert_entry(entry, hash, depth, best_move, ss->static_eval,
+                 score_to_tt(best_score, ply), entry_type,
+                 thread_info.searches);
   }
 
   return best_score;
@@ -863,8 +862,7 @@ void print_pv(Position &position, ThreadInfo &thread_info) {
     // Verify that the pv move is possible and legal by generating moves
 
     MoveInfo moves;
-    int movelen =
-        legal_movegen(temp_pos, moves.moves);
+    int movelen = legal_movegen(temp_pos, moves.moves);
 
     bool found_move = false;
 
@@ -901,8 +899,6 @@ void iterative_deepen(
   thread_info.stop = false;
   thread_info.search_ply = 0; // reset all relevant thread_info
   thread_info.excluded_move = MoveNone;
-  thread_info.best_move = MoveNone;
-  thread_info.score = ScoreNone;
   thread_info.best_moves = {0};
   thread_info.best_scores = {ScoreNone, ScoreNone, ScoreNone, ScoreNone,
                              ScoreNone};
@@ -911,30 +907,32 @@ void iterative_deepen(
   // Prepare root moves
   thread_info.root_moves.reserve(ListSize);
   thread_info.root_moves.clear();
-{
-  std::array<Move, ListSize> raw_root_moves;
-  int nmoves = legal_movegen(position, raw_root_moves);
-  for (int i = 0; i < nmoves; i++) {
-    thread_info.root_moves.push_back({raw_root_moves[i], 0});
+  {
+    std::array<Move, ListSize> raw_root_moves;
+    int nmoves = legal_movegen(position, raw_root_moves);
+    for (int i = 0; i < nmoves; i++) {
+      thread_info.root_moves.push_back({raw_root_moves[i], 0});
+    }
   }
-}
 
-  Move best_move = MoveNone, prev_best = MoveNone;
+  Move prev_best = MoveNone;
   int alpha = ScoreNone, beta = -ScoreNone;
   int bm_stability = 0;
 
   for (int depth = 1; depth <= thread_info.max_iter_depth; depth++) {
 
-    int real_multi_pv = std::min<int>(thread_info.multipv, thread_info.root_moves.size());
+    int real_multi_pv =
+        std::min<int>(thread_info.multipv, thread_info.root_moves.size());
     for (thread_info.multipv_index = 0;
-         thread_info.multipv_index < real_multi_pv; 
+         thread_info.multipv_index < real_multi_pv;
          thread_info.multipv_index++) {
 
-     // std::cout << i << " " << thread_info.multipv_index << std::endl;
+      // std::cout << i << " " << thread_info.multipv_index << std::endl;
 
       int score, delta = 20;
 
-      score = search<true>(alpha, beta, depth, false, position, thread_info, TT);
+      score =
+          search<true>(alpha, beta, depth, false, position, thread_info, TT);
 
       // Aspiration Windows: We search the position with a narrow window around
       // the last search score in order to get cutoffs faster. If our search
@@ -962,8 +960,7 @@ void iterative_deepen(
                             ? static_cast<int64_t>(nodes) * 1000 / search_time
                             : 123456789;
 
-          Move move =
-              bound_string == "upperbound" ? best_move : thread_info.best_move;
+          Move move = score <= alpha ? prev_best : thread_info.best_moves[thread_info.multipv_index];
 
           printf("info multipv %i depth %i seldepth %i score cp %i %s nodes "
                  "%" PRIu64 " nps %" PRIi64 " time %" PRIi64 " pv %s\n",
@@ -980,7 +977,8 @@ void iterative_deepen(
         }
         delta += delta / 3;
 
-        score = search<true>(alpha, beta, depth, false, position, thread_info, TT);
+        score =
+            search<true>(alpha, beta, depth, false, position, thread_info, TT);
       }
 
       if (score == ScoreNone) {
@@ -997,9 +995,7 @@ void iterative_deepen(
         eval_string = "mate " + std::to_string((Mate - score) / 2);
       }
 
-      if (thread_info.multipv_index == 0) {
-        best_move = thread_info.pv[0];
-      }
+      thread_info.best_moves[thread_info.multipv_index] = thread_info.pv[0];
 
       if (thread_info.thread_id == 0) {
 
@@ -1022,14 +1018,13 @@ void iterative_deepen(
         if (!thread_info.doing_datagen) {
           printf("info multipv %i depth %i seldepth %i score %s nodes %" PRIu64
                  " nps %" PRIi64 " time %" PRIi64 " pv ",
-                 thread_info.multipv_index + 1, depth, thread_info.seldepth, eval_string.c_str(), nodes,
-                 nps, search_time);
+                 thread_info.multipv_index + 1, depth, thread_info.seldepth,
+                 eval_string.c_str(), nodes, nps, search_time);
           print_pv(position, thread_info);
         }
 
         else {
-          thread_info.best_move = best_move;
-          thread_info.score = score * 100 / NormalizationFactor;
+          thread_info.best_scores[0] = score * 100 / NormalizationFactor;
         }
 
         if (search_time > thread_info.opt_time ||
@@ -1038,14 +1033,16 @@ void iterative_deepen(
         }
 
         else if (thread_info.multipv == 1 && depth > 6) {
-          if (best_move == prev_best){
+          if (thread_info.best_moves[0] == prev_best) {
             bm_stability = std::min(bm_stability + 1, 8);
-          }
-          else{
+          } else {
             bm_stability = 0;
           }
 
-          adjust_soft_limit(thread_info, find_root_move(thread_info, best_move)->nodes, bm_stability);
+          adjust_soft_limit(
+              thread_info,
+              find_root_move(thread_info, thread_info.best_moves[0])->nodes,
+              bm_stability);
         }
       }
 
@@ -1053,8 +1050,8 @@ void iterative_deepen(
         goto finish;
       }
 
-      prev_best = best_move;
-      
+      prev_best = thread_info.best_moves[0];
+
       if (depth > 6) {
         alpha = score - 20, beta = score + 20;
       }
@@ -1064,7 +1061,8 @@ void iterative_deepen(
 finish:
   if (thread_info.thread_id == 0 && !thread_info.doing_datagen &&
       !thread_info.is_human) {
-    printf("bestmove %s\n", internal_to_uci(position, best_move).c_str());
+    printf("bestmove %s\n",
+           internal_to_uci(position, thread_info.best_moves[0]).c_str());
   }
 }
 
