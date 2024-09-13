@@ -159,6 +159,9 @@ Move random_move(Position &position,
   bool color = position.color;
   MoveInfo moves;
   int num_moves = legal_movegen(position, moves.moves);
+  if (!num_moves){
+    return MoveNone;
+  }
 
   int rand_index = dist(rd) % (num_moves);
   return moves.moves[rand_index];
@@ -318,6 +321,10 @@ void play_game(ThreadInfo &thread_info, uint64_t &num_fens, int id,
         printf("~%li positions written\n", total_fens);
         printf("Approximate speed: %" PRIi64 " pos/s\n\n",
                (int64_t)(total_fens * 1000 / time_elapsed(start_time)));
+        if (total_fens > 330000000){
+          fr.close();
+          exit(0);
+        }
       }
     }
   }
