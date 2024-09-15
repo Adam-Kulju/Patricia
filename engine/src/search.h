@@ -349,7 +349,6 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
   // insert entries and return
 
   entry_type = best_score >= beta ? EntryTypes::LBound
-               : raised_alpha     ? EntryTypes::Exact
                                   : EntryTypes::UBound;
 
   insert_entry(entry, hash, 0, best_move, static_eval,
