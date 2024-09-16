@@ -1,7 +1,7 @@
 # Patricia Chess Engine
 <div align="center">
 
-  <img src="Patricia_logo.png" width="400" height="400">
+  <img src="Patricia_logo.png" width="400" height="400" alt="Patricia logo">
 
   
   [![License][license-badge]][license-link]
@@ -14,7 +14,7 @@ A killer bunny who will not hesitate to ram as many pieces as possible down your
 
 <br/><br/>
 
-# Aggression
+## Aggression
 The metric that Patricia's aggression claims are based off of is Stefan Pohl's [EAS tool (found here)](https://www.sp-cc.de/eas-ratinglist.htm), which is the most well known and well regarded tool for determining the aggressiveness of chess engines. It looks at a combination of factors, such as sacrifice rate, short win rate, and unnecessary draw rate, and outputs a score that captures how "exciting" an engine tends to play. It's not a perfect statistic but from my experience it reflects the "eye test" well.
 
 The average engine's EAS score generally falls between 50,000 and 100,000. The most aggressive top engine is Stockfish, due to its extreme tactical ability; it has an EAS score of 190,000.
@@ -25,7 +25,7 @@ It's worth noting that Patricia is still well into superhuman territory, with an
 
 <br/><br/>
 
-# What Patricia currently does to increase aggressiveness
+## What Patricia currently does to increase aggressiveness
 - Default contempt of 30 centipawns for draws deemed avoidable
 - Neural network using a custom training/retraining script over multiple filtered data sources that was developed over the course of a few months - this is the main source of Patricia 3's aggressiveness.
 - Partially asymmetrical evaluation; Patricia doesn't care if she gets sacrificed against, so all sacrifice bonuses apply to the original side to move only.
@@ -34,7 +34,7 @@ It's worth noting that Patricia is still well into superhuman territory, with an
 - Material scaling
 
 <br/><br/>
-# Search Features
+## Search Features
 This is not a comprehensive list of search features that Patricia has.
 
 - Alpha-Beta search with Quiescence Search and Transposition Tables
@@ -53,7 +53,7 @@ This is not a comprehensive list of search features that Patricia has.
 - TT Replacement Schema
 
 <br/><br/>
-# Customization Options
+## Customization Options
 
 Patricia supports a few options for users:
 `Hash`: The memory alloted to the transposition table.
@@ -67,30 +67,28 @@ Patricia supports a few options for users:
 `MultiPV`: Patricia searches the best X moves instead of only looking for the best line.
 
 `Skill_Level`: Sets Patricia to play at one of 20 possible strength levels. They are:
-```
-Skill Level         ELO
-     1              500
-     2              800
-     3              1000
-     4              1200
-     5              1300
-     6              1400
-     7              1500
-     8              1600
-     9              1700
-     10             1800
-     11             1900
-     12             2000
-     13             2100
-     14             2200
-     15             2300
-     16             2400
-     17             2500
-     18             2650
-     19             2800
-     20             3000
-```
-
+| Skill Level | ELO |
+|:---:|---|
+| 1 | 500 |
+| 2 | 800 |
+| 3 | 1000 |
+| 4 | 1200 |
+| 5 | 1300 |
+| 6 | 1400 |
+| 7 | 1500 |
+| 8 | 1600 |
+| 9 | 1700 |
+| 10 | 1800 |
+| 11 | 1900 |
+| 12 | 2000 |
+| 13 | 2100 |
+| 14 | 2200 |
+| 15 | 2300 |
+| 16 | 2400 |
+| 17 | 2500 |
+| 18 | 2650 |
+| 19 | 2800 |
+| 20 | 3000 |
 
 `go nodes`: Search a position for a given number of nodes.
 
@@ -100,7 +98,7 @@ Skill Level         ELO
 
 <br/><br/>
 
-# Evaluation and Filtering
+## Evaluation and Filtering
 Patricia's evaluation is a neural network with a 768x2->768->1 perspective arch, trained on 2.4 billion positions of my other engine [Willow's](https://github.com/Adam-Kulju/Willow) data. It has been additionally retrained on a filtered dataset of 10 million positions specially selected for being "aggressive positions", in order to increase Patricia's understanding of them and to make her more likely to play into similar positions.
 
 Code for filtering programs are found in the utils/ directory, and are indentified as follows:
@@ -122,13 +120,13 @@ All filtering programs are run with the command `./[exe] [input.txt] [output.txt
 
 <br/><br/>
 
-# Datagen
+## Datagen
 
 Patricia has support for data generation; in order to compile the datagen script, run `make datagen` in the `engines` directory. This will give you an executable named `data`; run `./data [number of threads] [optional EPD opening book]` to start datagen, and exit the process whenever you want with Ctr-C.
 
 <br/><br/>
 
-# Acknowledgements
+## Acknowledgements
 
 - A huge shoutout to Stefan Pohl. His EAS Tool works wonderfully, makes properly and objectively testing for increase aggression possible, and is the measure by which Patricia development progressed. He was also very invested in Patricia's development and explained many features of the EAS tool to me so that I had a better understanding of what was a sacrifice and what wasn't. He has put a lot of time into quantifying style, and I am happy to have Patricia be a proof-of-concept and culmination of his ideas.
 
@@ -138,7 +136,7 @@ Patricia has support for data generation; in order to compile the datagen script
 
 <br/><br/>
 
-# Other
+## Other
 
 Instructions for downloading/building Patricia can be found in the Releases section. If you know UCI protocol, you can run Patricia directly, otherwise she will work with any major GUI ([Arena](http://www.playwitharena.de/), [BanksiaGUI](https://banksiagui.com/), etc.)
 
