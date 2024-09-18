@@ -926,7 +926,7 @@ void iterative_deepen(
          thread_info.multipv_index < real_multi_pv;
          thread_info.multipv_index++) {
 
-      // std::cout << i << " " << thread_info.multipv_index << std::endl;
+      int temp_depth = depth;
 
       int score, delta = 20;
 
@@ -971,13 +971,15 @@ void iterative_deepen(
         if (score <= alpha) {
           beta = (alpha + beta) / 2;
           alpha -= delta;
+          temp_depth = depth;
         } else if (score >= beta) {
           beta += delta;
+          temp_depth = std::max(temp_depth - 1, 1);
         }
         delta += delta / 3;
-
+        
         score =
-            search<true>(alpha, beta, depth, false, position, thread_info, TT);
+            search<true>(alpha, beta, temp_depth, false, position, thread_info, TT);
       }
 
       if (score == ScoreNone) {
