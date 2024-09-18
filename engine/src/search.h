@@ -349,6 +349,7 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
   // insert entries and return
 
   entry_type = best_score >= beta ? EntryTypes::LBound
+  : raised_alpha ? EntryTypes::Exact
                                   : EntryTypes::UBound;
 
   insert_entry(entry, hash, 0, best_move, static_eval,
@@ -646,7 +647,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
           return sBeta;
         }
-        else if (tt_score <= alpha){
+        else if (tt_score >= alpha){
           extension = -1;
         }
       }
