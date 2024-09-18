@@ -646,6 +646,9 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
           return sBeta;
         }
+        else if (tt_score <= alpha){
+          extension = -1;
+        }
       }
     }
 
