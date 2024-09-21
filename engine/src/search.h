@@ -557,7 +557,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
   score_moves(position, thread_info, moves, tt_move, num_moves);
 
-  for (int indx = 0; indx < num_moves && !skip; indx++) {
+  for (int indx = 0; indx < num_moves; indx++) {
     Move move = get_next_move(moves.moves, moves.scores, indx, num_moves);
 
     if (root) {
@@ -573,7 +573,9 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       }
     }
 
-    if (move == excluded_move) {
+    is_capture = is_cap(position, move);
+
+    if (move == excluded_move || (skip && !is_capture)) {
       continue;
     }
     if (!is_legal(position, move)) {
@@ -584,7 +586,6 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
     uint64_t curr_nodes = thread_info.nodes;
 
-    is_capture = is_cap(position, move);
     if (!is_capture && !is_pv && best_score > -MateScore) {
 
       // Late Move Pruning (LMP): If we've searched enough moves, we can skip
