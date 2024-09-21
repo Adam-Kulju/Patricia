@@ -586,7 +586,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
     uint64_t curr_nodes = thread_info.nodes;
 
-    if (!is_capture && !is_pv && best_score > -MateScore) {
+    if (!is_capture && !root && best_score > -MateScore) {
 
       // Late Move Pruning (LMP): If we've searched enough moves, we can skip
       // the rest.
