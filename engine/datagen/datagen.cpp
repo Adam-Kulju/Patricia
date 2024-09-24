@@ -159,21 +159,17 @@ Move random_move(Position &position,
   bool color = position.color;
   MoveInfo moves;
   int num_moves = legal_movegen(position, moves.moves);
-  if (!num_moves){
+  if (!num_moves) {
     return MoveNone;
   }
-
-  int rand_index = dist(rd) % (num_moves);
-  return moves.moves[rand_index];
+  return moves.moves[dist(rd) % (num_moves)];
 }
 
 void play_game(ThreadInfo &thread_info, uint64_t &num_fens, int id,
                std::vector<TTBucket> &TT) { // Plays a game, copying all "good"
-                                           // FENs to a file.
+                                            // FENs to a file.
 
   new_game(thread_info, TT);
-  std::vector<TTBucket> TT2(TT_size);
-  new_game(thread_info, TT2);
   std::string opening = "";
 
   Position position;
@@ -183,8 +179,7 @@ void play_game(ThreadInfo &thread_info, uint64_t &num_fens, int id,
     set_board(position, thread_info, opening);
     int moves = 4 + (dist(rd) % 2);
 
-    for (int i = 0; i < moves;
-         i++) {
+    for (int i = 0; i < moves; i++) {
       Move move = random_move(position, thread_info);
       if (move == MoveNone) {
         return;
@@ -213,7 +208,8 @@ void play_game(ThreadInfo &thread_info, uint64_t &num_fens, int id,
     }
   }
 
-  /*set_board(position, thread_info, "rnbqkbnr/4pppp/8/p2P4/p1pP1PP1/7P/1PP5/RNBQKBNR b KQkq - 0 7");
+  /*set_board(position, thread_info,
+  "rnbqkbnr/4pppp/8/p2P4/p1pP1PP1/7P/1PP5/RNBQKBNR b KQkq - 0 7");
   print_board(position);
   print_bbs(position);
   Move moves[256];
@@ -231,11 +227,7 @@ void play_game(ThreadInfo &thread_info, uint64_t &num_fens, int id,
   std::ofstream fr;
   fr.open(filename, std::ios::out | std::ios::app);
 
-  int handicap = dist(rd) % 2;
-
-
-  while (result == 0.5 &&
-         !is_draw(position, thread_info)) {
+  while (result == 0.5 && !is_draw(position, thread_info)) {
 
     int repeats = 1;
 
@@ -248,19 +240,8 @@ void play_game(ThreadInfo &thread_info, uint64_t &num_fens, int id,
       break;
     }
 
-    if (color == handicap) {
-      thread_info.opt_nodes_searched = 3000;
-      thread_info.max_nodes_searched = 30000;
-    }
-
-    else {
-      thread_info.opt_nodes_searched = 7000;
-      thread_info.max_nodes_searched = 70000;
-    }
-
     thread_info.start_time = std::chrono::steady_clock::now();
-    search_position(position, thread_info, color ? TT : TT2);
-
+    search_position(position, thread_info, TT);
     int score = thread_info.best_scores[0];
 
     int s = score;
@@ -278,12 +259,11 @@ void play_game(ThreadInfo &thread_info, uint64_t &num_fens, int id,
       }
       break;
     }
-                                                       
-    else if (thread_info.game_ply > 200){
-      if (score < -200){
+
+    else if (thread_info.game_ply > 200) {
+      if (score < -200) {
         result = 0;
-      }
-      else if (score > 200){
+      } else if (score > 200) {
         result = 1;
       }
       break;
@@ -298,8 +278,8 @@ void play_game(ThreadInfo &thread_info, uint64_t &num_fens, int id,
 
     bool is_noisy = is_cap(position, best_move);
 
-
-    ss_push(position, thread_info, best_move); // fill the game hist stack as we go
+    ss_push(position, thread_info,
+            best_move); // fill the game hist stack as we go
 
     make_move(position, best_move);
 
@@ -344,6 +324,8 @@ void run(int id) {
   thread_info->doing_datagen = true;
   thread_info->opt_time = UINT32_MAX / 2;
   thread_info->max_time = UINT32_MAX / 2;
+  thread_info->opt_nodes_searched = 5000;
+  thread_info->max_nodes_searched = 50000;
 
   start_time = std::chrono::steady_clock::now();
 
