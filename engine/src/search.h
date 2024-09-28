@@ -636,7 +636,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
               ply < thread_info.current_iter) {
 
             // In some cases we can even double extend
-            extension = 2;
+            extension = 2 + ((!is_capture) && sScore < sBeta - 100);
           } else {
             extension = 1;
           }
