@@ -343,12 +343,13 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
   }
 
   if (best_score == ScoreNone) { // handle no legal moves (stalemate/checkmate)
-    return in_check ? (Mate + ply) : 0;
+    return Mate + ply;
   }
 
   // insert entries and return
 
   entry_type = best_score >= beta ? EntryTypes::LBound
+  : best_score >= alpha ? EntryTypes::Exact
                                   : EntryTypes::UBound;
 
   insert_entry(entry, hash, 0, best_move, static_eval,
