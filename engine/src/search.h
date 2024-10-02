@@ -348,8 +348,9 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
 
   // insert entries and return
 
-  entry_type = best_score >= beta ? EntryTypes::LBound
-                                  : EntryTypes::UBound;
+  entry_type = best_score >= beta    ? EntryTypes::LBound
+               : best_score >= alpha ? EntryTypes::Exact
+                                     : EntryTypes::UBound;
 
   insert_entry(entry, hash, 0, best_move, static_eval,
                score_to_tt(best_score, ply), entry_type, thread_info.searches);
@@ -665,6 +666,8 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     // If that beats alpha, we search at normal depth with null window
     // If that also beats alpha, we search at normal depth with full window.
 
+    int newdepth = depth - 1 + extension;
+
     if (depth >= 3 && moves_played > is_pv) {
       int R = LMRTable[depth][moves_played];
       if (is_capture) {
@@ -677,8 +680,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
              10000;
       }
 
-      // Increase reduction if not in pv
-      R += !is_pv;
+      R -= is_pv;
 
       // Increase reduction if not improving
       R += !improving;
@@ -689,23 +691,23 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       R = std::clamp(R, 0, depth - 1);
 
       // Reduced search, reduced window
-      score = -search<false>(-alpha - 1, -alpha, depth - R + extension, true,
+      score = -search<false>(-alpha - 1, -alpha, newdepth - R, true,
                              moved_position, thread_info, TT);
       if (score > alpha) {
-        full_search = R > 1;
+        full_search = R > 0;
       }
     } else {
       full_search = moves_played || !is_pv;
     }
     if (full_search) {
       // Full search, null window
-      score = -search<false>(-alpha - 1, -alpha, depth - 1 + extension,
-                             !cutnode, moved_position, thread_info, TT);
+      score = -search<false>(-alpha - 1, -alpha, newdepth, !cutnode,
+                             moved_position, thread_info, TT);
     }
     if ((score > alpha || !moves_played) && is_pv) {
       // Full search, full window
-      score = -search<true>(-beta, -alpha, depth - 1 + extension, false,
-                            moved_position, thread_info, TT);
+      score = -search<true>(-beta, -alpha, newdepth, false, moved_position,
+                            thread_info, TT);
     }
 
     ss_pop(thread_info);
@@ -754,11 +756,10 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   }
 
   if (root) {
-    if (best_move != MoveNone){
+    if (best_move != MoveNone) {
       thread_info.best_moves[thread_info.multipv_index] = best_move;
     }
     thread_info.best_scores[thread_info.multipv_index] = best_score;
-
   }
 
   if (best_score >= beta) {
@@ -959,7 +960,9 @@ void iterative_deepen(
                             ? static_cast<int64_t>(nodes) * 1000 / search_time
                             : 123456789;
 
-          Move move = score <= alpha ? prev_best : thread_info.best_moves[thread_info.multipv_index];
+          Move move = score <= alpha
+                          ? prev_best
+                          : thread_info.best_moves[thread_info.multipv_index];
 
           printf("info multipv %i depth %i seldepth %i score cp %i %s nodes "
                  "%" PRIu64 " nps %" PRIi64 " time %" PRIi64 " pv %s\n",
@@ -977,9 +980,9 @@ void iterative_deepen(
           temp_depth = std::max(temp_depth - 1, 1);
         }
         delta += delta / 3;
-        
-        score =
-            search<true>(alpha, beta, temp_depth, false, position, thread_info, TT);
+
+        score = search<true>(alpha, beta, temp_depth, false, position,
+                             thread_info, TT);
       }
 
       if (score == ScoreNone) {
