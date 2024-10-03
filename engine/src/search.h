@@ -313,9 +313,17 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
     }
 
     int move_score = moves.scores[indx];
-    if (move_score < GoodCaptureBaseScore &&
-        !in_check) { // If we're not in check only look at good captures
-      break;
+    if (!in_check){
+      if (move_score < GoodCaptureBaseScore){
+        break;
+      }
+
+      if (static_eval + 200 < alpha){
+        int victim = SeeValues[get_piece_type(position.board[extract_to(move)])];
+        if (static_eval + victim + 200 < alpha){
+          continue;
+        }
+      }
     }
 
     Position moved_position = position;
