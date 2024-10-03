@@ -679,6 +679,8 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
              10000;
       }
 
+      R -= attacks_square(moved_position, get_king_pos(position, color^1), color);
+
       // Increase reduction if not in pv
       R += !is_pv;
 
