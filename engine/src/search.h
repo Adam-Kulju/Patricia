@@ -295,6 +295,9 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
     if (best_score >= beta) {
       return best_score;
     }
+    if (best_score > alpha) {
+      alpha = best_score;
+    }
   }
   MoveInfo moves;
   int num_moves =
@@ -348,9 +351,7 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
 
   // insert entries and return
 
-  entry_type = best_score >= beta ? EntryTypes::LBound
-  : best_score >= alpha ? EntryTypes::Exact
-                                  : EntryTypes::UBound;
+  entry_type = best_score >= beta ? EntryTypes::LBound : EntryTypes::UBound;
 
   insert_entry(entry, hash, 0, best_move, static_eval,
                score_to_tt(best_score, ply), entry_type, thread_info.searches);
