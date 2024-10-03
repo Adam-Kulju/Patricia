@@ -158,7 +158,7 @@ public:
   void add_add_sub_sub(int piece1, int from1, int to1, int piece2, int from2, int to2);
   void pop();
   int evaluate(int color);
-  void reset_nnue(Position position);
+  void reset_nnue(Position& position);
 
   template <bool Activate> inline void update_feature(int piece, int square);
 
@@ -255,7 +255,7 @@ inline void NNUE_State::update_feature(int piece, int square) {
   }
 }
 
-void NNUE_State::reset_nnue(Position position) {
+void NNUE_State::reset_nnue(Position& position) {
   m_curr = &m_accumulator_stack[0];
   m_curr->init(g_nnue.feature_bias);
 
