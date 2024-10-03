@@ -658,6 +658,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     ss_push(position, thread_info, move);
 
     bool full_search = false;
+    int newdepth = depth - 1 + extension;
 
     // Late Move Reductions (LMR): Moves ordered later in search and at high
     // depths can be searched to a lesser depth than normal. If the reduced
@@ -690,7 +691,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       R = std::clamp(R, 0, depth - 1);
 
       // Reduced search, reduced window
-      score = -search<false>(-alpha - 1, -alpha, depth - R + extension, true,
+      score = -search<false>(-alpha - 1, -alpha, newdepth - R + 1, true,
                              moved_position, thread_info, TT);
       if (score > alpha) {
         full_search = R > 1;
@@ -700,12 +701,12 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     }
     if (full_search) {
       // Full search, null window
-      score = -search<false>(-alpha - 1, -alpha, depth - 1 + extension,
+      score = -search<false>(-alpha - 1, -alpha, newdepth,
                              !cutnode, moved_position, thread_info, TT);
     }
     if ((score > alpha || !moves_played) && is_pv) {
       // Full search, full window
-      score = -search<true>(-beta, -alpha, depth - 1 + extension, false,
+      score = -search<true>(-beta, -alpha, newdepth, false,
                             moved_position, thread_info, TT);
     }
 
