@@ -321,6 +321,7 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
       if (static_eval + 200 < alpha){
         int victim = SeeValues[get_piece_type(position.board[extract_to(move)])];
         if (static_eval + victim + 200 < alpha){
+          best_score = std::max(best_score, static_eval + victim);
           continue;
         }
       }
