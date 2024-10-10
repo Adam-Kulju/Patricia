@@ -318,9 +318,9 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
         break;
       }
 
-      if (static_eval + 500 < alpha){
-        int victim = SeeValues[get_piece_type(position.board[extract_to(move)])];
-        if (static_eval + victim + 500 < alpha){
+    if (static_eval + QsearchFutilityThreshold < alpha){
+        int victim = SeeValues[get_piece_type(position.board[extract_to(move)])] * QsearchFutilityMult / 10;
+        if (static_eval + victim + QsearchFutilityThreshold < alpha){
           best_score = std::max(best_score, static_eval + victim);
           continue;
         }
