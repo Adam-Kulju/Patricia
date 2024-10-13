@@ -83,7 +83,7 @@ int eval(const Position &position, ThreadInfo &thread_info) {
   int color = position.color;
   int root_color = thread_info.search_ply % 2 ? color ^ 1 : color;
 
-  int eval = thread_info.nnue_state.evaluate(color);
+  int eval = thread_info.nnue_state.evaluate(color, position);
 
   if (thread_info.doing_datagen) {
     return std::clamp(eval, -MateScore, MateScore);
@@ -230,7 +230,7 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
 
   if (out_of_time(thread_info)) {
     // return if out of time
-    return thread_info.nnue_state.evaluate(position.color);
+    return thread_info.nnue_state.evaluate(position.color, position);
   }
   int color = position.color;
 

@@ -85,6 +85,7 @@ int main(int argc, char *argv[]) {
 
   init_LMR();
   init_bbs();
+  init_nn();
 
   if (argc > 1) {
     if (std::string(argv[1]) == "bench") {
