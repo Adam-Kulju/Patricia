@@ -245,8 +245,7 @@ void NNUE_State::add_add_sub_sub(int piece1, int from1, int to1, int piece2,
 void NNUE_State::pop() { m_curr--; }
 
 int NNUE_State::evaluate(int color, const Position &position) {
-  constexpr int divisor = (32 + OUTPUT_BUCKETS - 1) / OUTPUT_BUCKETS;
-  int outputBucket = __builtin_popcountll((position.colors_bb[0] | position.colors_bb[1]) - 2) / divisor;
+  int outputBucket = (__builtin_popcountll(position.colors_bb[0] | position.colors_bb[1]) - 2) / 4;
 
   const auto output =
       color == Colors::White
