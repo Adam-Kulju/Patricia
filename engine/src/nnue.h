@@ -41,20 +41,20 @@ constexpr int QAB = QA * QB;
 struct alignas(64) NNUE_Params {
   std::array<int16_t, INPUT_SIZE * LAYER1_SIZE> feature_v;
   std::array<int16_t, LAYER1_SIZE> feature_bias;
-  MultiArray<int16_t, OUTPUT_BUCKETS, LAYER1_SIZE * 2> output_v;
   MultiArray<int16_t, LAYER1_SIZE * 2, OUTPUT_BUCKETS> old_output_v;
   std::array<int16_t, OUTPUT_BUCKETS> output_biases;
 } content;
 
+MultiArray<int16_t, OUTPUT_BUCKETS, LAYER1_SIZE * 2> output_v;
+
 INCBIN(nnue, "src/abby.nnue");
-const NNUE_Params &g_nnue = *reinterpret_cast<const NNUE_Params *>(g_nnueData);
 
 void init_nn(){
-  content = g_nnue;
+  content = *reinterpret_cast<const NNUE_Params *>(g_nnueData);
   
-      for (int i = 0; i < 2 * LAYER1_SIZE; i++) {
+    for (int i = 0; i < 2 * LAYER1_SIZE; i++) {
       for (int j = 0; j < OUTPUT_BUCKETS; j++) {
-        content.output_v[j][i] = g_nnue.old_output_v[i][j];
+        output_v[j][i] = content.old_output_v[i][j];
       }
     }
 }
@@ -250,8 +250,8 @@ int NNUE_State::evaluate(int color, const Position &position) {
 
   const auto output =
       color == Colors::White
-          ? screlu_flatten(m_curr->white, m_curr->black, content.output_v[outputBucket])
-          : screlu_flatten(m_curr->black, m_curr->white, content.output_v[outputBucket]);
+          ? screlu_flatten(m_curr->white, m_curr->black, output_v[outputBucket])
+          : screlu_flatten(m_curr->black, m_curr->white, output_v[outputBucket]);
   return (output + content.output_biases[outputBucket]) * SCALE / QAB;
 }
 
