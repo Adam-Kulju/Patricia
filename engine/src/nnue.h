@@ -43,7 +43,7 @@ struct alignas(64) NNUE_Params {
   std::array<int16_t, LAYER1_SIZE> feature_bias;
   MultiArray<int16_t, OUTPUT_BUCKETS, LAYER1_SIZE * 2> output_v;
   MultiArray<int16_t, LAYER1_SIZE * 2, OUTPUT_BUCKETS> old_output_v;
-  int16_t output_bias;
+  std::array<int16_t, OUTPUT_BUCKETS> output_biases;
 } content;
 
 INCBIN(nnue, "src/abby.nnue");
@@ -54,11 +54,9 @@ void init_nn(){
   
       for (int i = 0; i < 2 * LAYER1_SIZE; i++) {
       for (int j = 0; j < OUTPUT_BUCKETS; j++) {
-        printf("%i %i\n", i, j);
         content.output_v[j][i] = g_nnue.old_output_v[i][j];
       }
     }
-    printf("hi\n");
 }
 
 template <size_t HiddenSize> struct alignas(64) Accumulator {
@@ -249,11 +247,12 @@ void NNUE_State::pop() { m_curr--; }
 int NNUE_State::evaluate(int color, const Position &position) {
   int outputBucket = (__builtin_popcountll(position.colors_bb[0] | position.colors_bb[1]) - 2) / 4;
 
+
   const auto output =
       color == Colors::White
           ? screlu_flatten(m_curr->white, m_curr->black, content.output_v[outputBucket])
           : screlu_flatten(m_curr->black, m_curr->white, content.output_v[outputBucket]);
-  return (output + content.output_bias) * SCALE / QAB;
+  return (output + content.output_biases[outputBucket]) * SCALE / QAB;
 }
 
 template <bool Activate>
