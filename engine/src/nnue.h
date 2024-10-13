@@ -50,6 +50,8 @@ INCBIN(nnue, "src/abby.nnue");
 const NNUE_Params &g_nnue = *reinterpret_cast<const NNUE_Params *>(g_nnueData);
 
 void init_nn(){
+  content = g_nnue;
+  
       for (int i = 0; i < 2 * LAYER1_SIZE; i++) {
       for (int j = 0; j < OUTPUT_BUCKETS; j++) {
         printf("%i %i\n", i, j);
