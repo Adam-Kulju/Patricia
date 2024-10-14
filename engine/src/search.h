@@ -702,13 +702,13 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     }
     if (full_search) {
       // Full search, null window
-      score = -search<false>(-alpha - 1, -alpha, newdepth, !cutnode,
-                             moved_position, thread_info, TT);
+      score = -search<false>(-alpha - 1, -alpha, newdepth,
+                             !cutnode, moved_position, thread_info, TT);
     }
     if ((score > alpha || !moves_played) && is_pv) {
       // Full search, full window
-      score = -search<true>(-beta, -alpha, newdepth, false, moved_position,
-                            thread_info, TT);
+      score = -search<true>(-beta, -alpha, newdepth, false,
+                            moved_position, thread_info, TT);
     }
 
     ss_pop(thread_info);
@@ -757,10 +757,11 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   }
 
   if (root) {
-    if (best_move != MoveNone) {
+    if (best_move != MoveNone){
       thread_info.best_moves[thread_info.multipv_index] = best_move;
     }
     thread_info.best_scores[thread_info.multipv_index] = best_score;
+
   }
 
   if (best_score >= beta) {
@@ -940,6 +941,9 @@ void iterative_deepen(
       // lands outside the bounds, expand them and try again.
 
       while (score <= alpha || score >= beta || thread_info.stop) {
+        if (thread_info.stop) {
+          goto finish;
+        }
 
         if (thread_info.thread_id == 0 && !thread_info.doing_datagen) {
           std::string bound_string;
@@ -958,19 +962,13 @@ void iterative_deepen(
                             ? static_cast<int64_t>(nodes) * 1000 / search_time
                             : 123456789;
 
-          Move move = score <= alpha
-                          ? prev_best
-                          : thread_info.best_moves[thread_info.multipv_index];
+          Move move = score <= alpha ? prev_best : thread_info.best_moves[thread_info.multipv_index];
 
           printf("info multipv %i depth %i seldepth %i score cp %i %s nodes "
                  "%" PRIu64 " nps %" PRIi64 " time %" PRIi64 " pv %s\n",
                  thread_info.multipv_index + 1, depth, thread_info.seldepth,
                  score * 100 / NormalizationFactor, bound_string.c_str(), nodes,
                  nps, search_time, internal_to_uci(position, move).c_str());
-        }
-
-        if (thread_info.stop) {
-          goto finish;
         }
 
         if (score <= alpha) {
@@ -982,9 +980,9 @@ void iterative_deepen(
           temp_depth = std::max(temp_depth - 1, 1);
         }
         delta += delta / 3;
-
-        score = search<true>(alpha, beta, temp_depth, false, position,
-                             thread_info, TT);
+        
+        score =
+            search<true>(alpha, beta, temp_depth, false, position, thread_info, TT);
       }
 
       if (score == ScoreNone) {
@@ -1037,32 +1035,31 @@ void iterative_deepen(
             nodes > thread_info.opt_nodes_searched) {
           thread_info.stop = true;
         }
+
+        else if (thread_info.multipv == 1 && depth > 6) {
+          if (thread_info.best_moves[0] == prev_best) {
+            bm_stability = std::min(bm_stability + 1, 8);
+          } else {
+            bm_stability = 0;
+          }
+
+          adjust_soft_limit(
+              thread_info,
+              find_root_move(thread_info, thread_info.best_moves[0])->nodes,
+              bm_stability);
+        }
       }
 
       if (thread_info.stop) {
         goto finish;
       }
-      alpha = ScoreNone, beta = -ScoreNone;
-    }
-    
-    if (depth > 6) {
 
-      alpha = thread_info.best_scores[0] - 20,
-      beta = thread_info.best_scores[0] + 20;
+      prev_best = thread_info.best_moves[0];
 
-      if (thread_info.best_moves[0] == prev_best) {
-        bm_stability = std::min(bm_stability + 1, 8);
-      } else {
-        bm_stability = 0;
+      if (depth > 6) {
+        alpha = score - 20, beta = score + 20;
       }
-
-      adjust_soft_limit(
-          thread_info,
-          find_root_move(thread_info, thread_info.best_moves[0])->nodes,
-          bm_stability);
     }
-
-    prev_best = thread_info.best_moves[0];
   }
 
 finish:
