@@ -1042,10 +1042,9 @@ void iterative_deepen(
       if (thread_info.stop) {
         goto finish;
       }
-
-      prev_best = thread_info.best_moves[0];
       alpha = ScoreNone, beta = -ScoreNone;
     }
+    
     if (depth > 6) {
 
       alpha = thread_info.best_scores[0] - 20,
@@ -1062,6 +1061,8 @@ void iterative_deepen(
           find_root_move(thread_info, thread_info.best_moves[0])->nodes,
           bm_stability);
     }
+
+    prev_best = thread_info.best_moves[0];
   }
 
 finish:
