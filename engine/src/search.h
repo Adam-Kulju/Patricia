@@ -929,6 +929,10 @@ void iterative_deepen(
          thread_info.multipv_index < real_multi_pv;
          thread_info.multipv_index++) {
 
+      if (depth > 7) {
+        alpha = thread_info.best_scores[thread_info.multipv_index] - 20, beta = thread_info.best_scores[thread_info.multipv_index] + 20;
+      }
+
       int temp_depth = depth;
 
       int score, delta = 20;
@@ -941,9 +945,6 @@ void iterative_deepen(
       // lands outside the bounds, expand them and try again.
 
       while (score <= alpha || score >= beta || thread_info.stop) {
-        if (thread_info.stop) {
-          goto finish;
-        }
 
         if (thread_info.thread_id == 0 && !thread_info.doing_datagen) {
           std::string bound_string;
@@ -969,6 +970,10 @@ void iterative_deepen(
                  thread_info.multipv_index + 1, depth, thread_info.seldepth,
                  score * 100 / NormalizationFactor, bound_string.c_str(), nodes,
                  nps, search_time, internal_to_uci(position, move).c_str());
+        }
+
+        if (thread_info.stop) {
+          goto finish;
         }
 
         if (score <= alpha) {
@@ -1027,10 +1032,6 @@ void iterative_deepen(
           print_pv(position, thread_info);
         }
 
-        else {
-          thread_info.best_scores[0] = score * 100 / NormalizationFactor;
-        }
-
         if (search_time > thread_info.opt_time ||
             nodes > thread_info.opt_nodes_searched) {
           thread_info.stop = true;
@@ -1056,10 +1057,8 @@ void iterative_deepen(
 
       prev_best = thread_info.best_moves[0];
 
-      if (depth > 6) {
-        alpha = score - 20, beta = score + 20;
-      }
     }
+
   }
 
 finish:
