@@ -942,6 +942,10 @@ void iterative_deepen(
 
       while (score <= alpha || score >= beta || thread_info.stop) {
 
+        if (thread_info.stop) {
+          goto finish;
+        }
+        
         if (thread_info.thread_id == 0 && !thread_info.doing_datagen) {
           std::string bound_string;
           if (score >= beta) {
@@ -966,10 +970,6 @@ void iterative_deepen(
                  thread_info.multipv_index + 1, depth, thread_info.seldepth,
                  score * 100 / NormalizationFactor, bound_string.c_str(), nodes,
                  nps, search_time, internal_to_uci(position, move).c_str());
-        }
-
-        if (thread_info.stop) {
-          goto finish;
         }
 
         if (score <= alpha) {
