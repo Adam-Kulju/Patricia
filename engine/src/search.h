@@ -1030,7 +1030,7 @@ void iterative_deepen(
         }
 
         else {
-          thread_info.best_scores[0] = score;
+          thread_info.best_scores[0] = score * 100 / NormalizationFactor;
         }
 
         if (search_time > thread_info.opt_time ||
