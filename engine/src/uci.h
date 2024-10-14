@@ -170,15 +170,13 @@ void uci(ThreadInfo &thread_info, Position &position) {
         thread_data.num_threads = value;
       }
 
-      else if (name == "UCI_Elo") {
+      else if (name == "UCI_Elo" && thread_info.is_human) {
         thread_info.cp_loss = 200 - (value / 15);
-        thread_info.is_human = true;
       }
 
-      else if (name == "Skill_Level") {
+      else if (name == "Skill_Level" && thread_info.is_human) {
         int to_elo = skill_levels[value - 1];
         thread_info.cp_loss = 200 - (to_elo / 15);
-        thread_info.is_human = true;
       }
 
       else if (name == "MultiPV") {
