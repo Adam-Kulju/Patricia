@@ -942,10 +942,11 @@ void iterative_deepen(
       // lands outside the bounds, expand them and try again.
 
       while (score <= alpha || score >= beta || thread_info.stop) {
+
         if (thread_info.stop) {
           goto finish;
         }
-
+        
         if (thread_info.thread_id == 0 && !thread_info.doing_datagen) {
           std::string bound_string;
           if (score >= beta) {
@@ -1057,8 +1058,11 @@ void iterative_deepen(
 
       prev_best = thread_info.best_moves[0];
 
-      if (depth > 6) {
+      if (depth > 6 && thread_info.multipv_index == 0) {
         alpha = score - 20, beta = score + 20;
+      }
+      else{
+        alpha = ScoreNone, beta = -ScoreNone;
       }
     }
   }
