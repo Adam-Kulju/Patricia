@@ -22,7 +22,7 @@
 #endif
 
 constexpr size_t INPUT_SIZE = 768;
-constexpr size_t LAYER1_SIZE = 768;
+constexpr size_t LAYER1_SIZE = 1024;
 
 constexpr int SCRELU_MIN = 0;
 constexpr int SCRELU_MAX = 255;
