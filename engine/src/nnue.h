@@ -44,7 +44,7 @@ struct alignas(64) NNUE_Params {
   int16_t output_bias;
 };
 
-INCBIN(nnue, "src/abby.nnue");
+INCBIN(nnue, "src/firefly.nnue");
 const NNUE_Params &g_nnue = *reinterpret_cast<const NNUE_Params *>(g_nnueData);
 
 template <size_t HiddenSize> struct alignas(64) Accumulator {
