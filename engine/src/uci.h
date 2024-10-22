@@ -271,6 +271,11 @@ void uci(ThreadInfo &thread_info, Position &position) {
     else if (command == "go") {
       thread_info.start_time = std::chrono::steady_clock::now();
 
+      for (int i = 0; i < thread_data.thread_infos.size(); i++){
+        while (!thread_data.thread_infos[i].finished){
+          ;
+        }
+      }
       if (s.joinable()) {
         s.join();
       }

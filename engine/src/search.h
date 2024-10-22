@@ -1105,8 +1105,9 @@ void loop(int i){
       if (thread_data.terminate){
         return;
       }
-      ;
     }
+    thread_data.thread_infos[i].finished = false;
     iterative_deepen(thread_data.thread_infos[i].position, thread_data.thread_infos[i], TT);
+    thread_data.thread_infos[i].finished = true;
   }
 }
