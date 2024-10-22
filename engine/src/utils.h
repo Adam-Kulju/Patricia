@@ -76,6 +76,7 @@ struct ThreadData {
   std::vector<ThreadInfo> thread_infos;
   std::vector<std::thread> threads;
   int num_threads = 1;
+  bool stop = true;
 };
 
 ThreadData thread_data;

@@ -1083,33 +1083,30 @@ void search_position(Position &position, ThreadInfo &thread_info,
 
   int num_threads = thread_data.num_threads;
 
-  for (int i = thread_data.thread_infos.size(); i < num_threads - 1; i++) {
-    thread_data.thread_infos.emplace_back();
-  }
-
   for (int i = 0; i < thread_data.thread_infos.size(); i++) {
     thread_data.thread_infos[i] = thread_info;
     thread_data.thread_infos[i].thread_id = i + 1;
   }
-
-  for (int i = 0; i < num_threads - 1; i++) {
-    thread_data.threads.emplace_back(
-        iterative_deepen, std::ref(thread_data.thread_infos[i].position),
-        std::ref(thread_data.thread_infos[i]), std::ref(TT));
-  }
+  
+  thread_data.stop = false;
   iterative_deepen(position, thread_info, TT);
+  thread_data.stop = true;
 
   for (auto &th : thread_data.thread_infos) {
     th.stop = true;
   }
 
-  for (auto &th : thread_data.threads) {
-    if (th.joinable()) {
-      th.join();
-    }
-  }
-
   thread_info.searches = (thread_info.searches + 1) % MaxAge;
+}
 
-  thread_data.threads.clear();
+void loop(int i){
+  thread_data.stop = true;
+  while (true){
+    while (thread_data.stop){
+      
+    }
+    printf("%i\n", thread_data.stop);
+
+    iterative_deepen(thread_data.thread_infos[i].position, thread_data.thread_infos[i], TT);
+  }
 }

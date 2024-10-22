@@ -22,10 +22,9 @@ void run_thread(Position &position, ThreadInfo &thread_info, std::thread &s) {
   }
 }
 
-uint64_t
-perft(int depth, Position &position, bool first)
-                               // Performs a perft search to the desired depth,
-                               // displaying results for each move at the root.
+uint64_t perft(int depth, Position &position, bool first)
+// Performs a perft search to the desired depth,
+// displaying results for each move at the root.
 {
   std::array<Move, ListSize> list;
   uint64_t total_nodes = 0;
@@ -35,8 +34,7 @@ perft(int depth, Position &position, bool first)
                              position.color ^ 1));
 
   if (depth <= 1) {
-    for (int i = 0; i < nmoves; i++)
-    {
+    for (int i = 0; i < nmoves; i++) {
       total_nodes += is_legal(position, list[i]);
     }
     return total_nodes;
@@ -45,14 +43,14 @@ perft(int depth, Position &position, bool first)
   for (int i = 0; i < nmoves;
        i++) // Loop through all of the moves, skipping illegal ones.
   {
-    if (! is_legal(position, list[i])) {
+    if (!is_legal(position, list[i])) {
       continue;
     }
     Position new_position = position;
     make_move(new_position, list[i]);
 
     uint64_t nodes = perft(depth - 1, new_position, false);
-    
+
     if (first) {
       printf("%s: %" PRIu64 "\n", internal_to_uci(position, list[i]).c_str(),
              nodes);
@@ -63,7 +61,7 @@ perft(int depth, Position &position, bool first)
   return total_nodes;
 }
 
-Move uci_to_internal(const Position& position, std::string uci) {
+Move uci_to_internal(const Position &position, std::string uci) {
   // Converts a uci move into an internal move.
   std::array<Move, ListSize> list;
   int nmoves =
@@ -71,12 +69,11 @@ Move uci_to_internal(const Position& position, std::string uci) {
               attacks_square(position, get_king_pos(position, position.color),
                              position.color ^ 1));
 
-  for (int i = 0; i < nmoves; i++)
-  {
+  for (int i = 0; i < nmoves; i++) {
     if (internal_to_uci(position, list[i]) == uci)
       return list[i];
   }
-  
+
   return 0;
 }
 
@@ -101,7 +98,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
     std::string command;
 
     input_stream >> std::skipws >> command; // write into command
-    
+
     if (command == "d") {
       input_stream.clear();
       input_stream.str("position fen "
@@ -167,6 +164,15 @@ void uci(ThreadInfo &thread_info, Position &position) {
       }
 
       else if (name == "Threads") {
+
+        thread_data.thread_infos.clear();
+        thread_data.threads.clear();
+
+        for (int i = 0; i < value - 1; i++) {
+          thread_data.thread_infos.emplace_back();
+          thread_data.threads.emplace_back(loop, i);
+        }
+
         thread_data.num_threads = value;
       }
 
@@ -197,6 +203,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
 
     else if (command == "stop") {
       thread_info.stop = true;
+
       if (s.joinable()) {
         s.join();
       }
@@ -243,7 +250,8 @@ void uci(ThreadInfo &thread_info, Position &position) {
         std::string moves;
         while (input_stream >> moves) {
           Move move = uci_to_internal(position, moves);
-          ss_push(position, thread_info, move); // fill the game hist stack as we go
+          ss_push(position, thread_info,
+                  move); // fill the game hist stack as we go
           make_move(position, move);
         }
       }
@@ -297,8 +305,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
 
     run:
       run_thread(position, thread_info, s);
-    }
-    else if (command == "perft") {
+    } else if (command == "perft") {
       int depth;
       input_stream >> depth;
       auto start_time = std::chrono::steady_clock::now();
@@ -306,8 +313,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
       uint64_t nodes = perft(depth, position, true);
 
       printf("%" PRIu64 " nodes %" PRIu64 " nps\n", nodes,
-           (uint64_t)(nodes * 1000 /
-                      (time_elapsed(start_time))));
+             (uint64_t)(nodes * 1000 / (time_elapsed(start_time))));
     }
   }
 }
