@@ -1100,13 +1100,13 @@ void search_position(Position &position, ThreadInfo &thread_info,
 }
 
 void loop(int i){
-  thread_data.stop = true;
   while (true){
     while (thread_data.stop){
-      
+      if (thread_data.terminate){
+        return;
+      }
+      ;
     }
-    printf("%i\n", thread_data.stop);
-
     iterative_deepen(thread_data.thread_infos[i].position, thread_data.thread_infos[i], TT);
   }
 }

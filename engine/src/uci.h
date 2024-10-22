@@ -165,8 +165,18 @@ void uci(ThreadInfo &thread_info, Position &position) {
 
       else if (name == "Threads") {
 
+        thread_data.terminate = true;
+
+        for (int i = 0; i < thread_data.threads.size(); i++){
+          if (thread_data.threads[i].joinable()){
+            thread_data.threads[i].join();
+          }
+        }
+
         thread_data.thread_infos.clear();
         thread_data.threads.clear();
+
+        thread_data.terminate = false;
 
         for (int i = 0; i < value - 1; i++) {
           thread_data.thread_infos.emplace_back();
