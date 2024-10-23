@@ -212,7 +212,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
     }
 
     else if (command == "stop") {
-      thread_info.stop = true;
+      thread_data.stop = true;
 
       if (s.joinable()) {
         s.join();

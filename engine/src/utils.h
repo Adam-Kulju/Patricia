@@ -29,7 +29,6 @@ struct ThreadInfo {
   uint32_t original_opt;
 
   uint16_t time_checks;
-  bool stop;
 
   NNUE_State nnue_state;
 
