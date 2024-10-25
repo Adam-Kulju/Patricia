@@ -29,7 +29,6 @@ struct ThreadInfo {
   uint32_t original_opt;
 
   uint16_t time_checks;
-  bool stop;
 
   NNUE_State nnue_state;
 
@@ -62,6 +61,7 @@ struct ThreadInfo {
   Position position;
 
   uint8_t searches = 0;
+  volatile bool searching = false;
 };
 
 RootMoveInfo* find_root_move(ThreadInfo& thread_info, Move move) {
@@ -76,6 +76,8 @@ struct ThreadData {
   std::vector<ThreadInfo> thread_infos;
   std::vector<std::thread> threads;
   int num_threads = 1;
+  std::atomic<bool> stop = true;
+  std::atomic<bool> terminate = false;
 };
 
 ThreadData thread_data;

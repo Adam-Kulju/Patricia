@@ -13,7 +13,7 @@ void update_history(int16_t &entry, int score) { // Update history score
 }
 
 bool out_of_time(ThreadInfo &thread_info) {
-  if (thread_info.stop) {
+  if (thread_data.stop) {
     return true;
   } else if (thread_info.thread_id != 0 || thread_info.current_iter == 1) {
     return false;
@@ -28,14 +28,14 @@ bool out_of_time(ThreadInfo &thread_info) {
       // skill level. In that case, we don't want the engine to move instantly.
     }
 
-    thread_info.stop = true;
+    thread_data.stop = true;
     return true;
   }
   thread_info.time_checks++;
   if (thread_info.time_checks == 1024) {
     thread_info.time_checks = 0;
     if (time_elapsed(thread_info.start_time) > thread_info.max_time) {
-      thread_info.stop = true;
+      thread_data.stop = true;
       return true;
     }
   }
@@ -327,7 +327,7 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
     int score = -qsearch(-beta, -alpha, moved_position, thread_info, TT);
     ss_pop(thread_info);
 
-    if (thread_info.stop) {
+    if (thread_data.stop) {
       // return if we ran out of time for search
       return best_score;
     }
@@ -713,7 +713,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
     ss_pop(thread_info);
 
-    if (thread_info.stop) {
+    if (thread_data.stop) {
       // return if we ran out of time for search
       return best_score;
     }
@@ -898,7 +898,6 @@ void iterative_deepen(
   position.zobrist_key = calculate(position);
   thread_info.nodes = 0;
   thread_info.time_checks = 0;
-  thread_info.stop = false;
   thread_info.search_ply = 0; // reset all relevant thread_info
   thread_info.excluded_move = MoveNone;
   thread_info.best_moves = {0};
@@ -940,9 +939,9 @@ void iterative_deepen(
       // the last search score in order to get cutoffs faster. If our search
       // lands outside the bounds, expand them and try again.
 
-      while (score <= alpha || score >= beta || thread_info.stop) {
+      while (score <= alpha || score >= beta || thread_data.stop) {
 
-        if (thread_info.stop) {
+        if (thread_data.stop) {
           goto finish;
         }
         
@@ -1034,7 +1033,7 @@ void iterative_deepen(
 
         if (search_time > thread_info.opt_time ||
             nodes > thread_info.opt_nodes_searched) {
-          thread_info.stop = true;
+          thread_data.stop = true;
         }
 
         else if (thread_info.multipv == 1 && depth > 6) {
@@ -1051,7 +1050,7 @@ void iterative_deepen(
         }
       }
 
-      if (thread_info.stop) {
+      if (thread_data.stop) {
         goto finish;
       }
 
@@ -1083,33 +1082,27 @@ void search_position(Position &position, ThreadInfo &thread_info,
 
   int num_threads = thread_data.num_threads;
 
-  for (int i = thread_data.thread_infos.size(); i < num_threads - 1; i++) {
-    thread_data.thread_infos.emplace_back();
-  }
-
   for (int i = 0; i < thread_data.thread_infos.size(); i++) {
     thread_data.thread_infos[i] = thread_info;
     thread_data.thread_infos[i].thread_id = i + 1;
   }
-
-  for (int i = 0; i < num_threads - 1; i++) {
-    thread_data.threads.emplace_back(
-        iterative_deepen, std::ref(thread_data.thread_infos[i].position),
-        std::ref(thread_data.thread_infos[i]), std::ref(TT));
-  }
+  
+  thread_data.stop = false;
   iterative_deepen(position, thread_info, TT);
-
-  for (auto &th : thread_data.thread_infos) {
-    th.stop = true;
-  }
-
-  for (auto &th : thread_data.threads) {
-    if (th.joinable()) {
-      th.join();
-    }
-  }
+  thread_data.stop = true;
 
   thread_info.searches = (thread_info.searches + 1) % MaxAge;
+}
 
-  thread_data.threads.clear();
+void loop(int i){
+  while (true){
+    while (thread_data.stop){
+      if (thread_data.terminate){
+        return;
+      }
+    }
+    thread_data.thread_infos[i].searching = true;
+    iterative_deepen(thread_data.thread_infos[i].position, thread_data.thread_infos[i], TT);
+    thread_data.thread_infos[i].searching = false;
+  }
 }
