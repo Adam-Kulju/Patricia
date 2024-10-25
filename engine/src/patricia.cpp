@@ -69,7 +69,7 @@ void bench(Position &position, ThreadInfo &thread_info) {
     new_game(thread_info, TT);
     set_board(position, thread_info, fen);
     thread_info.start_time = std::chrono::steady_clock::now();
-    iterative_deepen(position, thread_info, TT);
+    search_position(position, thread_info, TT);
     total_nodes += thread_info.nodes;
   }
 

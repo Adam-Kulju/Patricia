@@ -898,7 +898,6 @@ void iterative_deepen(
   position.zobrist_key = calculate(position);
   thread_info.nodes = 0;
   thread_info.time_checks = 0;
-  thread_data.stop = false;
   thread_info.search_ply = 0; // reset all relevant thread_info
   thread_info.excluded_move = MoveNone;
   thread_info.best_moves = {0};
@@ -1090,6 +1089,7 @@ void search_position(Position &position, ThreadInfo &thread_info,
   
   thread_data.stop = false;
   iterative_deepen(position, thread_info, TT);
+  thread_data.stop = true;
 
   thread_info.searches = (thread_info.searches + 1) % MaxAge;
 }
@@ -1101,8 +1101,8 @@ void loop(int i){
         return;
       }
     }
-    thread_data.thread_infos[i].finished = false;
+    thread_data.thread_infos[i].searching = true;
     iterative_deepen(thread_data.thread_infos[i].position, thread_data.thread_infos[i], TT);
-    thread_data.thread_infos[i].finished = true;
+    thread_data.thread_infos[i].searching = false;
   }
 }

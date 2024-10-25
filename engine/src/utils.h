@@ -61,8 +61,7 @@ struct ThreadInfo {
   Position position;
 
   uint8_t searches = 0;
-
-  volatile bool finished = true;
+  volatile bool searching = false;
 };
 
 RootMoveInfo* find_root_move(ThreadInfo& thread_info, Move move) {

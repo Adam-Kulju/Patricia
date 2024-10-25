@@ -220,6 +220,8 @@ void uci(ThreadInfo &thread_info, Position &position) {
     }
 
     else if (command == "ucinewgame") {
+      thread_data.stop = true;
+
       if (s.joinable()) {
         s.join();
       }
@@ -272,7 +274,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
       thread_info.start_time = std::chrono::steady_clock::now();
 
       for (int i = 0; i < thread_data.thread_infos.size(); i++){
-        while (!thread_data.thread_infos[i].finished){
+        while (thread_data.thread_infos[i].searching){
           ;
         }
       }
