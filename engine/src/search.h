@@ -387,12 +387,23 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     int draw_score = 2 - (thread_info.nodes & 3);
 
     int m = material_eval(position);
-    if (m < 0) {
-      return draw_score;
-    } else if (m > 0 || total_mat(position) > 3000) {
-      draw_score -= 30;
+
+    if (ply % 2) {
+      if (m > 0) {
+        return draw_score;
+      }
+      if (m < 0 || total_mat(position) < 3000) {
+        draw_score += 50;
+      }
+    } else {
+      if (m < 0) {
+        return draw_score;
+      } else if (m > 0 || total_mat(position) > 3000) {
+        draw_score -= 50;
+      }
     }
-    return ply % 2 ? -draw_score : draw_score;
+
+    return draw_score;
     // We want to discourage draws at the root.
     // ply 0 - make a move that makes the position a draw
     // ply 1 - bonus to side, which is penalty to us
@@ -702,13 +713,13 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     }
     if (full_search) {
       // Full search, null window
-      score = -search<false>(-alpha - 1, -alpha, newdepth,
-                             !cutnode, moved_position, thread_info, TT);
+      score = -search<false>(-alpha - 1, -alpha, newdepth, !cutnode,
+                             moved_position, thread_info, TT);
     }
     if ((score > alpha || !moves_played) && is_pv) {
       // Full search, full window
-      score = -search<true>(-beta, -alpha, newdepth, false,
-                            moved_position, thread_info, TT);
+      score = -search<true>(-beta, -alpha, newdepth, false, moved_position,
+                            thread_info, TT);
     }
 
     ss_pop(thread_info);
@@ -757,11 +768,10 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   }
 
   if (root) {
-    if (best_move != MoveNone){
+    if (best_move != MoveNone) {
       thread_info.best_moves[thread_info.multipv_index] = best_move;
     }
     thread_info.best_scores[thread_info.multipv_index] = best_score;
-
   }
 
   if (best_score >= beta) {
@@ -944,7 +954,7 @@ void iterative_deepen(
         if (thread_data.stop) {
           goto finish;
         }
-        
+
         if (thread_info.thread_id == 0 && !thread_info.doing_datagen) {
           std::string bound_string;
           if (score >= beta) {
@@ -962,7 +972,9 @@ void iterative_deepen(
                             ? static_cast<int64_t>(nodes) * 1000 / search_time
                             : 123456789;
 
-          Move move = score <= alpha ? prev_best : thread_info.best_moves[thread_info.multipv_index];
+          Move move = score <= alpha
+                          ? prev_best
+                          : thread_info.best_moves[thread_info.multipv_index];
 
           printf("info multipv %i depth %i seldepth %i score cp %i %s nodes "
                  "%" PRIu64 " nps %" PRIi64 " time %" PRIi64 " pv %s\n",
@@ -980,9 +992,9 @@ void iterative_deepen(
           temp_depth = std::max(temp_depth - 1, 1);
         }
         delta += delta / 3;
-        
-        score =
-            search<true>(alpha, beta, temp_depth, false, position, thread_info, TT);
+
+        score = search<true>(alpha, beta, temp_depth, false, position,
+                             thread_info, TT);
       }
 
       if (score == ScoreNone) {
@@ -1058,8 +1070,7 @@ void iterative_deepen(
 
       if (depth > 6 && thread_info.multipv_index == 0) {
         alpha = score - 20, beta = score + 20;
-      }
-      else{
+      } else {
         alpha = ScoreNone, beta = -ScoreNone;
       }
     }
@@ -1086,7 +1097,7 @@ void search_position(Position &position, ThreadInfo &thread_info,
     thread_data.thread_infos[i] = thread_info;
     thread_data.thread_infos[i].thread_id = i + 1;
   }
-  
+
   thread_data.stop = false;
   iterative_deepen(position, thread_info, TT);
   thread_data.stop = true;
@@ -1094,15 +1105,16 @@ void search_position(Position &position, ThreadInfo &thread_info,
   thread_info.searches = (thread_info.searches + 1) % MaxAge;
 }
 
-void loop(int i){
-  while (true){
-    while (thread_data.stop){
-      if (thread_data.terminate){
+void loop(int i) {
+  while (true) {
+    while (thread_data.stop) {
+      if (thread_data.terminate) {
         return;
       }
     }
     thread_data.thread_infos[i].searching = true;
-    iterative_deepen(thread_data.thread_infos[i].position, thread_data.thread_infos[i], TT);
+    iterative_deepen(thread_data.thread_infos[i].position,
+                     thread_data.thread_infos[i], TT);
     thread_data.thread_infos[i].searching = false;
   }
 }
