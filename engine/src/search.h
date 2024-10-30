@@ -1077,6 +1077,8 @@ void iterative_deepen(
   }
 
 finish:
+  // wait for all threads to finish searching
+  search_end_barrier.arrive_and_wait();
   if (thread_info.thread_id == 0 && !thread_info.doing_datagen &&
       !thread_info.is_human) {
     printf("bestmove %s\n",
@@ -1093,10 +1095,16 @@ void search_position(Position &position, ThreadInfo &thread_info,
 
   int num_threads = thread_data.num_threads;
 
+  // Wait for threads to be ready
+  reset_barrier.arrive_and_wait();
+
   for (int i = 0; i < thread_data.thread_infos.size(); i++) {
     thread_data.thread_infos[i] = thread_info;
     thread_data.thread_infos[i].thread_id = i + 1;
   }
+
+  // Tell threads to start
+  idle_barrier.arrive_and_wait();
 
   thread_data.stop = false;
   iterative_deepen(position, thread_info, TT);
@@ -1107,10 +1115,10 @@ void search_position(Position &position, ThreadInfo &thread_info,
 
 void loop(int i) {
   while (true) {
-    while (thread_data.stop) {
-      if (thread_data.terminate) {
-        return;
-      }
+    reset_barrier.arrive_and_wait();
+    idle_barrier.arrive_and_wait();
+    if (thread_data.terminate) {
+      return;
     }
     thread_data.thread_infos[i].searching = true;
     iterative_deepen(thread_data.thread_infos[i].position,

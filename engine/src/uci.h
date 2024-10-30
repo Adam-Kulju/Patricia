@@ -167,8 +167,11 @@ void uci(ThreadInfo &thread_info, Position &position) {
 
         thread_data.terminate = true;
 
-        for (int i = 0; i < thread_data.threads.size(); i++){
-          if (thread_data.threads[i].joinable()){
+        reset_barrier.arrive_and_wait();
+        idle_barrier.arrive_and_wait();
+
+        for (int i = 0; i < thread_data.threads.size(); i++) {
+          if (thread_data.threads[i].joinable()) {
             thread_data.threads[i].join();
           }
         }
@@ -177,13 +180,17 @@ void uci(ThreadInfo &thread_info, Position &position) {
         thread_data.threads.clear();
 
         thread_data.terminate = false;
+        thread_data.num_threads = value;
+
+        reset_barrier.reset(thread_data.num_threads);
+        idle_barrier.reset(thread_data.num_threads);
+        search_end_barrier.reset(thread_data.num_threads);
 
         for (int i = 0; i < value - 1; i++) {
           thread_data.thread_infos.emplace_back();
           thread_data.threads.emplace_back(loop, i);
         }
 
-        thread_data.num_threads = value;
       }
 
       else if (name == "UCI_Elo" && thread_info.is_human) {
@@ -273,8 +280,8 @@ void uci(ThreadInfo &thread_info, Position &position) {
     else if (command == "go") {
       thread_info.start_time = std::chrono::steady_clock::now();
 
-      for (int i = 0; i < thread_data.thread_infos.size(); i++){
-        while (thread_data.thread_infos[i].searching){
+      for (int i = 0; i < thread_data.thread_infos.size(); i++) {
+        while (thread_data.thread_infos[i].searching) {
           ;
         }
       }
