@@ -180,18 +180,16 @@ void uci(ThreadInfo &thread_info, Position &position) {
         thread_data.threads.clear();
 
         thread_data.terminate = false;
+        thread_data.num_threads = value;
+
+        reset_barrier.reset(thread_data.num_threads);
+        idle_barrier.reset(thread_data.num_threads);
+        search_end_barrier.reset(thread_data.num_threads);
 
         for (int i = 0; i < value - 1; i++) {
           thread_data.thread_infos.emplace_back();
           thread_data.threads.emplace_back(loop, i);
         }
-
-        thread_data.num_threads = value;
-
-        reset_barrier.reset(thread_data.num_threads);
-        idle_barrier.reset(thread_data.num_threads);
-
-        search_end_barrier.reset(thread_data.num_threads);
 
       }
 
