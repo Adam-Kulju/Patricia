@@ -1106,7 +1106,9 @@ void search_position(Position &position, ThreadInfo &thread_info,
   // Tell threads to start
   idle_barrier.arrive_and_wait();
 
+  thread_data.stop = false;
   iterative_deepen(position, thread_info, TT);
+  thread_data.stop = true;
 
   thread_info.searches = (thread_info.searches + 1) % MaxAge;
 }

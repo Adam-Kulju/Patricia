@@ -273,6 +273,6 @@ int64_t time_elapsed(std::chrono::steady_clock::time_point start_time) {
 		std::condition_variable m_waitSignal{};
 	};
 
-  Barrier reset_barrier{2};
-  Barrier idle_barrier{2};
+  Barrier reset_barrier{1};
+  Barrier idle_barrier{1};
   Barrier search_end_barrier{1};
