@@ -5,6 +5,8 @@
 #include <stdio.h>
 #include <thread>
 #include <vector>
+#include <mutex>
+#include <condition_variable>
 
 using std::array;
 
@@ -220,3 +222,57 @@ int64_t time_elapsed(std::chrono::steady_clock::time_point start_time) {
   return std::chrono::duration_cast<std::chrono::milliseconds>(now - start_time)
       .count();
 }
+
+
+	class Barrier
+	{
+	public:
+		explicit Barrier(int64_t expected)
+		{
+			reset(expected);
+		}
+
+		auto reset(int64_t expected) -> void
+		{
+
+			m_total.store(expected, std::memory_order::seq_cst);
+			m_current.store(expected, std::memory_order::seq_cst);
+		}
+
+		auto arrive_and_wait()
+		{
+			std::unique_lock lock{m_waitMutex};
+
+			const auto current = --m_current;
+
+			if (current > 0)
+			{
+				const auto phase = m_phase.load(std::memory_order::relaxed);
+				m_waitSignal.wait(lock, [this, phase]
+				{
+					return (phase - m_phase.load(std::memory_order::acquire)) < 0;
+				});
+			}
+			else
+			{
+				const auto total = m_total.load(std::memory_order::acquire);
+				m_current.store(total, std::memory_order::release);
+
+				++m_phase;
+
+				m_waitSignal.notify_all();
+			}
+		}
+
+	private:
+		std::atomic<int64_t> m_total{};
+		std::atomic<int64_t> m_current{};
+		std::atomic<int64_t> m_phase{};
+
+		std::mutex m_waitMutex{};
+		std::condition_variable m_waitSignal{};
+	};
+
+  Barrier reset_barrier{2};
+  Barrier idle_barrier{2};
+  Barrier search_end_barrier{1};
