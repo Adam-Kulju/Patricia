@@ -1113,15 +1113,16 @@ void search_position(Position &position, ThreadInfo &thread_info,
   thread_info.searches = (thread_info.searches + 1) % MaxAge;
 }
 
-void loop(int i){
-  while (true){
+void loop(int i) {
+  while (true) {
     reset_barrier.arrive_and_wait();
     idle_barrier.arrive_and_wait();
-    if (thread_data.terminate){
+    if (thread_data.terminate) {
       return;
     }
     thread_data.thread_infos[i].searching = true;
-    iterative_deepen(thread_data.thread_infos[i].position, thread_data.thread_infos[i], TT);
+    iterative_deepen(thread_data.thread_infos[i].position,
+                     thread_data.thread_infos[i], TT);
     thread_data.thread_infos[i].searching = false;
   }
 }

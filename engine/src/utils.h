@@ -2,11 +2,11 @@
 #include "defs.h"
 #include "nnue.h"
 #include "params.h"
+#include <condition_variable>
+#include <mutex>
 #include <stdio.h>
 #include <thread>
 #include <vector>
-#include <mutex>
-#include <condition_variable>
 
 using std::array;
 
@@ -19,7 +19,7 @@ struct ThreadInfo {
   uint16_t game_ply;   // how far we're into the game
   uint16_t search_ply; // depth that we are in the search tree
 
-  uint64_t nodes;      // Total nodes searched so far this search
+  uint64_t nodes; // Total nodes searched so far this search
   std::vector<RootMoveInfo> root_moves;
 
   std::chrono::steady_clock::time_point start_time; // Start time of the search
@@ -66,10 +66,10 @@ struct ThreadInfo {
   volatile bool searching = false;
 };
 
-RootMoveInfo* find_root_move(ThreadInfo& thread_info, Move move) {
+RootMoveInfo *find_root_move(ThreadInfo &thread_info, Move move) {
   for (int i = 0; i < thread_info.root_moves.size(); i++) {
     if (thread_info.root_moves[i].move == move)
-      return & thread_info.root_moves[i];
+      return &thread_info.root_moves[i];
   }
   return nullptr;
 }
@@ -107,22 +107,27 @@ uint16_t get_hash_low_bits(uint64_t hash) {
 }
 
 int32_t score_to_tt(int32_t score, int32_t ply) {
-  if (score == ScoreNone) return ScoreNone;
-  if (score > MateScore)  return score + ply;
-  if (score < -MateScore) return score - ply;
+  if (score == ScoreNone)
+    return ScoreNone;
+  if (score > MateScore)
+    return score + ply;
+  if (score < -MateScore)
+    return score - ply;
   return score;
 }
 
 int32_t score_from_tt(int32_t score, int32_t ply) {
-  if (score == ScoreNone) return ScoreNone;
-  if (score > MateScore)  return score - ply;
-  if (score < -MateScore) return score + ply;
+  if (score == ScoreNone)
+    return ScoreNone;
+  if (score > MateScore)
+    return score - ply;
+  if (score < -MateScore)
+    return score + ply;
   return score;
 }
 
 void resize_TT(int size) {
-  TT_size =
-      static_cast<uint64_t>(size) * 1024 * 1024 / sizeof(TTBucket);
+  TT_size = static_cast<uint64_t>(size) * 1024 * 1024 / sizeof(TTBucket);
   TT.resize(TT_size);
   std::memset(&TT[0], 0, TT_size * sizeof(TT[0]));
 }
@@ -131,34 +136,35 @@ uint64_t hash_to_idx(uint64_t hash) {
   return (uint128_t(hash) * uint128_t(TT_size)) >> 64;
 }
 
-int entry_quality(TTEntry& entry, int searches) {
+int entry_quality(TTEntry &entry, int searches) {
   int age_diff = (MaxAge + searches - entry.get_age()) % MaxAge;
   return entry.depth - age_diff * 8;
 }
 
-TTEntry& probe_entry(uint64_t hash, bool &hit, uint8_t searches, std::vector<TTBucket> &TT) {
+TTEntry &probe_entry(uint64_t hash, bool &hit, uint8_t searches,
+                     std::vector<TTBucket> &TT) {
 
   uint16_t hash_key = get_hash_low_bits(hash);
-  auto& entries = TT[hash_to_idx(hash)].entries;
+  auto &entries = TT[hash_to_idx(hash)].entries;
 
   for (int i = 0; i < BucketEntries; i++) {
-    bool empty =   entries[i].score == 0 
-                && entries[i].get_type() == EntryTypes::None;
+    bool empty =
+        entries[i].score == 0 && entries[i].get_type() == EntryTypes::None;
 
     if (empty || entries[i].position_key == hash_key) {
       hit = !empty;
-      entries[i].age_bound =  (searches << 2) | entries[i].get_type();
+      entries[i].age_bound = (searches << 2) | entries[i].get_type();
       return entries[i];
     }
   }
 
-  TTEntry* worst = & (entries[0]);
+  TTEntry *worst = &(entries[0]);
   int worst_quality = entry_quality(*worst, searches);
 
   for (int i = 1; i < BucketEntries; i++) {
     int this_quality = entry_quality(entries[i], searches);
     if (this_quality < worst_quality) {
-      worst = & (entries[i]);
+      worst = &(entries[i]);
       worst_quality = this_quality;
     }
   }
@@ -167,26 +173,24 @@ TTEntry& probe_entry(uint64_t hash, bool &hit, uint8_t searches, std::vector<TTB
   return *worst;
 }
 
-void insert_entry(TTEntry& entry, uint64_t hash, int depth, Move best_move, 
-                  int32_t static_eval, int32_t score, uint8_t bound_type, uint8_t searches)
-{ // Inserts an entry into the transposition table.
-                      
+void insert_entry(
+    TTEntry &entry, uint64_t hash, int depth, Move best_move,
+    int32_t static_eval, int32_t score, uint8_t bound_type,
+    uint8_t searches) { // Inserts an entry into the transposition table.
+
   uint16_t hash_key = get_hash_low_bits(hash);
 
   if (best_move != MoveNone || hash_key != entry.position_key) {
     entry.best_move = best_move;
   }
 
-  if (entry.position_key == hash_key &&
-      (bound_type != EntryTypes::Exact) &&
+  if (entry.position_key == hash_key && (bound_type != EntryTypes::Exact) &&
       entry.depth > depth + 4) {
     return;
   }
 
-  entry.position_key = hash_key,
-  entry.depth = static_cast<uint8_t>(depth),
-  entry.static_eval = static_eval,
-  entry.score = score,
+  entry.position_key = hash_key, entry.depth = static_cast<uint8_t>(depth),
+  entry.static_eval = static_eval, entry.score = score,
   entry.age_bound = (searches << 2) | bound_type;
 }
 
@@ -223,56 +227,48 @@ int64_t time_elapsed(std::chrono::steady_clock::time_point start_time) {
       .count();
 }
 
+// ty to Ciekce (https://github.com/Ciekce/Stormphrax) for providing this code
+// in a pinch to fix a critical bug.
 
-	class Barrier
-	{
-	public:
-		explicit Barrier(int64_t expected)
-		{
-			reset(expected);
-		}
+class Barrier {
+public:
+  Barrier(int64_t expected) { reset(expected); }
 
-		auto reset(int64_t expected) -> void
-		{
+  auto reset(int64_t expected) -> void {
 
-			m_total.store(expected, std::memory_order::seq_cst);
-			m_current.store(expected, std::memory_order::seq_cst);
-		}
+    m_total.store(expected, std::memory_order::seq_cst);
+    m_current.store(expected, std::memory_order::seq_cst);
+  }
 
-		auto arrive_and_wait()
-		{
-			std::unique_lock lock{m_waitMutex};
+  auto arrive_and_wait() {
+    std::unique_lock lock{wait_mutex};
 
-			const auto current = --m_current;
+    const auto current = --m_current;
 
-			if (current > 0)
-			{
-				const auto phase = m_phase.load(std::memory_order::relaxed);
-				m_waitSignal.wait(lock, [this, phase]
-				{
-					return (phase - m_phase.load(std::memory_order::acquire)) < 0;
-				});
-			}
-			else
-			{
-				const auto total = m_total.load(std::memory_order::acquire);
-				m_current.store(total, std::memory_order::release);
+    if (current > 0) {
+      const auto phase = m_phase.load(std::memory_order::relaxed);
+      wait_signal.wait(lock, [this, phase] {
+        return (phase - m_phase.load(std::memory_order::acquire)) < 0;
+      });
+    } else {
+      const auto total = m_total.load(std::memory_order::acquire);
+      m_current.store(total, std::memory_order::release);
 
-				++m_phase;
+      m_phase++;
 
-				m_waitSignal.notify_all();
-			}
-		}
+      wait_signal.notify_all();
+    }
+  }
 
-	private:
-		std::atomic<int64_t> m_total{};
-		std::atomic<int64_t> m_current{};
-		std::atomic<int64_t> m_phase{};
+private:
+  std::atomic<int64_t> m_total{};
+  std::atomic<int64_t> m_current{};
+  std::atomic<int64_t> m_phase{};
 
-		std::mutex m_waitMutex{};
-		std::condition_variable m_waitSignal{};
-	};
+  std::mutex wait_mutex{};
+  std::condition_variable wait_signal{};
+};
 
-  Barrier reset_barrier{1};
-  Barrier idle_barrier{1};
-  Barrier search_end_barrier{1};
+Barrier reset_barrier{1};
+Barrier idle_barrier{1};
+Barrier search_end_barrier{1};
