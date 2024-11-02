@@ -1075,6 +1075,9 @@ void iterative_deepen(
       }
     }
   }
+  if (thread_info.thread_id == 0) {
+    thread_data.stop = true;
+  }
 
 finish:
   // wait for all threads to finish searching
@@ -1108,7 +1111,6 @@ void search_position(Position &position, ThreadInfo &thread_info,
 
   thread_data.stop = false;
   iterative_deepen(position, thread_info, TT);
-  thread_data.stop = true;
 
   thread_info.searches = (thread_info.searches + 1) % MaxAge;
 }
