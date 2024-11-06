@@ -288,7 +288,8 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
       raw_eval = eval(position, thread_info);
       best_score = static_eval = correct_eval(position, thread_info, raw_eval);
     } else {
-      best_score = static_eval = tt_static_eval;
+      raw_eval = tt_static_eval;
+      best_score = static_eval = correct_eval(position, thread_info, raw_eval);
     }
 
     if (tt_score != ScoreNone) {
