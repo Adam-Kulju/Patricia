@@ -509,6 +509,7 @@ void make_move(Position &position, Move move) { // Perform a move on the board.
   }
   position.ep_square = ep_square;
   position.zobrist_key = temp_hash;
+  position.pawn_key = temp_pawns;
 
   __builtin_prefetch(&TT[hash_to_idx(temp_hash)]);
 }
