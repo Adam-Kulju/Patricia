@@ -355,6 +355,7 @@ void make_move(Position &position, Move move) { // Perform a move on the board.
   }
 
   uint64_t temp_hash = position.zobrist_key;
+  uint64_t temp_pawns = position.pawn_key;
 
   int from = extract_from(move), to = extract_to(move), color = position.color,
       opp_color = color ^ 1, captured_piece = Pieces::Blank,
@@ -367,11 +368,17 @@ void make_move(Position &position, Move move) { // Perform a move on the board.
 
   // update material counts and 50 move rules for a capture
   if (position.board[to]) {
-    temp_hash ^= zobrist_keys[get_zobrist_key(position.board[to], to)];
     // Update hash key for the piece that was taken
     position.halfmoves = 0;
     position.material_count[position.board[to] - 2]--;
     captured_piece = position.board[to], captured_square = to;
+
+    temp_hash ^= zobrist_keys[get_zobrist_key(captured_piece, captured_square)];
+
+    if (get_piece_type(captured_piece) == PieceTypes::Pawn){
+      temp_pawns ^= zobrist_keys[get_zobrist_key(captured_piece, captured_square)];
+    }
+
   }
   // en passant
   else if (extract_type(move) == MoveTypes::EnPassant) {
@@ -380,6 +387,8 @@ void make_move(Position &position, Move move) { // Perform a move on the board.
     captured_piece = position.board[captured_square];
 
     temp_hash ^= zobrist_keys[get_zobrist_key(position.board[captured_square],
+                                              captured_square)];
+    temp_pawns ^= zobrist_keys[get_zobrist_key(position.board[captured_square],
                                               captured_square)];
     // Update hash key for the piece that was taken
     // (not covered above)
@@ -478,6 +487,14 @@ void make_move(Position &position, Move move) { // Perform a move on the board.
 
   temp_hash ^= zobrist_keys[get_zobrist_key(from_piece, from)];
   temp_hash ^= zobrist_keys[get_zobrist_key(to_piece, to)];
+
+  if (get_piece_type(from_piece) == PieceTypes::Pawn){
+    temp_pawns ^= zobrist_keys[get_zobrist_key(from_piece, from)];
+    if (get_piece_type(to_piece) == PieceTypes::Pawn){
+      temp_pawns ^= zobrist_keys[get_zobrist_key(to_piece, to)];
+    }
+  }
+
   temp_hash ^= zobrist_keys[side_index];
 
   update_bb(position, from_piece, from, to_piece, to, captured_piece,

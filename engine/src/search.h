@@ -11,6 +11,9 @@ constexpr int NormalizationFactor = 195;
 void update_history(int16_t &entry, int score) { // Update history score
   entry += score - entry * abs(score) / 16384;
 }
+void update_corrhist(int16_t &entry, int score) { // Update history score
+  entry += score - entry * abs(score) / 1024;
+}
 
 bool out_of_time(ThreadInfo &thread_info) {
   if (thread_data.stop) {
@@ -118,11 +121,18 @@ int eval(const Position &position, ThreadInfo &thread_info) {
   if (s) {
 
     if (thread_info.search_ply % 2) {
-      bonus2 = std::max(-250, s / 15 * (int)(eval < -600 ? 3 : eval < -200 ? 2 : eval < 150 ? 1 : 0.5f));
+      bonus2 = std::max(-250, s / 15 *
+                                  (int)(eval < -600   ? 3
+                                        : eval < -200 ? 2
+                                        : eval < 150  ? 1
+                                                      : 0.5f));
     } else {
-      bonus2 = std::min(250, -s / 15 * (int)(eval > 600 ? 3 : eval > 200 ? 2 : eval > -150 ? 1 : 0.5f));
+      bonus2 = std::min(250, -s / 15 *
+                                 (int)(eval > 600    ? 3
+                                       : eval > 200  ? 2
+                                       : eval > -150 ? 1
+                                                     : 0.5f));
     }
-    
   }
 
   // If we're winning, scale eval by material; we don't want to trade off to
@@ -136,6 +146,14 @@ int eval(const Position &position, ThreadInfo &thread_info) {
   }
 
   return std::clamp(eval + bonus1 + bonus2, -MateScore, MateScore);
+}
+
+int correct_eval(const Position &position, ThreadInfo &thread_info, int eval) {
+  int corr =
+      thread_info
+          .PawnCorrHist[position.color][get_corrhist_index(position.pawn_key)];
+
+  return std::clamp(eval + (50 * corr / 512), -MateScore, MateScore);
 }
 
 void ss_push(Position &position, ThreadInfo &thread_info, Move move) {
@@ -215,7 +233,8 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
 
   if (out_of_time(thread_info)) {
     // return if out of time
-    return thread_info.nnue_state.evaluate(position.color);
+    return correct_eval(position, thread_info,
+                        thread_info.nnue_state.evaluate(position.color));
   }
   int color = position.color;
 
@@ -227,8 +246,10 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
     thread_info.seldepth = ply;
   }
   if (ply >= MaxSearchDepth - 1) {
-    return eval(position,
-                thread_info); // if we're about to overflow stack return
+    return correct_eval(
+        position, thread_info,
+        eval(position,
+             thread_info)); // if we're about to overflow stack return
   }
 
   uint64_t hash = position.zobrist_key;
@@ -259,11 +280,13 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
   Move best_move = MoveNone;
 
   int static_eval = ScoreNone;
+  int raw_eval = ScoreNone;
 
   if (!in_check) { // If we're not in check and static eval beats beta, we can
                    // immediately return
     if (tt_static_eval == ScoreNone) {
-      best_score = static_eval = eval(position, thread_info);
+      raw_eval = eval(position, thread_info);
+      best_score = static_eval = correct_eval(position, thread_info, raw_eval);
     } else {
       best_score = static_eval = tt_static_eval;
     }
@@ -338,7 +361,7 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
 
   entry_type = best_score >= beta ? EntryTypes::LBound : EntryTypes::UBound;
 
-  insert_entry(entry, hash, 0, best_move, static_eval,
+  insert_entry(entry, hash, 0, best_move, raw_eval,
                score_to_tt(best_score, ply), entry_type, thread_info.searches);
 
   return best_score;
@@ -365,7 +388,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
   if (out_of_time(thread_info) || ply >= MaxSearchDepth - 1) {
     // check for timeout
-    return eval(position, thread_info);
+    return correct_eval(position, thread_info, eval(position, thread_info));
   }
 
   if (ply && is_draw(position, thread_info)) { // Draw detection
@@ -462,18 +485,23 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   // We can't do any eval-based pruning if in check.
 
   int32_t static_eval;
+  int32_t raw_eval;
+
   if (in_check) {
-    static_eval = ScoreNone;
+    static_eval = raw_eval = ScoreNone;
   } else if (singular_search) {
-    static_eval = ss->static_eval;
+    static_eval = raw_eval = ss->static_eval;
   } else {
-    if (tt_static_eval == ScoreNone)
-      static_eval = eval(position, thread_info);
-    else
-      static_eval = tt_static_eval;
+    if (tt_static_eval == ScoreNone) {
+      raw_eval = eval(position, thread_info);
+      static_eval = correct_eval(position, thread_info, raw_eval);
+    } else {
+      raw_eval = tt_static_eval;
+      static_eval = correct_eval(position, thread_info, raw_eval);
+    }
 
     if (!tt_hit) {
-      insert_entry(entry, hash, 0, MoveNone, static_eval, ScoreNone,
+      insert_entry(entry, hash, 0, MoveNone, raw_eval, ScoreNone,
                    EntryTypes::None, thread_info.searches);
     }
   }
@@ -828,13 +856,28 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   if (best_score == ScoreNone) { // handle no legal moves (stalemate/checkmate)
     return singular_search ? alpha : in_check ? (Mate + ply) : 0;
   }
+
   entry_type = best_score >= beta ? EntryTypes::LBound
                : raised_alpha     ? EntryTypes::Exact
                                   : EntryTypes::UBound;
 
+
+  bool best_capture = position.board[extract_to(best_move)] == Pieces::Blank;
+
+  if (!in_check && (!best_move || !best_capture) &&
+      !(best_score >= beta && best_score <= static_eval) &&
+      !(!best_move && best_score >= static_eval)) {
+
+    int bonus = std::clamp((best_score - static_eval) * depth / 8, -256, 256);
+
+    update_corrhist(
+        thread_info.PawnCorrHist[color][get_corrhist_index(position.pawn_key)],
+        bonus);
+  }
+
   // Add the search results to the TT, accounting for mate scores
   if (!singular_search) {
-    insert_entry(entry, hash, depth, best_move, ss->static_eval,
+    insert_entry(entry, hash, depth, best_move, raw_eval,
                  score_to_tt(best_score, ply), entry_type,
                  thread_info.searches);
   }
@@ -890,7 +933,7 @@ void iterative_deepen(
 
   thread_info.original_opt = thread_info.opt_time;
   thread_info.nnue_state.reset_nnue(position);
-  position.zobrist_key = calculate(position);
+  calculate(position);
   thread_info.nodes = 0;
   thread_info.time_checks = 0;
   thread_info.search_ply = 0; // reset all relevant thread_info
