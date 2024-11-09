@@ -153,7 +153,7 @@ int correct_eval(const Position &position, ThreadInfo &thread_info, int eval) {
       thread_info
           .PawnCorrHist[position.color][get_corrhist_index(position.pawn_key)];
 
-  return std::clamp(eval + (20 * corr / 512), -MateScore, MateScore);
+  return std::clamp(eval + (10 * corr / 512), -MateScore, MateScore);
 }
 
 void ss_push(Position &position, ThreadInfo &thread_info, Move move) {
