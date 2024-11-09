@@ -153,7 +153,7 @@ int correct_eval(const Position &position, ThreadInfo &thread_info, int eval) {
       thread_info
           .PawnCorrHist[position.color][get_corrhist_index(position.pawn_key)];
 
-  return std::clamp(eval + (50 * corr / 512), -MateScore, MateScore);
+  return std::clamp(eval + (20 * corr / 512), -MateScore, MateScore);
 }
 
 void ss_push(Position &position, ThreadInfo &thread_info, Move move) {
@@ -496,6 +496,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     if (tt_static_eval == ScoreNone) {
       raw_eval = eval(position, thread_info);
       static_eval = correct_eval(position, thread_info, raw_eval);
+      
     } else {
       raw_eval = tt_static_eval;
       static_eval = correct_eval(position, thread_info, raw_eval);
