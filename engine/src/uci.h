@@ -261,7 +261,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
       }
 
       thread_info.nnue_state.reset_nnue(position);
-      position.zobrist_key = calculate(position);
+      calculate(position);
       std::string has_moves;
       if (input_stream >>
           has_moves) { // we're at the "moves" part of the command now
