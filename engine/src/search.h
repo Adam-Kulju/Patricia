@@ -149,11 +149,15 @@ int eval(const Position &position, ThreadInfo &thread_info) {
 }
 
 int correct_eval(const Position &position, ThreadInfo &thread_info, int eval) {
-  int corr =
-      thread_info
-          .PawnCorrHist[position.color][get_corrhist_index(position.pawn_key)];
+  eval += 20 * thread_info
+          .PawnCorrHist[position.color][get_corrhist_index(position.pawn_key)] / 512;
+  eval += 20 * thread_info
+          .WNonPawnCorrHist[position.color][get_corrhist_index(position.non_pawn_keys[Colors::White])] / 512;
+  eval += 20 * thread_info
+          .BNonPawnCorrHist[position.color][get_corrhist_index(position.non_pawn_keys[Colors::Black])] / 512;
+      
 
-  return std::clamp(eval + (20 * corr / 512), -MateScore, MateScore);
+  return std::clamp(eval, -MateScore, MateScore);
 }
 
 void ss_push(Position &position, ThreadInfo &thread_info, Move move) {
@@ -874,6 +878,12 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
     update_corrhist(
         thread_info.PawnCorrHist[color][get_corrhist_index(position.pawn_key)],
+        bonus);
+    update_corrhist(
+        thread_info.WNonPawnCorrHist[color][get_corrhist_index(position.non_pawn_keys[Colors::White])],
+        bonus);
+    update_corrhist(
+        thread_info.BNonPawnCorrHist[color][get_corrhist_index(position.non_pawn_keys[Colors::Black])],
         bonus);
   }
 
