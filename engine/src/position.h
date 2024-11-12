@@ -355,7 +355,6 @@ void make_move(Position &position, Move move) { // Perform a move on the board.
   }
 
   uint64_t temp_hash = position.zobrist_key;
-  uint64_t temp_pawns = position.pawn_key;
 
   int from = extract_from(move), to = extract_to(move), color = position.color,
       opp_color = color ^ 1, captured_piece = Pieces::Blank,
@@ -376,7 +375,10 @@ void make_move(Position &position, Move move) { // Perform a move on the board.
     temp_hash ^= zobrist_keys[get_zobrist_key(captured_piece, captured_square)];
 
     if (get_piece_type(captured_piece) == PieceTypes::Pawn){
-      temp_pawns ^= zobrist_keys[get_zobrist_key(captured_piece, captured_square)];
+      position.pawn_key ^= zobrist_keys[get_zobrist_key(captured_piece, captured_square)];
+    }
+    else{
+      position.non_pawn_keys[get_color(captured_piece)] ^= zobrist_keys[get_zobrist_key(captured_piece, captured_square)];
     }
 
   }
@@ -388,7 +390,7 @@ void make_move(Position &position, Move move) { // Perform a move on the board.
 
     temp_hash ^= zobrist_keys[get_zobrist_key(position.board[captured_square],
                                               captured_square)];
-    temp_pawns ^= zobrist_keys[get_zobrist_key(position.board[captured_square],
+    position.pawn_key ^= zobrist_keys[get_zobrist_key(position.board[captured_square],
                                               captured_square)];
     // Update hash key for the piece that was taken
     // (not covered above)
@@ -489,10 +491,17 @@ void make_move(Position &position, Move move) { // Perform a move on the board.
   temp_hash ^= zobrist_keys[get_zobrist_key(to_piece, to)];
 
   if (get_piece_type(from_piece) == PieceTypes::Pawn){
-    temp_pawns ^= zobrist_keys[get_zobrist_key(from_piece, from)];
+    position.pawn_key ^= zobrist_keys[get_zobrist_key(from_piece, from)];
     if (get_piece_type(to_piece) == PieceTypes::Pawn){
-      temp_pawns ^= zobrist_keys[get_zobrist_key(to_piece, to)];
+      position.pawn_key ^= zobrist_keys[get_zobrist_key(to_piece, to)];
     }
+    else{
+      position.non_pawn_keys[get_color(to_piece)] ^= zobrist_keys[get_zobrist_key(to_piece, to)];
+    }
+  }
+  else{
+    position.non_pawn_keys[get_color(from_piece)] ^= zobrist_keys[get_zobrist_key(from_piece, from)];
+    position.non_pawn_keys[get_color(to_piece)] ^= zobrist_keys[get_zobrist_key(to_piece, to)];
   }
 
   temp_hash ^= zobrist_keys[side_index];
@@ -509,7 +518,6 @@ void make_move(Position &position, Move move) { // Perform a move on the board.
   }
   position.ep_square = ep_square;
   position.zobrist_key = temp_hash;
-  position.pawn_key = temp_pawns;
 
   __builtin_prefetch(&TT[hash_to_idx(temp_hash)]);
 }

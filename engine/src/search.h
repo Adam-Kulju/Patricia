@@ -88,9 +88,9 @@ int eval(const Position &position, ThreadInfo &thread_info) {
 
   int eval = thread_info.nnue_state.evaluate(color);
 
-  if (thread_info.doing_datagen) {
+  //if (thread_info.doing_datagen) {
     return std::clamp(eval, -MateScore, MateScore);
-  }
+ // }
 
   // Patricia is much less dependent on explicit eval twiddling than before, but
   // there are still a few things I do.
@@ -149,11 +149,15 @@ int eval(const Position &position, ThreadInfo &thread_info) {
 }
 
 int correct_eval(const Position &position, ThreadInfo &thread_info, int eval) {
-  int corr =
-      thread_info
-          .PawnCorrHist[position.color][get_corrhist_index(position.pawn_key)];
+  eval += 20 * thread_info
+          .PawnCorrHist[position.color][get_corrhist_index(position.pawn_key)] / 512;
+  eval += 20 * thread_info
+          .WNonPawnCorrHist[position.color][get_corrhist_index(position.non_pawn_keys[Colors::White])] / 512;
+  eval += 20 * thread_info
+          .BNonPawnCorrHist[position.color][get_corrhist_index(position.non_pawn_keys[Colors::Black])] / 512;
+      
 
-  return std::clamp(eval + (20 * corr / 512), -MateScore, MateScore);
+  return std::clamp(eval, -MateScore, MateScore);
 }
 
 void ss_push(Position &position, ThreadInfo &thread_info, Move move) {
@@ -394,6 +398,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
   if (ply && is_draw(position, thread_info)) { // Draw detection
     int draw_score = 2 - (thread_info.nodes & 3);
+    return draw_score;
 
     int m = material_eval(position);
 
@@ -875,6 +880,12 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     update_corrhist(
         thread_info.PawnCorrHist[color][get_corrhist_index(position.pawn_key)],
         bonus);
+    /*update_corrhist(
+        thread_info.WNonPawnCorrHist[color][get_corrhist_index(position.non_pawn_keys[Colors::White])],
+        bonus);
+    update_corrhist(
+        thread_info.BNonPawnCorrHist[color][get_corrhist_index(position.non_pawn_keys[Colors::Black])],
+        bonus);*/
   }
 
   // Add the search results to the TT, accounting for mate scores
