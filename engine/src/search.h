@@ -151,9 +151,9 @@ int eval(const Position &position, ThreadInfo &thread_info) {
 int correct_eval(const Position &position, ThreadInfo &thread_info, int eval) {
   eval += 20 * thread_info
           .PawnCorrHist[position.color][get_corrhist_index(position.pawn_key)] / 512;
-  eval += 50 * thread_info
+  eval += 10 * thread_info
           .WNonPawnCorrHist[position.color][get_corrhist_index(position.non_pawn_keys[Colors::White])] / 512;
-  eval += 50 * thread_info
+  eval += 10 * thread_info
           .BNonPawnCorrHist[position.color][get_corrhist_index(position.non_pawn_keys[Colors::Black])] / 512;
       
 
