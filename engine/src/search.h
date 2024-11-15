@@ -153,7 +153,7 @@ int correct_eval(const Position &position, ThreadInfo &thread_info, int eval) {
       thread_info
           .PawnCorrHist[position.color][get_corrhist_index(position.pawn_key)];
 
-  return std::clamp(eval + (20 * corr / 512), -MateScore, MateScore);
+  return std::clamp(eval + (CorrWeight * corr / 512), -MateScore, MateScore);
 }
 
 void ss_push(Position &position, ThreadInfo &thread_info, Move move) {
@@ -694,7 +694,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     // If that beats alpha, we search at normal depth with null window
     // If that also beats alpha, we search at normal depth with full window.
 
-    if (depth >= 3 && moves_played > is_pv) {
+    if (depth >= LMRMinDepth && moves_played > is_pv) {
       int R = LMRTable[depth][moves_played];
       if (is_capture) {
         // Captures get LMRd less because they're the most likely moves to beat
@@ -970,7 +970,7 @@ void iterative_deepen(
 
       int temp_depth = depth;
 
-      int score, delta = 20;
+      int score, delta = AspStartWindow;
 
       score =
           search<true>(alpha, beta, depth, false, position, thread_info, TT);

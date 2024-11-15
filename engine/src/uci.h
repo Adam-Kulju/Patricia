@@ -123,13 +123,17 @@ void uci(ThreadInfo &thread_info, Position &position) {
              "option name Skill_Level type spin default 20 min 1 max 20\n"
              "option name UCI_Elo type spin default 3000 min 500 max 3000\n");
 
-      /*for (auto &param : params) {
+      for (auto &param : params) {
         std::cout << "option name " << param.name << " type spin default "
                   << param.value << " min " << param.min << " max " << param.max
                   << "\n";
-      }*/
+      }
 
       printf("uciok\n");
+    }
+
+    else if (command == "printparams"){
+      print_params_for_ob();
     }
 
     else if (command == "isready") {
