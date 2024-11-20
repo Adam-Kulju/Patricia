@@ -34,26 +34,32 @@ struct CreateParam {
 
 TUNE_PARAM(NMPMinDepth, 3, 1, 5);
 TUNE_PARAM(NMPBase, 4, 1, 5);
-TUNE_PARAM(NMPDepthDiv, 6, 3, 9);
-TUNE_PARAM(NMPEvalDiv, 183, 100, 300);
-TUNE_PARAM(RFPMargin, 85, 50, 110);
+TUNE_PARAM(NMPDepthDiv, 5, 3, 9);
+TUNE_PARAM(NMPEvalDiv, 173, 100, 300);
+TUNE_PARAM(RFPMargin, 84, 50, 110);
 TUNE_PARAM(RFPMaxDepth, 10, 6, 12);
 TUNE_PARAM(LMRBase, 4, 2, 8);
-TUNE_PARAM(LMRRatio, 22, 15, 30);
+TUNE_PARAM(LMRRatio, 20, 15, 30);
 TUNE_PARAM(LMPBase, 2, 1, 5);
 TUNE_PARAM(LMPDepth, 6, 3, 7);
-TUNE_PARAM(SEDepth, 6, 4, 10);
-TUNE_PARAM(SEDoubleExtMargin, 19, 10, 30);
-TUNE_PARAM(FPDepth, 8, 5, 11);
-TUNE_PARAM(FPMargin1, 105, 50, 150);
-TUNE_PARAM(FPMargin2, 123, 75, 175);
+TUNE_PARAM(SEDepth, 5, 4, 10);
+TUNE_PARAM(SEDoubleExtMargin, 18, 10, 30);
+TUNE_PARAM(FPDepth, 9, 5, 11);
+TUNE_PARAM(FPMargin1, 100, 50, 150);
+TUNE_PARAM(FPMargin2, 115, 75, 175);
 TUNE_PARAM(IIRMinDepth, 2, 1, 5);
-TUNE_PARAM(SeePruningDepth, 8, 5, 11);
-TUNE_PARAM(SeePruningQuietMargin, -83, -110, -50);
-TUNE_PARAM(SeePruningNoisyMargin, -33, -50, -10);
-TUNE_PARAM(HistBonus, 274, 200, 400);
-TUNE_PARAM(HistMax, 2537, 1500, 3500);
+TUNE_PARAM(SeePruningDepth, 7, 5, 11);
+TUNE_PARAM(SeePruningQuietMargin, -84, -110, -50);
+TUNE_PARAM(SeePruningNoisyMargin, -35, -50, -10);
+TUNE_PARAM(HistBonus, 282, 200, 400);
+TUNE_PARAM(HistMax, 2565, 1500, 3500);
 TUNE_PARAM(AgeDiffDiv, 5, 2, 6);
+TUNE_PARAM(CorrWeight, 21, 10, 40);
+TUNE_PARAM(LMRMinDepth, 3, 2, 6);
+TUNE_PARAM(AspStartWindow, 20, 10, 30);
+TUNE_PARAM(NodeTmFactor1, 149, 100, 200);
+TUNE_PARAM(NodeTmFactor2, 177, 125, 225);
+TUNE_PARAM(BmFactor1, 152, 100, 200);
 
 
 void print_params_for_ob() {

@@ -6,7 +6,7 @@ void multipv_search(Position &position, ThreadInfo &thread_info) {
   thread_info.opt_time = thread_info.opt_time * 3 / 4;
   thread_info.pv_material = {0};
 
-  iterative_deepen(position, thread_info, TT);
+  search_position(position, thread_info, TT);
 
   thread_info.multipv = 1;
 }
