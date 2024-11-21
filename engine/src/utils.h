@@ -53,6 +53,7 @@ struct ThreadInfo {
   uint64_t opt_nodes_searched = UINT64_MAX / 2;
 
   bool doing_datagen = false;
+  bool datagen_stop = false;
 
   bool is_human = false;
   int cp_accum_loss = 0;

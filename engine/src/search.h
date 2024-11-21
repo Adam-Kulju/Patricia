@@ -16,7 +16,7 @@ void update_corrhist(int16_t &entry, int score) { // Update history score
 }
 
 bool out_of_time(ThreadInfo &thread_info) {
-  if (thread_data.stop) {
+  if (thread_data.stop || thread_info.datagen_stop) {
     return true;
   } else if (thread_info.thread_id != 0 || thread_info.current_iter == 1) {
     return false;
@@ -31,7 +31,11 @@ bool out_of_time(ThreadInfo &thread_info) {
       // skill level. In that case, we don't want the engine to move instantly.
     }
 
-    thread_data.stop = true;
+    if (thread_info.doing_datagen) {
+      thread_info.datagen_stop = true;
+    } else {
+      thread_data.stop = true;
+    }
     return true;
   }
   thread_info.time_checks++;
@@ -336,7 +340,7 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
     int score = -qsearch(-beta, -alpha, moved_position, thread_info, TT);
     ss_pop(thread_info);
 
-    if (thread_data.stop) {
+    if (thread_data.stop || thread_info.datagen_stop) {
       // return if we ran out of time for search
       return best_score;
     }
@@ -496,7 +500,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     if (tt_static_eval == ScoreNone) {
       raw_eval = eval(position, thread_info);
       static_eval = correct_eval(position, thread_info, raw_eval);
-      
+
     } else {
       raw_eval = tt_static_eval;
       static_eval = correct_eval(position, thread_info, raw_eval);
@@ -739,7 +743,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
     ss_pop(thread_info);
 
-    if (thread_data.stop) {
+    if (thread_data.stop || thread_info.datagen_stop) {
       // return if we ran out of time for search
       return best_score;
     }
@@ -863,7 +867,6 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
                : raised_alpha     ? EntryTypes::Exact
                                   : EntryTypes::UBound;
 
-
   bool best_capture = position.board[extract_to(best_move)] == Pieces::Blank;
 
   if (!in_check && (!best_move || !best_capture) &&
@@ -934,6 +937,7 @@ void iterative_deepen(
     std::vector<TTBucket> &TT) { // Performs an iterative deepening search.
 
   thread_info.original_opt = thread_info.opt_time;
+  thread_info.datagen_stop = false;
   thread_info.nnue_state.reset_nnue(position);
   calculate(position);
   thread_info.nodes = 0;
@@ -979,9 +983,10 @@ void iterative_deepen(
       // the last search score in order to get cutoffs faster. If our search
       // lands outside the bounds, expand them and try again.
 
-      while (score <= alpha || score >= beta || thread_data.stop) {
+      while (score <= alpha || score >= beta || thread_data.stop ||
+             thread_info.datagen_stop) {
 
-        if (thread_data.stop) {
+        if (thread_data.stop || thread_info.datagen_stop) {
           goto finish;
         }
 
@@ -1075,7 +1080,12 @@ void iterative_deepen(
 
         if (search_time > thread_info.opt_time ||
             nodes > thread_info.opt_nodes_searched) {
-          thread_data.stop = true;
+
+          if (thread_info.doing_datagen) {
+            thread_info.datagen_stop = true;
+          } else {
+            thread_data.stop = true;
+          }
         }
 
         else if (thread_info.multipv == 1 && depth > 6) {
@@ -1092,7 +1102,7 @@ void iterative_deepen(
         }
       }
 
-      if (thread_data.stop) {
+      if (thread_data.stop || thread_info.datagen_stop) {
         goto finish;
       }
 
@@ -1138,7 +1148,9 @@ void search_position(Position &position, ThreadInfo &thread_info,
 
   thread_data.stop = false;
   iterative_deepen(position, thread_info, TT);
-  thread_data.stop = true;
+  if (!thread_info.doing_datagen) {
+    thread_data.stop = true;
+  }
 
   thread_info.searches = (thread_info.searches + 1) % MaxAge;
 }
