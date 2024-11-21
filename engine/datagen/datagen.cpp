@@ -242,6 +242,7 @@ void play_game(ThreadInfo &thread_info, uint64_t &num_fens, int id,
 
     thread_info.start_time = std::chrono::steady_clock::now();
     search_position(position, thread_info, TT);
+
     int score = thread_info.best_scores[0];
 
     int s = score;
@@ -270,6 +271,7 @@ void play_game(ThreadInfo &thread_info, uint64_t &num_fens, int id,
     }
 
     if (best_move == MoveNone) {
+      printf("%lu\n", thread_info.nodes);
       print_board(position);
       thread_info.doing_datagen = false;
       search_position(position, thread_info, TT);
