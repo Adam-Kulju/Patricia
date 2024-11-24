@@ -81,7 +81,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
   setvbuf(stdin, NULL, _IONBF, 0);
   setvbuf(stdout, NULL, _IONBF, 0);
 
-  printf("Patricia Chess Engine, written by Adam Kulju and Gabriele Lombardo\n\n\n");
+  printf("Patricia Chess Engine, written by Adam Kulju\n\n\n");
 
   new_game(thread_info, TT);
   set_board(position, thread_info,
@@ -116,7 +116,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
 
     else if (command == "uci") {
       printf("id name Patricia 4.0\n"
-             "id author Adam Kulju and Gabriele Lombardo\n"
+             "id author Adam Kulju\n"
              "option name Hash type spin default 32 min 1 max 131072\n"
              "option name Threads type spin default 1 min 1 max 1024\n"
              "option name MultiPV type spin default 1 min 1 max 255\n"
@@ -124,11 +124,11 @@ void uci(ThreadInfo &thread_info, Position &position) {
              "option name Skill_Level type spin default 20 min 1 max 20\n"
              "option name UCI_Elo type spin default 3000 min 500 max 3000\n");
 
-      for (auto &param : params) {
+      /*for (auto &param : params) {
         std::cout << "option name " << param.name << " type spin default "
                   << param.value << " min " << param.min << " max " << param.max
                   << "\n";
-      }
+      }*/
 
       printf("uciok\n");
     }
