@@ -115,7 +115,8 @@ void uci(ThreadInfo &thread_info, Position &position) {
     }
 
     else if (command == "uci") {
-      printf("id name Patricia 3.1\nid author Adam Kulju\n"
+      printf("id name Patricia 4.0\n"
+             "id author Adam Kulju\n"
              "option name Hash type spin default 32 min 1 max 131072\n"
              "option name Threads type spin default 1 min 1 max 1024\n"
              "option name MultiPV type spin default 1 min 1 max 255\n"
@@ -123,11 +124,11 @@ void uci(ThreadInfo &thread_info, Position &position) {
              "option name Skill_Level type spin default 20 min 1 max 20\n"
              "option name UCI_Elo type spin default 3000 min 500 max 3000\n");
 
-      for (auto &param : params) {
+      /*for (auto &param : params) {
         std::cout << "option name " << param.name << " type spin default "
                   << param.value << " min " << param.min << " max " << param.max
                   << "\n";
-      }
+      }*/
 
       printf("uciok\n");
     }
@@ -197,13 +198,13 @@ void uci(ThreadInfo &thread_info, Position &position) {
 
       }
 
-      else if (name == "UCI_Elo" && thread_info.is_human) {
-        thread_info.cp_loss = 200 - (value / 15);
+      else if (name == "UCI_Elo") {
+        thread_info.cp_loss = 200 - (value / 13);
       }
 
-      else if (name == "Skill_Level" && thread_info.is_human) {
+      else if (name == "Skill_Level") {
         int to_elo = skill_levels[value - 1];
-        thread_info.cp_loss = 200 - (to_elo / 15);
+        thread_info.cp_loss = 200 - (to_elo / 13);
       }
 
       else if (name == "MultiPV") {

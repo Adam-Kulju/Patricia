@@ -33,7 +33,7 @@ void search_human(Position &position, ThreadInfo &thread_info) {
 
   int mistake = 0;
 
-  for (int i = 0; i < 5; i++) {
+  for (int i = 0; i < 5 && thread_info.best_moves[i] != MoveNone; i++) {
 
     int m_diff = starting_mat - thread_info.pv_material[i];
     int eval_diff = thread_info.best_scores[0] - thread_info.best_scores[i];
