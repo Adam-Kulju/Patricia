@@ -92,14 +92,22 @@ int eval(const Position &position, ThreadInfo &thread_info) {
 
   int eval = thread_info.nnue_state.evaluate(color);
 
-  if (thread_info.doing_datagen) {
-    return std::clamp(eval, -MateScore, MateScore);
-  }
-
   // Patricia is much less dependent on explicit eval twiddling than before, but
   // there are still a few things I do.
 
   int bonus1 = 0, bonus2 = 0;
+  
+/*
+  // Give a small bonus if the position is much better than what material would
+  // suggest
+  if (eval > 0 && eval > m_eval + m_threshold) {
+    bonus1 += 25 + (eval - m_eval - m_threshold) / 10;
+  } else if (eval < 0 && eval < m_eval - m_threshold) {
+    bonus1 -= 25 + (m_eval - eval - m_threshold) / 10;
+  }
+*/
+
+  bool our_side = (thread_info.search_ply % 2 == 0);
 
   int start_index = std::max(thread_info.game_ply - thread_info.search_ply, 0);
 
@@ -119,32 +127,23 @@ int eval(const Position &position, ThreadInfo &thread_info) {
         thread_info.game_hist[idx + 4].m_diff < s_m) {
 
       s = s_m + thread_info.game_hist[idx + 4].m_diff;
-      break;
     }
   }
   if (s) {
 
     if (thread_info.search_ply % 2) {
-      bonus2 = std::max(-250, s / 15 *
-                                  (int)(eval < -600   ? 3
-                                        : eval < -200 ? 2
-                                        : eval < 150  ? 1
-                                                      : 0.5f));
+      bonus2 = -20 * (eval < -500 ? 3 : eval < -150 ? 2 : 1);
     } else {
-      bonus2 = std::min(250, -s / 15 *
-                                 (int)(eval > 600    ? 3
-                                       : eval > 200  ? 2
-                                       : eval > -150 ? 1
-                                                     : 0.5f));
+      bonus2 = 20 * (eval > 500 ? 3 : eval > 150 ? 2 : 1);
     }
   }
 
-  // If we're winning, scale eval by material; we don't want to trade off to
-  // an easily won endgame, but instead should continue the attack.
+  // If we're winning, scale eval by material; we don't want to trade off to an
+  // easily won endgame, but instead should continue the attack.
 
   if (abs(eval) > 500) {
     eval = eval *
-           (512 + total_mat_color(position, root_color ^ 1) / 8 -
+           (512 + total_mat_color(position, color ^ 1) / 8 -
             (position.material_count[0] + position.material_count[1]) * 20) /
            768;
   }
