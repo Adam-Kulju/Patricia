@@ -86,10 +86,9 @@ int16_t total_mat_color(const Position &position, int color) {
   return m;
 }
 
-int eval(const Position &position, ThreadInfo &thread_info) {
+int eval(Position &position, ThreadInfo &thread_info) {
   int color = position.color;
   int root_color = thread_info.search_ply % 2 ? color ^ 1 : color;
-
   int eval = thread_info.nnue_state.evaluate(color);
 
   // Patricia is much less dependent on explicit eval twiddling than before, but
@@ -376,6 +375,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
            ThreadInfo &thread_info,
            std::vector<TTBucket> &TT) { // Performs an alpha-beta search.
 
+
   GameHistory *ss = &(thread_info.game_hist[thread_info.game_ply]);
 
   if (!thread_info.search_ply) {
@@ -435,6 +435,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   thread_info.pv[pv_index] = MoveNone;
 
   bool root = !ply, color = position.color, raised_alpha = false;
+
 
   Move best_move = MoveNone;
   Move excluded_move = thread_info.excluded_move;

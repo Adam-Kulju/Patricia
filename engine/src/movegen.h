@@ -198,7 +198,7 @@ int movegen(const Position &position, std::span<Move> move_list,
       move_list[idx++] = pack_move(king_pos, position.castling_squares[color][side], MoveTypes::Castling);
     }
   }
-  
+
   return idx;
 }
 

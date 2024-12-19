@@ -338,37 +338,33 @@ void update_nnue_state(NNUE_State &nnue_state, Move move,
     captured_piece = position.board[captured_square];
   }
 
-  int to_square = to;
-
-
-  if (captured_piece) {
-    nnue_state.add_sub_sub(from_piece, from, to_piece, to, captured_piece,
-                           captured_square);
-  }
-
-  else if (extract_type(move) ==
+  if (extract_type(move) ==
            MoveTypes::Castling) { // update the rook that moved if we castled
 
-    printf("%i %i %i %i\n", from_piece, from, to, Pieces::WRook + color);
-    exit(0);
-
     int indx = color ? 56 : 0;
+    int side = to > from;
 
-    if (get_file(to_square) > 4) {
-
+    if (side) {
+      to = indx + 6;
       nnue_state.add_add_sub_sub(from_piece, from, to, Pieces::WRook + color,
                                  indx + 7, indx + 5);
 
     } else {
-
+      to = indx + 2;
       nnue_state.add_add_sub_sub(from_piece, from, to, Pieces::WRook + color,
                                  indx, indx + 3);
     }
   }
 
+  else if (captured_piece) {
+    nnue_state.add_sub_sub(from_piece, from, to_piece, to, captured_piece,
+                           captured_square);
+  }
+
   else {
     nnue_state.add_sub(from_piece, from, to_piece, to);
   }
+
 }
 
 void make_move(Position &position, Move move) { // Perform a move on the board.
@@ -404,7 +400,7 @@ void make_move(Position &position, Move move) { // Perform a move on the board.
   if (extract_type(move) == MoveTypes::Castling){
     to = base_rank + 2 + (side) * 4;
   }
-  
+
   // update material counts and 50 move rules for a capture
   else if (position.board[to]) {
     // Update hash key for the piece that was taken
