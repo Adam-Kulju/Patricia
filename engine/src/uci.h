@@ -122,7 +122,8 @@ void uci(ThreadInfo &thread_info, Position &position) {
              "option name MultiPV type spin default 1 min 1 max 255\n"
              "option name UCI_LimitStrength type check default false\n"
              "option name Skill_Level type spin default 20 min 1 max 20\n"
-             "option name UCI_Elo type spin default 3000 min 500 max 3000\n");
+             "option name UCI_Elo type spin default 3000 min 500 max 3000\n"
+             "option name UCI_Chess960 type check default false\n");
 
       /*for (auto &param : params) {
         std::cout << "option name " << param.name << " type spin default "
@@ -133,7 +134,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
       printf("uciok\n");
     }
 
-    else if (command == "printparams"){
+    else if (command == "printparams") {
       print_params_for_ob();
     }
 
@@ -148,15 +149,23 @@ void uci(ThreadInfo &thread_info, Position &position) {
       input_stream >> name;
       input_stream >> command;
 
-      if (name == "UCI_LimitStrength") {
+      if (name == "UCI_LimitStrength" || name == "UCI_Chess960") {
         std::string value;
         input_stream >> value;
         if (value == "true") {
-          thread_info.is_human = true;
+          if (name == "UCI_LimitStrength") {
+            thread_info.is_human = true;
+          } else {
+            thread_data.is_frc = true;
+          }
         }
 
         else {
-          thread_info.is_human = false;
+          if (name == "UCI_LimitStrength") {
+            thread_info.is_human = false;
+          } else {
+            thread_data.is_frc = false;
+          }
         }
 
         continue;
@@ -342,7 +351,8 @@ void uci(ThreadInfo &thread_info, Position &position) {
       uint64_t nodes = perft(depth, position, true);
 
       printf("%" PRIu64 " nodes %" PRIu64 " nps\n", nodes,
-             (uint64_t)(nodes * 1000 / (time_elapsed(start_time))));
+             (uint64_t)(nodes * 1000 /
+                        (std::max((int64_t)1, time_elapsed(start_time)))));
     }
   }
 }

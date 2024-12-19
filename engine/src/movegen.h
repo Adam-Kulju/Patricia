@@ -164,18 +164,41 @@ int movegen(const Position &position, std::span<Move> move_list,
   // (It can't end up in check either, but that gets filtered just like any
   // illegal move.)
 
-  if (position.castling_rights[color][Sides::Queenside] &&
-      !(occ & CastlingBBs[color][Sides::Queenside]) &&
-      !attacks_square(position, king_pos - 1, opp_color)) {
-    move_list[idx++] = pack_move(king_pos, king_pos - 2, MoveTypes::Castling);
-  }
 
-  if (position.castling_rights[color][Sides::Kingside] &&
-      !(occ & CastlingBBs[color][Sides::Kingside]) &&
-      !attacks_square(position, king_pos + 1, opp_color)) {
-    move_list[idx++] = pack_move(king_pos, king_pos + 2, MoveTypes::Castling);
-  }
+  for (int side : {Sides::Queenside, Sides::Kingside}){
+    if (position.castling_squares[color][side] == SquareNone){
+      continue;
+    }
 
+    int rook_target = 56 * color + 3 + 2 * side;
+    int king_target = 56 * color + 2 + 4 * side;
+
+    uint64_t castle_bb = BetweenBBs[position.castling_squares[color][side]][rook_target];
+    castle_bb |= BetweenBBs[king_pos][king_target];
+    castle_bb &= ~(1ull << king_pos) & ~(1ull << position.castling_squares[color][side]);
+
+    if (occ & castle_bb){
+      continue;
+    }
+    bool invalid = false;
+
+    if (king_target != king_pos){
+      int dir = side ? 1 : -1;
+
+      for (int i = king_pos + dir; i != king_target; i += dir){
+        if (attacks_square(position, i, opp_color)){
+          invalid = true;
+          break;
+        }
+
+      }
+    }
+
+    if (!invalid){
+      move_list[idx++] = pack_move(king_pos, position.castling_squares[color][side], MoveTypes::Castling);
+    }
+  }
+  
   return idx;
 }
 
