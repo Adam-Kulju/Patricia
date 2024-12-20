@@ -198,15 +198,18 @@ void set_board(Position &position, ThreadInfo &thread_info,
     right = std::tolower(right);
 
     int square;
-    if (right == 'k') {
-      square = h1;
-    } else if (right == 'q') {
-      square = a1;
-    } else {
-      square = right - 'a';
-    }
 
-    square += 56 * color;
+    uint64_t rooks = position.pieces_bb[PieceTypes::Rook] & position.colors_bb[color];
+    int queen_side = pop_lsb(rooks);
+    int king_side = pop_lsb(rooks);
+
+    if (right == 'k') {
+      square = king_side;
+    } else if (right == 'q') {
+      square = queen_side;
+    } else {
+      square = right - 'a' + 56 * color;
+    }
 
     int side = square > get_king_pos(position, color) ? Sides::Kingside
                                                       : Sides::Queenside;
@@ -347,12 +350,12 @@ void update_nnue_state(NNUE_State &nnue_state, Move move,
     if (side) {
       to = indx + 6;
       nnue_state.add_add_sub_sub(from_piece, from, to, Pieces::WRook + color,
-                                 indx + 7, indx + 5);
+                                 position.castling_squares[color][side], indx + 5);
 
     } else {
       to = indx + 2;
       nnue_state.add_add_sub_sub(from_piece, from, to, Pieces::WRook + color,
-                                 indx, indx + 3);
+                                 position.castling_squares[color][side], indx + 3);
     }
   }
 
@@ -473,10 +476,10 @@ void make_move(Position &position, Move move) { // Perform a move on the board.
         rook_from = position.castling_squares[color][Sides::Queenside];
       }
 
-      position.board[rook_to] = Pieces::WRook + color;
       if (position.board[rook_from] == Pieces::WRook + color){
         position.board[rook_from] = Pieces::Blank;
       }
+      position.board[rook_to] = Pieces::WRook + color;
 
       temp_hash ^=
           zobrist_keys[get_zobrist_key(Pieces::WRook + color, rook_to)] ^
