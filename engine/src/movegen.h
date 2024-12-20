@@ -183,7 +183,7 @@ int movegen(const Position &position, std::span<Move> move_list,
     bool invalid = false;
 
     if (king_target != king_pos){
-      int dir = side ? 1 : -1;
+      int dir = (king_target > king_pos) ? 1 : -1;
 
       for (int i = king_pos + dir; i != king_target; i += dir){
         if (attacks_square(position, i, opp_color)){
