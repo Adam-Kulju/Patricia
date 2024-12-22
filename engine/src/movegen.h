@@ -166,6 +166,7 @@ int movegen(const Position &position, std::span<Move> move_list,
 
 
   for (int side : {Sides::Queenside, Sides::Kingside}){
+
     if (position.castling_squares[color][side] == SquareNone){
       continue;
     }

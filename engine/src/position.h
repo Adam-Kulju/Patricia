@@ -198,15 +198,13 @@ void set_board(Position &position, ThreadInfo &thread_info,
     right = std::tolower(right);
 
     int square;
+    int base = 56 * color;
 
-    uint64_t rooks = position.pieces_bb[PieceTypes::Rook] & position.colors_bb[color];
-    int queen_side = pop_lsb(rooks);
-    int king_side = pop_lsb(rooks);
 
     if (right == 'k') {
-      square = king_side;
+      square = base + 7;
     } else if (right == 'q') {
-      square = queen_side;
+      square = base;
     } else {
       square = right - 'a' + 56 * color;
     }
