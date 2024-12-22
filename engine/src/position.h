@@ -310,6 +310,9 @@ br_attacks_square(const Position &position, int sq, int color,
 bool is_queen_promo(Move move) { return extract_promo(move) == 3; }
 
 bool is_cap(const Position &position, Move &move) {
+  if (extract_type(move) == MoveTypes::Castling){
+    return false;
+  }
   int to = extract_to(move);
   return (position.board[to] ||
           (to == position.ep_square && position.board[extract_from(move)] ==
