@@ -108,9 +108,16 @@ void uci(ThreadInfo &thread_info, Position &position) {
     }
 
     if (command == "quit") {
-      if (s.joinable()) {
-        s.join();
-      }
+        thread_data.terminate = true;
+
+        reset_barrier.arrive_and_wait();
+        idle_barrier.arrive_and_wait();
+
+        for (int i = 0; i < thread_data.threads.size(); i++) {
+          if (thread_data.threads[i].joinable()) {
+            thread_data.threads[i].join();
+          }
+        }
       std::exit(0);
     }
 
@@ -204,7 +211,6 @@ void uci(ThreadInfo &thread_info, Position &position) {
           thread_data.thread_infos.emplace_back();
           thread_data.threads.emplace_back(loop, i);
         }
-
       }
 
       else if (name == "UCI_Elo") {
