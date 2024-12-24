@@ -110,7 +110,7 @@ struct Position {
   std::array<uint64_t, 2> colors_bb;
   std::array<uint64_t, 7> pieces_bb;
   std::array<uint8_t, 10> material_count; // Stores material
-  MultiArray<bool, 2, 2> castling_rights; // castling rights
+  MultiArray<uint8_t, 2, 2> castling_squares; // castling rights
   uint8_t ep_square;                      // stores ep square
   bool color;                             // whose side to move
   uint8_t halfmoves;

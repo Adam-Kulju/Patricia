@@ -82,6 +82,7 @@ struct ThreadData {
   int num_threads = 1;
   std::atomic<bool> stop = true;
   std::atomic<bool> terminate = false;
+  bool is_frc = false;
 };
 
 ThreadData thread_data;
@@ -220,7 +221,7 @@ void calculate(Position &position) { // Calculates the zobrist key of
     hash ^= zobrist_keys[ep_index];
   }
   for (int indx = castling_index; indx < 778; indx++) {
-    if (position.castling_rights[indx > 775][(indx & 1)]) {
+    if (position.castling_squares[indx > 775][(indx & 1)] != SquareNone) {
       hash ^= zobrist_keys[indx];
     }
   }
