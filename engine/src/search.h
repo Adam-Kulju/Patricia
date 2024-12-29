@@ -990,7 +990,7 @@ void iterative_deepen(
           goto finish;
         }
 
-        if (thread_info.thread_id == 0 && !thread_info.doing_datagen) {
+        if (thread_info.thread_id == 0 && !thread_info.doing_datagen && !(thread_info.is_human && thread_info.multipv_index)) {
           std::string bound_string;
           if (score >= beta) {
             bound_string = "lowerbound";
@@ -1066,7 +1066,7 @@ void iterative_deepen(
           nps = wezly;
         }
 
-        if (!thread_info.doing_datagen) {
+        if (!thread_info.doing_datagen && !(thread_info.is_human && thread_info.multipv_index)) {
           printf("info multipv %i depth %i seldepth %i score %s nodes %" PRIu64
                  " nps %" PRIi64 " time %" PRIi64 " pv ",
                  thread_info.multipv_index + 1, depth, thread_info.seldepth,

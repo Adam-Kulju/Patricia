@@ -128,8 +128,8 @@ void uci(ThreadInfo &thread_info, Position &position) {
              "option name Threads type spin default 1 min 1 max 1024\n"
              "option name MultiPV type spin default 1 min 1 max 255\n"
              "option name UCI_LimitStrength type check default false\n"
-             "option name Skill_Level type spin default 20 min 1 max 20\n"
-             "option name UCI_Elo type spin default 3000 min 500 max 3000\n"
+             "option name Skill_Level type spin default 21 min 1 max 21\n"
+             "option name UCI_Elo type spin default 3001 min 500 max 3001\n"
              "option name UCI_Chess960 type check default false\n");
 
       /*for (auto &param : params) {
@@ -213,11 +213,11 @@ void uci(ThreadInfo &thread_info, Position &position) {
         }
       }
 
-      else if (name == "UCI_Elo") {
+      else if (name == "UCI_Elo" && value != 3001) {
         thread_info.cp_loss = 200 - (value / 13);
       }
 
-      else if (name == "Skill_Level") {
+      else if (name == "Skill_Level" && value != 21) {
         int to_elo = skill_levels[value - 1];
         thread_info.cp_loss = 200 - (to_elo / 13);
       }
