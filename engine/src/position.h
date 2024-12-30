@@ -330,14 +330,14 @@ bool is_cap(const Position &position, Move &move) {
           is_queen_promo((move)));
 }
 
-void update_nnue_state(NNUE_State &nnue_state, Move move,
+void update_nnue_state(ThreadInfo &thread_info, Move move,
                        const Position &position) { // Updates the nnue state
 
   int from = extract_from(move), to = extract_to(move);
   int from_piece = position.board[from];
   int to_piece = from_piece, color = position.color;
 
-  int phase = total_mat(position) < PhaseBound;
+  int phase = thread_info.phase;
 
   if (extract_type(move) == MoveTypes::Promotion) { // Grab promos
     to_piece = (extract_promo(move) + 2) * 2 + color;
@@ -362,31 +362,34 @@ void update_nnue_state(NNUE_State &nnue_state, Move move,
 
     if (side) {
       to = indx + 6;
-      nnue_state.add_add_sub_sub(from_piece, from, to, Pieces::WRook + color,
+      thread_info.nnue_state.add_add_sub_sub(from_piece, from, to, Pieces::WRook + color,
                                  position.castling_squares[color][side], indx + 5, phase);
 
     } else {
       to = indx + 2;
-      nnue_state.add_add_sub_sub(from_piece, from, to, Pieces::WRook + color,
+      thread_info.nnue_state.add_add_sub_sub(from_piece, from, to, Pieces::WRook + color,
                                  position.castling_squares[color][side], indx + 3, phase);
     }
   }
 
   else if (captured_piece) {
 
-    if (phase == PhaseTypes::Middlegame && total_mat(position) - MaterialValues[get_piece_type(captured_piece)] < PhaseBound){
-      nnue_state.reset_and_add_sub_sub(position, from_piece, from, to_piece, to, captured_piece,
-                           captured_square, phase ^ 1);
+    if (thread_info.phase == PhaseTypes::Middlegame && total_mat(position) - MaterialValues[get_piece_type(captured_piece)] < PhaseBound){
+      thread_info.nnue_state.reset_and_add_sub_sub(position, from_piece, from, to_piece, to, captured_piece,
+                           captured_square, PhaseTypes::Endgame);
+
+      thread_info.phase = PhaseTypes::Endgame;
+
     }
     
     else{
-      nnue_state.add_sub_sub(from_piece, from, to_piece, to, captured_piece,
+      thread_info.nnue_state.add_sub_sub(from_piece, from, to_piece, to, captured_piece,
                            captured_square, phase);
     }
   }
 
   else {
-    nnue_state.add_sub(from_piece, from, to_piece, to, phase);
+    thread_info.nnue_state.add_sub(from_piece, from, to_piece, to, phase);
   }
 
 }

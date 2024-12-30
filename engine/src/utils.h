@@ -66,6 +66,7 @@ struct ThreadInfo {
 
   uint8_t searches = 0;
   volatile bool searching = false;
+  uint8_t phase;
 };
 
 RootMoveInfo *find_root_move(ThreadInfo &thread_info, Move move) {

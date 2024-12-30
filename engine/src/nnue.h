@@ -45,7 +45,7 @@ struct alignas(64) NNUE_Params {
 };
 
 INCBIN(nnue, "src/firefly.nnue");
-INCBIN(nnue2, "src/firefly.nnue");
+INCBIN(nnue2, "src/rw3.nnue");
 
 const NNUE_Params &g_nnue = *reinterpret_cast<const NNUE_Params *>(g_nnueData);
 const NNUE_Params &g_nnue2 =
