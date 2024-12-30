@@ -58,15 +58,6 @@ int16_t material_eval(const Position &position) {
 
   return position.color ? -m : m;
 }
-int16_t total_mat(const Position &position) {
-  int m = (position.material_count[0] + position.material_count[1]) * 100 +
-          (position.material_count[2] + position.material_count[3]) * 300 +
-          (position.material_count[4] + position.material_count[5]) * 300 +
-          (position.material_count[6] + position.material_count[7]) * 500 +
-          (position.material_count[8] + position.material_count[9]) * 900;
-
-  return m;
-}
 
 bool has_non_pawn_material(const Position &position, int color) {
   int s_indx = 2 + color;
@@ -89,7 +80,7 @@ int16_t total_mat_color(const Position &position, int color) {
 int eval(Position &position, ThreadInfo &thread_info) {
   int color = position.color;
   int root_color = thread_info.search_ply % 2 ? color ^ 1 : color;
-  int eval = thread_info.nnue_state.evaluate(color);
+  int eval = thread_info.nnue_state.evaluate(color, total_mat(position) < PhaseBound);
 
   // Patricia is much less dependent on explicit eval twiddling than before, but
   // there are still a few things I do.
@@ -236,7 +227,7 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
   if (out_of_time(thread_info)) {
     // return if out of time
     return correct_eval(position, thread_info,
-                        thread_info.nnue_state.evaluate(position.color));
+                        thread_info.nnue_state.evaluate(position.color, total_mat(position) < PhaseBound));
   }
   int color = position.color;
 
@@ -938,7 +929,7 @@ void iterative_deepen(
 
   thread_info.original_opt = thread_info.opt_time;
   thread_info.datagen_stop = false;
-  thread_info.nnue_state.reset_nnue(position);
+  thread_info.nnue_state.reset_nnue(position, 0);
   calculate(position);
   thread_info.nodes = 0;
   thread_info.time_checks = 0;

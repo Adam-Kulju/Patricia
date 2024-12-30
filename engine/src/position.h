@@ -5,6 +5,16 @@
 #include <cstring>
 #include <sstream>
 
+int16_t total_mat(const Position &position) {
+  int m = (position.material_count[0] + position.material_count[1]) * 100 +
+          (position.material_count[2] + position.material_count[3]) * 300 +
+          (position.material_count[4] + position.material_count[5]) * 300 +
+          (position.material_count[6] + position.material_count[7]) * 500 +
+          (position.material_count[8] + position.material_count[9]) * 900;
+
+  return m;
+}
+
 std::string
 internal_to_uci(const Position &position,
                 Move move) { // Converts an internal move into a uci move.
@@ -327,6 +337,8 @@ void update_nnue_state(NNUE_State &nnue_state, Move move,
   int from_piece = position.board[from];
   int to_piece = from_piece, color = position.color;
 
+  int phase = total_mat(position) < PhaseBound;
+
   if (extract_type(move) == MoveTypes::Promotion) { // Grab promos
     to_piece = (extract_promo(move) + 2) * 2 + color;
   }
@@ -351,22 +363,30 @@ void update_nnue_state(NNUE_State &nnue_state, Move move,
     if (side) {
       to = indx + 6;
       nnue_state.add_add_sub_sub(from_piece, from, to, Pieces::WRook + color,
-                                 position.castling_squares[color][side], indx + 5);
+                                 position.castling_squares[color][side], indx + 5, phase);
 
     } else {
       to = indx + 2;
       nnue_state.add_add_sub_sub(from_piece, from, to, Pieces::WRook + color,
-                                 position.castling_squares[color][side], indx + 3);
+                                 position.castling_squares[color][side], indx + 3, phase);
     }
   }
 
   else if (captured_piece) {
-    nnue_state.add_sub_sub(from_piece, from, to_piece, to, captured_piece,
-                           captured_square);
+
+    if (phase == PhaseTypes::Middlegame && total_mat(position) - MaterialValues[get_piece_type(captured_piece)] < PhaseBound){
+      nnue_state.reset_and_add_sub_sub(position, from_piece, from, to_piece, to, captured_piece,
+                           captured_square, phase ^ 1);
+    }
+    
+    else{
+      nnue_state.add_sub_sub(from_piece, from, to_piece, to, captured_piece,
+                           captured_square, phase);
+    }
   }
 
   else {
-    nnue_state.add_sub(from_piece, from, to_piece, to);
+    nnue_state.add_sub(from_piece, from, to_piece, to, phase);
   }
 
 }

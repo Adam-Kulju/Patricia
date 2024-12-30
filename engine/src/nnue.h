@@ -45,7 +45,11 @@ struct alignas(64) NNUE_Params {
 };
 
 INCBIN(nnue, "src/firefly.nnue");
+INCBIN(nnue2, "src/rw3.nnue");
+
 const NNUE_Params &g_nnue = *reinterpret_cast<const NNUE_Params *>(g_nnueData);
+const NNUE_Params &g_nnue2 =
+    *reinterpret_cast<const NNUE_Params *>(g_nnue2Data);
 
 template <size_t HiddenSize> struct alignas(64) Accumulator {
   std::array<int16_t, HiddenSize> white;
@@ -153,76 +157,92 @@ public:
   Accumulator<LAYER1_SIZE> m_accumulator_stack[MaxSearchDepth];
   Accumulator<LAYER1_SIZE> *m_curr;
 
-  void add_sub(int from_piece, int from, int to_piece, int to);
-  void add_sub_sub(int from_piece, int from, int to_piece, int to, int captured, int captured_pos);
-  void add_add_sub_sub(int piece1, int from1, int to1, int piece2, int from2, int to2);
+  void add_sub(int from_piece, int from, int to_piece, int to, int phase);
+  void add_sub_sub(int from_piece, int from, int to_piece, int to, int captured,
+                   int captured_pos, int phase);
+  void add_add_sub_sub(int piece1, int from1, int to1, int piece2, int from2,
+                       int to2, int phase);
   void pop();
-  int evaluate(int color);
-  void reset_nnue(Position& position);
+  int evaluate(int color, int phase);
+  void reset_nnue(const Position &position, int phase);
+  void reset_and_add_sub_sub(const Position &position, int from_piece, int from,
+                             int to_piece, int to, int captured,
+                             int captured_sq, int phase);
 
-  template <bool Activate> inline void update_feature(int piece, int square);
+  template <bool Activate>
+  inline void update_feature(int piece, int square, int phase);
 
   NNUE_State() {}
 };
 
-
-void NNUE_State::add_sub(int from_piece, int from, int to_piece, int to) {
+void NNUE_State::add_sub(int from_piece, int from, int to_piece, int to,
+                         int phase) {
 
   const auto [white_from, black_from] = feature_indices(from_piece, from);
   const auto [white_to, black_to] = feature_indices(to_piece, to);
 
+  const NNUE_Params *ptr =
+      (phase == PhaseTypes::Middlegame ? &g_nnue : &g_nnue2);
+
   for (size_t i = 0; i < LAYER1_SIZE; ++i) {
     m_curr[1].white[i] = m_curr->white[i] +
-                         g_nnue.feature_v[white_to * LAYER1_SIZE + i] -
-                         g_nnue.feature_v[white_from * LAYER1_SIZE + i];
+                         ptr->feature_v[white_to * LAYER1_SIZE + i] -
+                         ptr->feature_v[white_from * LAYER1_SIZE + i];
 
     m_curr[1].black[i] = m_curr->black[i] +
-                         g_nnue.feature_v[black_to * LAYER1_SIZE + i] -
-                         g_nnue.feature_v[black_from * LAYER1_SIZE + i];
+                         ptr->feature_v[black_to * LAYER1_SIZE + i] -
+                         ptr->feature_v[black_from * LAYER1_SIZE + i];
   }
 
   m_curr++;
 }
 
-void NNUE_State::add_sub_sub(int from_piece, int from, int to_piece, int to, int captured,
-                             int captured_sq) {
+void NNUE_State::add_sub_sub(int from_piece, int from, int to_piece, int to,
+                             int captured, int captured_sq, int phase) {
   const auto [white_from, black_from] = feature_indices(from_piece, from);
   const auto [white_to, black_to] = feature_indices(to_piece, to);
   const auto [white_capt, black_capt] = feature_indices(captured, captured_sq);
 
+  const NNUE_Params *ptr =
+      (phase == PhaseTypes::Middlegame ? &g_nnue : &g_nnue2);
+
   for (size_t i = 0; i < LAYER1_SIZE; ++i) {
     m_curr[1].white[i] = m_curr->white[i] +
-                         g_nnue.feature_v[white_to * LAYER1_SIZE + i] -
-                         g_nnue.feature_v[white_from * LAYER1_SIZE + i] -
-                         g_nnue.feature_v[white_capt * LAYER1_SIZE + i];
+                         ptr->feature_v[white_to * LAYER1_SIZE + i] -
+                         ptr->feature_v[white_from * LAYER1_SIZE + i] -
+                         ptr->feature_v[white_capt * LAYER1_SIZE + i];
 
     m_curr[1].black[i] = m_curr->black[i] +
-                         g_nnue.feature_v[black_to * LAYER1_SIZE + i] -
-                         g_nnue.feature_v[black_from * LAYER1_SIZE + i] -
-                         g_nnue.feature_v[black_capt * LAYER1_SIZE + i];
+                         ptr->feature_v[black_to * LAYER1_SIZE + i] -
+                         ptr->feature_v[black_from * LAYER1_SIZE + i] -
+                         ptr->feature_v[black_capt * LAYER1_SIZE + i];
   }
 
   m_curr++;
 }
 
-void NNUE_State::add_add_sub_sub(int piece1, int from1, int to1, int piece2, int from2, int to2){
+void NNUE_State::add_add_sub_sub(int piece1, int from1, int to1, int piece2,
+                                 int from2, int to2, int phase) {
   const auto [white_from1, black_from1] = feature_indices(piece1, from1);
   const auto [white_to1, black_to1] = feature_indices(piece1, to1);
   const auto [white_from2, black_from2] = feature_indices(piece2, from2);
   const auto [white_to2, black_to2] = feature_indices(piece2, to2);
 
-  for (size_t i = 0; i < LAYER1_SIZE; ++i){
+  const NNUE_Params *ptr =
+      (phase == PhaseTypes::Middlegame ? &g_nnue : &g_nnue2);
+
+  for (size_t i = 0; i < LAYER1_SIZE; ++i) {
     m_curr[1].white[i] = m_curr->white[i] +
-                         g_nnue.feature_v[white_to1 * LAYER1_SIZE + i] -
-                         g_nnue.feature_v[white_from1 * LAYER1_SIZE + i] +
-                         g_nnue.feature_v[white_to2 * LAYER1_SIZE + i] - 
-                         g_nnue.feature_v[white_from2 * LAYER1_SIZE + i];
+                         ptr->feature_v[white_to1 * LAYER1_SIZE + i] -
+                         ptr->feature_v[white_from1 * LAYER1_SIZE + i] +
+                         ptr->feature_v[white_to2 * LAYER1_SIZE + i] -
+                         ptr->feature_v[white_from2 * LAYER1_SIZE + i];
 
     m_curr[1].black[i] = m_curr->black[i] +
-                         g_nnue.feature_v[black_to1 * LAYER1_SIZE + i] -
-                         g_nnue.feature_v[black_from1 * LAYER1_SIZE + i] +
-                         g_nnue.feature_v[black_to2 * LAYER1_SIZE + i] -
-                         g_nnue.feature_v[black_from2 * LAYER1_SIZE + i];
+                         ptr->feature_v[black_to1 * LAYER1_SIZE + i] -
+                         ptr->feature_v[black_from1 * LAYER1_SIZE + i] +
+                         ptr->feature_v[black_to2 * LAYER1_SIZE + i] -
+                         ptr->feature_v[black_from2 * LAYER1_SIZE + i];
   }
 
   m_curr++;
@@ -230,39 +250,80 @@ void NNUE_State::add_add_sub_sub(int piece1, int from1, int to1, int piece2, int
 
 void NNUE_State::pop() { m_curr--; }
 
-int NNUE_State::evaluate(int color) {
+int NNUE_State::evaluate(int color, int phase) {
+
+  const NNUE_Params *ptr =
+      (phase == PhaseTypes::Middlegame ? &g_nnue : &g_nnue2);
   const auto output =
       color == Colors::White
-          ? screlu_flatten(m_curr->white, m_curr->black, g_nnue.output_v)
-          : screlu_flatten(m_curr->black, m_curr->white, g_nnue.output_v);
-  return (output + g_nnue.output_bias) * SCALE / QAB;
+          ? screlu_flatten(m_curr->white, m_curr->black, ptr->output_v)
+          : screlu_flatten(m_curr->black, m_curr->white, ptr->output_v);
+
+  return (output + ptr->output_bias) * SCALE / QAB;
 }
 
 template <bool Activate>
-inline void NNUE_State::update_feature(int piece, int square) {
+inline void NNUE_State::update_feature(int piece, int square, int phase) {
   const auto [white_idx, black_idx] = feature_indices(piece, square);
+  const NNUE_Params *ptr =
+      (phase == PhaseTypes::Middlegame ? &g_nnue : &g_nnue2);
 
   if constexpr (Activate) {
-    add_to_all(m_curr->white, m_curr->white, g_nnue.feature_v,
+    add_to_all(m_curr->white, m_curr->white, ptr->feature_v,
                white_idx * LAYER1_SIZE);
-    add_to_all(m_curr->black, m_curr->black, g_nnue.feature_v,
+    add_to_all(m_curr->black, m_curr->black, ptr->feature_v,
                black_idx * LAYER1_SIZE);
   } else {
-    subtract_from_all(m_curr->white, m_curr->white, g_nnue.feature_v,
+    subtract_from_all(m_curr->white, m_curr->white, ptr->feature_v,
                       white_idx * LAYER1_SIZE);
-    subtract_from_all(m_curr->black, m_curr->black, g_nnue.feature_v,
+    subtract_from_all(m_curr->black, m_curr->black, ptr->feature_v,
                       black_idx * LAYER1_SIZE);
   }
 }
 
-void NNUE_State::reset_nnue(Position& position) {
+void NNUE_State::reset_nnue(const Position &position, int phase) {
+
   m_curr = &m_accumulator_stack[0];
-  m_curr->init(g_nnue.feature_bias);
+  m_curr->init(phase == PhaseTypes::Middlegame ? g_nnue.feature_bias
+                                                  : g_nnue2.feature_bias);
 
   for (int square = a1; square < SqNone; square++) {
     if (position.board[square] != Pieces::Blank) {
-      update_feature<true>(position.board[square],
-                           square);
+      update_feature<true>(position.board[square], square, phase);
     }
+  }
+}
+
+void NNUE_State::reset_and_add_sub_sub(const Position &position, int from_piece,
+                                       int from, int to_piece, int to,
+                                       int captured, int captured_sq,
+                                       int phase) {
+  m_curr++;
+  m_curr->init(phase == PhaseTypes::Middlegame ? g_nnue.feature_bias
+                                                  : g_nnue2.feature_bias);
+
+  for (int square = a1; square < SqNone; square++) {
+    if (position.board[square] != Pieces::Blank) {
+      update_feature<true>(position.board[square], square, phase);
+    }
+  }
+
+  const auto [white_from, black_from] = feature_indices(from_piece, from);
+  const auto [white_to, black_to] = feature_indices(to_piece, to);
+  const auto [white_capt, black_capt] = feature_indices(captured, captured_sq);
+
+  const NNUE_Params *ptr =
+      (phase == PhaseTypes::Middlegame ? &g_nnue : &g_nnue2);
+
+  for (size_t i = 0; i < LAYER1_SIZE; ++i) {
+    m_curr->white[i] = m_curr->white[i] +
+                         ptr->feature_v[white_to * LAYER1_SIZE + i] -
+                         ptr->feature_v[white_from * LAYER1_SIZE + i] -
+                         ptr->feature_v[white_capt * LAYER1_SIZE + i];
+
+    m_curr->black[i] = m_curr->black[i] +
+                         ptr->feature_v[black_to * LAYER1_SIZE + i] -
+                         ptr->feature_v[black_from * LAYER1_SIZE + i] -
+                         ptr->feature_v[black_capt * LAYER1_SIZE + i];
   }
 }
