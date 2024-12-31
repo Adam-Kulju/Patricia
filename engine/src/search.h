@@ -58,15 +58,6 @@ int16_t material_eval(const Position &position) {
 
   return position.color ? -m : m;
 }
-int16_t total_mat(const Position &position) {
-  int m = (position.material_count[0] + position.material_count[1]) * 100 +
-          (position.material_count[2] + position.material_count[3]) * 300 +
-          (position.material_count[4] + position.material_count[5]) * 300 +
-          (position.material_count[6] + position.material_count[7]) * 500 +
-          (position.material_count[8] + position.material_count[9]) * 900;
-
-  return m;
-}
 
 bool has_non_pawn_material(const Position &position, int color) {
   int s_indx = 2 + color;
@@ -89,22 +80,23 @@ int16_t total_mat_color(const Position &position, int color) {
 int eval(Position &position, ThreadInfo &thread_info) {
   int color = position.color;
   int root_color = thread_info.search_ply % 2 ? color ^ 1 : color;
-  int eval = thread_info.nnue_state.evaluate(color);
+  int eval = thread_info.nnue_state.evaluate(color, thread_info.phase);
 
   // Patricia is much less dependent on explicit eval twiddling than before, but
   // there are still a few things I do.
 
   int bonus1 = 0, bonus2 = 0;
-  
-/*
-  // Give a small bonus if the position is much better than what material would
-  // suggest
-  if (eval > 0 && eval > m_eval + m_threshold) {
-    bonus1 += 25 + (eval - m_eval - m_threshold) / 10;
-  } else if (eval < 0 && eval < m_eval - m_threshold) {
-    bonus1 -= 25 + (m_eval - eval - m_threshold) / 10;
-  }
-*/
+
+  /*
+    // Give a small bonus if the position is much better than what material
+    would
+    // suggest
+    if (eval > 0 && eval > m_eval + m_threshold) {
+      bonus1 += 25 + (eval - m_eval - m_threshold) / 10;
+    } else if (eval < 0 && eval < m_eval - m_threshold) {
+      bonus1 -= 25 + (m_eval - eval - m_threshold) / 10;
+    }
+  */
 
   bool our_side = (thread_info.search_ply % 2 == 0);
 
@@ -235,8 +227,9 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
 
   if (out_of_time(thread_info)) {
     // return if out of time
-    return correct_eval(position, thread_info,
-                        thread_info.nnue_state.evaluate(position.color));
+    return correct_eval(
+        position, thread_info,
+        thread_info.nnue_state.evaluate(position.color, thread_info.phase));
   }
   int color = position.color;
 
@@ -255,6 +248,7 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
   }
 
   uint64_t hash = position.zobrist_key;
+  uint8_t phase = thread_info.phase;
   bool tt_hit;
   TTEntry &entry = probe_entry(hash, tt_hit, thread_info.searches, TT);
 
@@ -332,11 +326,13 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
     Position moved_position = position;
     make_move(moved_position, move);
 
-    update_nnue_state(thread_info.nnue_state, move, position);
+    update_nnue_state(thread_info, move, position);
 
     ss_push(position, thread_info, move);
     int score = -qsearch(-beta, -alpha, moved_position, thread_info, TT);
     ss_pop(thread_info);
+
+    thread_info.phase = phase;
 
     if (thread_data.stop || thread_info.datagen_stop) {
       // return if we ran out of time for search
@@ -374,7 +370,6 @@ template <bool is_pv>
 int search(int alpha, int beta, int depth, bool cutnode, Position &position,
            ThreadInfo &thread_info,
            std::vector<TTBucket> &TT) { // Performs an alpha-beta search.
-
 
   GameHistory *ss = &(thread_info.game_hist[thread_info.game_ply]);
 
@@ -436,7 +431,6 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
   bool root = !ply, color = position.color, raised_alpha = false;
 
-
   Move best_move = MoveNone;
   Move excluded_move = thread_info.excluded_move;
 
@@ -448,6 +442,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   int score = ScoreNone;
 
   uint64_t hash = position.zobrist_key;
+  uint8_t phase = thread_info.phase;
 
   int mate_distance = -Mate - ply;
   if (mate_distance <
@@ -684,7 +679,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     Position moved_position = position;
     make_move(moved_position, move);
 
-    update_nnue_state(thread_info.nnue_state, move, position);
+    update_nnue_state(thread_info, move, position);
 
     ss_push(position, thread_info, move);
 
@@ -742,6 +737,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     }
 
     ss_pop(thread_info);
+    thread_info.phase = phase;
 
     if (thread_data.stop || thread_info.datagen_stop) {
       // return if we ran out of time for search
@@ -938,10 +934,11 @@ void iterative_deepen(
 
   thread_info.original_opt = thread_info.opt_time;
   thread_info.datagen_stop = false;
-  thread_info.nnue_state.reset_nnue(position);
+  thread_info.nnue_state.reset_nnue(position, total_mat(position) < PhaseBound);
   calculate(position);
   thread_info.nodes = 0;
   thread_info.time_checks = 0;
+  thread_info.phase = total_mat(position) < PhaseBound;
   thread_info.search_ply = 0; // reset all relevant thread_info
   thread_info.excluded_move = MoveNone;
   thread_info.best_moves = {0};
@@ -990,7 +987,8 @@ void iterative_deepen(
           goto finish;
         }
 
-        if (thread_info.thread_id == 0 && !thread_info.doing_datagen && !(thread_info.is_human && thread_info.multipv_index)) {
+        if (thread_info.thread_id == 0 && !thread_info.doing_datagen &&
+            !(thread_info.is_human && thread_info.multipv_index)) {
           std::string bound_string;
           if (score >= beta) {
             bound_string = "lowerbound";
@@ -1066,7 +1064,8 @@ void iterative_deepen(
           nps = wezly;
         }
 
-        if (!thread_info.doing_datagen && !(thread_info.is_human && thread_info.multipv_index)) {
+        if (!thread_info.doing_datagen &&
+            !(thread_info.is_human && thread_info.multipv_index)) {
           printf("info multipv %i depth %i seldepth %i score %s nodes %" PRIu64
                  " nps %" PRIi64 " time %" PRIi64 " pv ",
                  thread_info.multipv_index + 1, depth, thread_info.seldepth,
@@ -1118,7 +1117,7 @@ void iterative_deepen(
 
 finish:
   // wait for all threads to finish searching
-  //printf("%i\n", thread_info.thread_id);
+  // printf("%i\n", thread_info.thread_id);
   thread_data.stop = true;
   search_end_barrier.arrive_and_wait();
   if (thread_info.thread_id == 0 && !thread_info.doing_datagen &&

@@ -40,7 +40,7 @@ constexpr int8_t Normal = 0;
 constexpr int8_t EnPassant = 1;
 constexpr int8_t Castling = 2;
 constexpr int8_t Promotion = 3;
-}
+} // namespace MoveTypes
 
 namespace Directions {
 constexpr int8_t North = 8;
@@ -70,6 +70,11 @@ constexpr uint8_t Bishop = 1;
 constexpr uint8_t Rook = 2;
 constexpr uint8_t Queen = 3;
 } // namespace Promos
+
+namespace PhaseTypes {
+constexpr uint8_t Middlegame = 0;
+constexpr uint8_t Endgame = 1;
+} // namespace NetTypes
 
 constexpr int get_piece_type(int x) { return x / 2; }
 
@@ -104,15 +109,15 @@ struct MoveInfo {
 };
 
 struct Position {
-  uint64_t zobrist_key;          // hash key
+  uint64_t zobrist_key; // hash key
   uint64_t pawn_key;
   std::array<uint8_t, 64> board; // Stores the board itself
   std::array<uint64_t, 2> colors_bb;
   std::array<uint64_t, 7> pieces_bb;
-  std::array<uint8_t, 10> material_count; // Stores material
+  std::array<uint8_t, 10> material_count;     // Stores material
   MultiArray<uint8_t, 2, 2> castling_squares; // castling rights
-  uint8_t ep_square;                      // stores ep square
-  bool color;                             // whose side to move
+  uint8_t ep_square;                          // stores ep square
+  bool color;                                 // whose side to move
   uint8_t halfmoves;
 };
 
@@ -164,6 +169,11 @@ struct RootMoveInfo {
 
 constexpr std::array<int, 7> SeeValues = {
     0, 100, 450, 450, 650, 1250, 10000}; // SEE values for different pieces
+
+constexpr std::array<int, 7> MaterialValues = {0,   100, 300,  300,
+                                               500, 900, 10000};
+
+constexpr int PhaseBound = 3500;
 
 std::random_device rd;
 std::uniform_int_distribution<int> dist(0, INT32_MAX);

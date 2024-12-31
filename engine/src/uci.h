@@ -280,7 +280,6 @@ void uci(ThreadInfo &thread_info, Position &position) {
                   "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
       }
 
-      thread_info.nnue_state.reset_nnue(position);
       calculate(position);
       std::string has_moves;
       if (input_stream >>
