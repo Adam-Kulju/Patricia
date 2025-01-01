@@ -12,18 +12,18 @@
 
 A killer bunny who will not hesitate to ram as many pieces as possible down your throat, Patricia is the most aggressive chess engine the world has ever seen.
 
-<br/><br/>
+***
 
 ## Aggression
-The metric that Patricia's aggression claims are based off of is Stefan Pohl's [EAS tool (found here)](https://www.sp-cc.de/eas-ratinglist.htm), which is the most well known and well regarded tool for determining the aggressiveness of chess engines. It looks at a combination of factors, such as sacrifice rate, short win rate, and unnecessary draw rate, and outputs a score that captures how "exciting" an engine tends to play. It's not a perfect statistic but from my experience it reflects the "eye test" well.
+The metric that Patricia's aggression claims are based off of is Stefan Pohl's [EAS tool (found here)](https://www.sp-cc.de/eas-ratinglist.htm), which is the most well known and best regarded tool for determining the aggressiveness of chess engines. It looks at a combination of factors, such as sacrifice rate, short win rate, and unnecessary draw rate, and outputs a score that captures how "exciting" an engine tends to play. It's not a perfect statistic but from my experience it reflects the "eye test" well.
 
 The average engine's EAS score generally falls between 50,000 and 100,000. The most aggressive top engine is Stockfish, due to its extreme tactical ability; it has an EAS score of 190,000.
 
 By contrast, Patricia's EAS score is <b><i>430,000</i></b> as tested by [Pohl himself](https://www.sp-cc.de/patricia_eas_engine.htm).
 
-It's worth noting that Patricia is still well into superhuman territory, with an estimated CCRL elo of 3300-3350; she can put up a solid fight against top engines, and will crush any humans.
+It's worth noting that Patricia is still extremely powerful, clocking in at 3500 on the CCRL Blitz rating list; she can put up a solid fight against top engines, and will crush any humans.
 
-<br/><br/>
+***
 
 ## What Patricia currently does to increase aggressiveness
 - Default contempt of 30 centipawns for draws deemed avoidable
@@ -33,29 +33,12 @@ It's worth noting that Patricia is still well into superhuman territory, with an
 - Bonuses for being better off than what material would suggest
 - Material scaling
 
-<br/><br/>
-## Search Features
-This is not a comprehensive list of search features that Patricia has.
+***
 
-- Alpha-Beta search with Quiescence Search and Transposition Tables
-- Aspiration Windows
-- Reverse Futility Pruning and Futility Pruning
-- Null Move Pruning
-- Late Move Reductions
-- Late Move Pruning
-- History Heuristic and Killer Move Heuristic
-- Singular Extensions
-- SEE pruning
-- Countermove History, Capture History, and Follow-up History tables
-- Improving
-- Internal Iterative Reductions
-- SIMD
-- TT Replacement Schema
-
-<br/><br/>
 ## Customization Options
 
 Patricia supports a few options for users:
+
 `Hash`: The memory alloted to the transposition table.
 
 `Threads`: Number of threads to search with.
@@ -63,6 +46,8 @@ Patricia supports a few options for users:
 `UCI_LimitStrength`: Enables Patricia to be weakened using `UCI_Elo`.
 
 `UCI_Elo`: Sets Patricia to play at a given strength range, anywhere from 500 to 3000. These ratings were calibrated by playing many matches against engines of all strengths.
+
+`UCI_Chess960`: Enabling this option allows Patricia to play FRC.
 
 `MultiPV`: Patricia searches the best X moves instead of only looking for the best line.
 
@@ -96,35 +81,20 @@ Patricia supports a few options for users:
 
 `go movetime`: Search a position for a given number of milliseconds.
 
-<br/><br/>
+***
 
 ## Evaluation and Filtering
-Patricia's evaluation is a neural network with a 768x2->768->1 perspective arch, trained on 2.4 billion positions of my other engine [Willow's](https://github.com/Adam-Kulju/Willow) data. It has been additionally retrained on a filtered dataset of 10 million positions specially selected for being "aggressive positions", in order to increase Patricia's understanding of them and to make her more likely to play into similar positions.
+Patricia's evaluation is a pair of neural networks with 768x2->768->1 perspective arches, trained on 2.4 billion positions of my other engine [Willow's](https://github.com/Adam-Kulju/Willow) data. One of them has been additionally retrained on a filtered dataset of 50 million positions specially selected for being "aggressive positions", in order to increase Patricia's understanding of them and to make her more likely to play into similar positions.
 
-Code for filtering programs are found in the utils/ directory, and are indentified as follows:
-- <b>position_filter_1:</b> Saves positions with general compensation - i.e. being down significantly in material yet still having at least a playable position. (Note: I currently do not recommend using this one.)
-- <b>position_filter_2:</b> Saves positions where one side's king is exposed and under attack by enemy pieces.
-- <b>position_filter_3:</b> Saves positions where one side has a major space advantage.
-- <b>position_filter_4:</b> Saves opposite side castling positions with lots of material on the board and one side attempting a pawn storm.
-- <b>position_filter_5:</b> Saves positions where one side is significantly behind in development.
-- <b>position_filter_6:</b> Saves positions where one side can't castle and has an open king. This is somewhat similar to 2 but doesn't take into account attackers and uses a different method for calculating defensive strength.
-- <b>position_filter_7:</b> Saves positions where many pieces are able to move near, are near, or are pointing at the enemy king. This uses a simple but effective ray calculator instead of a full mobility calculation.
-- <b>position_filter_8:</b> Saves positions where one side has an extremely powerful minor piece that can't be traded off easily. Many such positions result from exchange sacrifices and even if they don't the dominant piece is a long term advantage that often leads to dynamics down the line.
-- <b>position_filter_9:</b> Currently Patricia's best filtering script. It is a fixed version of `position_filter_1` that saves positions where we are doing much better than material balance would suggest.
+For more information on filtering and retraining, consult the [Wiki](https://github.com/Adam-Kulju/Patricia/wiki/Filtering,-converting,-and-retraining).
 
-Patricia currently uses positions that were filtered out by script 9.
-
-Additionally, the `converter.cpp` file allows you to transform bullet-format data into text data, so that you can then use the filtering scripts on the resulting file.
-
-All filtering programs are run with the command `./[exe] [input.txt] [output.txt]`. You'll have to compile the particular program that you want to run yourself, or you can ask me for a binary for a specific filtering method.
-
-<br/><br/>
+***
 
 ## Datagen
 
 Patricia has support for data generation; in order to compile the datagen script, run `make datagen` in the `engines` directory. This will give you an executable named `data`; run `./data [number of threads] [optional EPD opening book]` to start datagen, and exit the process whenever you want with Ctr-C.
 
-<br/><br/>
+***
 
 ## Acknowledgements
 
@@ -134,7 +104,7 @@ Patricia has support for data generation; in order to compile the datagen script
 
 - Thanks to all the people interested in an aggressive chess engine. The support I got in my developer log on Talkchess is really nice to see. I'm glad people care about style in chess too, rather than just ELO!
 
-<br/><br/>
+***
 
 ## Other
 
