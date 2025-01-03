@@ -1099,6 +1099,11 @@ void iterative_deepen(
               find_root_move(thread_info, thread_info.best_moves[0])->nodes,
               bm_stability);
         }
+
+        if (depth == 6 && thread_info.best_scores[0] < -100){
+          thread_info.phase = PhaseTypes::Endgame;
+          thread_info.nnue_state.reset_nnue(position, thread_info.phase);
+        }
       }
 
       if (thread_data.stop || thread_info.datagen_stop) {
