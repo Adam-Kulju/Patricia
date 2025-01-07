@@ -74,6 +74,7 @@ constexpr uint8_t Queen = 3;
 namespace PhaseTypes {
 constexpr uint8_t Middlegame = 0;
 constexpr uint8_t Endgame = 1;
+constexpr uint8_t Sacrifice = 2;
 } // namespace NetTypes
 
 constexpr int get_piece_type(int x) { return x / 2; }

@@ -1104,6 +1104,10 @@ void iterative_deepen(
           thread_info.phase = PhaseTypes::Endgame;
           thread_info.nnue_state.reset_nnue(position, thread_info.phase);
         }
+        else if (depth == 6 && thread_info.best_scores[0] > 300){
+          thread_info.phase = PhaseTypes::Sacrifice;
+          thread_info.nnue_state.reset_nnue(position, thread_info.phase);
+        }
       }
 
       if (thread_data.stop || thread_info.datagen_stop) {
