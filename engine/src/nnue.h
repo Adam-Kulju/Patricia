@@ -46,10 +46,13 @@ struct alignas(64) NNUE_Params {
 
 INCBIN(nnue, "nets/firefly.nnue");
 INCBIN(nnue2, "nets/rw3.nnue");
+INCBIN(nnue3, "nets/allie.nnue");
 
 const NNUE_Params &g_nnue = *reinterpret_cast<const NNUE_Params *>(g_nnueData);
 const NNUE_Params &g_nnue2 =
     *reinterpret_cast<const NNUE_Params *>(g_nnue2Data);
+const NNUE_Params &g_nnue3 =
+    *reinterpret_cast<const NNUE_Params *>(g_nnue3Data);
 
 template <size_t HiddenSize> struct alignas(64) Accumulator {
   std::array<int16_t, HiddenSize> white;
@@ -182,7 +185,7 @@ void NNUE_State::add_sub(int from_piece, int from, int to_piece, int to,
   const auto [white_to, black_to] = feature_indices(to_piece, to);
 
   const NNUE_Params *ptr =
-      (phase == PhaseTypes::Middlegame ? &g_nnue : &g_nnue2);
+      (phase == PhaseTypes::Middlegame ? &g_nnue : phase == PhaseTypes::Endgame ? &g_nnue2 : &g_nnue3);
 
   for (size_t i = 0; i < LAYER1_SIZE; ++i) {
     m_curr[1].white[i] = m_curr->white[i] +
@@ -204,7 +207,7 @@ void NNUE_State::add_sub_sub(int from_piece, int from, int to_piece, int to,
   const auto [white_capt, black_capt] = feature_indices(captured, captured_sq);
 
   const NNUE_Params *ptr =
-      (phase == PhaseTypes::Middlegame ? &g_nnue : &g_nnue2);
+      (phase == PhaseTypes::Middlegame ? &g_nnue : phase == PhaseTypes::Endgame ? &g_nnue2 : &g_nnue3);
 
   for (size_t i = 0; i < LAYER1_SIZE; ++i) {
     m_curr[1].white[i] = m_curr->white[i] +
@@ -229,7 +232,7 @@ void NNUE_State::add_add_sub_sub(int piece1, int from1, int to1, int piece2,
   const auto [white_to2, black_to2] = feature_indices(piece2, to2);
 
   const NNUE_Params *ptr =
-      (phase == PhaseTypes::Middlegame ? &g_nnue : &g_nnue2);
+      (phase == PhaseTypes::Middlegame ? &g_nnue : phase == PhaseTypes::Endgame ? &g_nnue2 : &g_nnue3);
 
   for (size_t i = 0; i < LAYER1_SIZE; ++i) {
     m_curr[1].white[i] = m_curr->white[i] +
@@ -253,7 +256,7 @@ void NNUE_State::pop() { m_curr--; }
 int NNUE_State::evaluate(int color, int phase) {
 
   const NNUE_Params *ptr =
-      (phase == PhaseTypes::Middlegame ? &g_nnue : &g_nnue2);
+      (phase == PhaseTypes::Middlegame ? &g_nnue : phase == PhaseTypes::Endgame ? &g_nnue2 : &g_nnue3);
   const auto output =
       color == Colors::White
           ? screlu_flatten(m_curr->white, m_curr->black, ptr->output_v)
@@ -266,7 +269,7 @@ template <bool Activate>
 inline void NNUE_State::update_feature(int piece, int square, int phase) {
   const auto [white_idx, black_idx] = feature_indices(piece, square);
   const NNUE_Params *ptr =
-      (phase == PhaseTypes::Middlegame ? &g_nnue : &g_nnue2);
+      (phase == PhaseTypes::Middlegame ? &g_nnue : phase == PhaseTypes::Endgame ? &g_nnue2 : &g_nnue3);
 
   if constexpr (Activate) {
     add_to_all(m_curr->white, m_curr->white, ptr->feature_v,
@@ -285,7 +288,7 @@ void NNUE_State::reset_nnue(const Position &position, int phase) {
 
   m_curr = &m_accumulator_stack[0];
   m_curr->init(phase == PhaseTypes::Middlegame ? g_nnue.feature_bias
-                                                  : g_nnue2.feature_bias);
+                                                  : phase == PhaseTypes::Endgame ? g_nnue2.feature_bias : g_nnue3.feature_bias);
 
   for (int square = a1; square < SqNone; square++) {
     if (position.board[square] != Pieces::Blank) {
@@ -300,7 +303,7 @@ void NNUE_State::reset_and_add_sub_sub(const Position &position, int from_piece,
                                        int phase) {
   m_curr++;
   m_curr->init(phase == PhaseTypes::Middlegame ? g_nnue.feature_bias
-                                                  : g_nnue2.feature_bias);
+                                                  : phase == PhaseTypes::Endgame ? g_nnue2.feature_bias : g_nnue3.feature_bias);
 
   for (int square = a1; square < SqNone; square++) {
     if (position.board[square] != Pieces::Blank) {
@@ -313,7 +316,7 @@ void NNUE_State::reset_and_add_sub_sub(const Position &position, int from_piece,
   const auto [white_capt, black_capt] = feature_indices(captured, captured_sq);
 
   const NNUE_Params *ptr =
-      (phase == PhaseTypes::Middlegame ? &g_nnue : &g_nnue2);
+      (phase == PhaseTypes::Middlegame ? &g_nnue : phase == PhaseTypes::Endgame ? &g_nnue2 : &g_nnue3);
 
   for (size_t i = 0; i < LAYER1_SIZE; ++i) {
     m_curr->white[i] = m_curr->white[i] +
