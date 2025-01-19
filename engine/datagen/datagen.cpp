@@ -119,7 +119,7 @@ std::string export_fen(const Position &position,
 
     int color = indx > 1 ? Colors::Black : Colors::White;
     int side = indx % 2 == 0 ? Sides::Kingside : Sides::Queenside;
-    if (position.castling_rights[color][side]) {
+    if (position.castling_squares[color][side] != SquareNone) {
       fen += rights;
       has_castling_rights = true;
     }
