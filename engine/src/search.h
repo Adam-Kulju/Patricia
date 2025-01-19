@@ -203,7 +203,17 @@ bool is_draw(const Position &position,
 
   int halfmoves = position.halfmoves, game_ply = thread_info.game_ply;
   if (halfmoves >= 100) {
-    return true;
+    int color = position.color;
+
+    if (!attacks_square(position, get_king_pos(position, color), color ^ 1)){
+      return true;
+    }
+
+    MoveInfo moves;
+    if (legal_movegen(position, moves.moves)){
+      return true;
+    }
+
   }
   if (material_draw(position)) {
     return true;
