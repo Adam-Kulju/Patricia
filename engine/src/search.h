@@ -132,12 +132,9 @@ int eval(Position &position, ThreadInfo &thread_info) {
   // If we're winning, scale eval by material; we don't want to trade off to an
   // easily won endgame, but instead should continue the attack.
 
-  if (abs(eval) > 500) {
-    eval = eval *
-           (512 + total_mat_color(position, color ^ 1) / 8 -
-            (position.material_count[0] + position.material_count[1]) * 20) /
-           768;
-  }
+  float multiplier = ((float)750 + total_mat(position) / 25) / 1024;
+
+  eval = eval * multiplier;
 
   return std::clamp(eval + bonus1 + bonus2, -MateScore, MateScore);
 }
