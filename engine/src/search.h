@@ -734,6 +734,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
                              moved_position, thread_info, TT);
       if (score > alpha) {
         full_search = R > 1;
+        newdepth += (score > (best_score + 60 + newdepth * 2));
       }
     } else {
       full_search = moves_played || !is_pv;
