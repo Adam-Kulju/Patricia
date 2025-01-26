@@ -618,6 +618,9 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
     uint64_t curr_nodes = thread_info.nodes;
 
+    int hist_score = thread_info.HistoryScores[position.board[extract_from(move)]]
+                                      [extract_to(move)];
+
     is_capture = is_cap(position, move);
     if (!is_capture && !is_pv && best_score > -MateScore) {
 
@@ -634,6 +637,10 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
       if (!in_check && depth < FPDepth && move_score < GoodCaptureBaseScore &&
           static_eval + FPMargin1 + FPMargin2 * depth < alpha) {
+        skip = true;
+      }
+
+      if (!is_pv && !is_capture && depth < 4 && hist_score < -4096 * depth){
         skip = true;
       }
     }
@@ -707,8 +714,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
         // alpha/beta
         R /= 2;
       } else {
-        R -= thread_info.HistoryScores[position.board[extract_from(move)]]
-                                      [extract_to(move)] /
+        R -= hist_score /
              10000;
       }
 
