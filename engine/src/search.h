@@ -687,6 +687,9 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
           return sBeta;
         }
+        else if (cutnode){
+          extension = -1;
+        }
       }
     }
 
