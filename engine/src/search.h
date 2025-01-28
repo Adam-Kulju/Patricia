@@ -143,6 +143,9 @@ int correct_eval(const Position &position, ThreadInfo &thread_info, int eval) {
   int corr =
       thread_info
           .PawnCorrHist[position.color][get_corrhist_index(position.pawn_key)];
+  
+  corr += thread_info.NonPawnCorrHist[position.color][Colors::White][get_corrhist_index(position.non_pawn_key[Colors::White])];
+  corr += thread_info.NonPawnCorrHist[position.color][Colors::Black][get_corrhist_index(position.non_pawn_key[Colors::Black])];
 
   return std::clamp(eval + (CorrWeight * corr / 512), -MateScore, MateScore);
 }
@@ -890,6 +893,12 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
     update_corrhist(
         thread_info.PawnCorrHist[color][get_corrhist_index(position.pawn_key)],
+        bonus);
+    update_corrhist(
+        thread_info.NonPawnCorrHist[color][Colors::White][get_corrhist_index(position.non_pawn_key[Colors::White])],
+        bonus);
+    update_corrhist(
+        thread_info.NonPawnCorrHist[color][Colors::Black][get_corrhist_index(position.non_pawn_key[Colors::Black])],
         bonus);
   }
 
