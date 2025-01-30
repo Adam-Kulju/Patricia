@@ -38,6 +38,7 @@ struct ThreadInfo {
   MultiArray<int16_t, 14, 64, 14, 64> ContHistScores;
   MultiArray<int16_t, 14, 64> CapHistScores;
   MultiArray<int16_t, 2, 16384> PawnCorrHist;
+  MultiArray<int16_t, 2, 2, 16384> NonPawnCorrHist;
   std::array<Move, MaxSearchDepth + 1> KillerMoves;
 
   uint8_t current_iter;
@@ -101,6 +102,7 @@ void new_game(ThreadInfo &thread_info, std::vector<TTBucket> &TT) {
               sizeof(thread_info.ContHistScores));
   std::memset(&thread_info.CapHistScores, 0, sizeof(thread_info.CapHistScores));
   std::memset(&thread_info.PawnCorrHist, 0, sizeof(thread_info.PawnCorrHist));
+  std::memset(&thread_info.NonPawnCorrHist, 0, sizeof(thread_info.NonPawnCorrHist));
   std::memset(&thread_info.game_hist, 0, sizeof(thread_info.game_hist));
   std::memset(&TT[0], 0, TT_size * sizeof(TT[0]));
   thread_info.searches = 0;
@@ -205,6 +207,7 @@ void calculate(Position &position) { // Calculates the zobrist key of
   // incremental updates are faster.
   uint64_t hash = 0;
   uint64_t pawn_hash = 0;
+  position.non_pawn_key[Colors::White] = 0, position.non_pawn_key[Colors::Black] = 0;
 
   for (int indx = 0; indx < 64; indx++) {
     int piece = position.board[indx];
@@ -212,6 +215,9 @@ void calculate(Position &position) { // Calculates the zobrist key of
       hash ^= zobrist_keys[get_zobrist_key(piece, indx)];
       if (get_piece_type(piece) == PieceTypes::Pawn){
         pawn_hash ^= zobrist_keys[get_zobrist_key(piece, indx)];
+      }
+      else{
+        position.non_pawn_key[get_color(piece)] ^= zobrist_keys[get_zobrist_key(piece, indx)];
       }
     }
   }
