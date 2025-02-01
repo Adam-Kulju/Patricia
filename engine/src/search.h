@@ -108,8 +108,8 @@ int eval(Position &position, ThreadInfo &thread_info) {
   // Give a small bonus if we have sacrificed material at some point in the
   // search tree If we are completely winning, give a bigger bonus to
   // incentivize finding the most stylish move when everything wins
-
-  for (int idx = start_index + 2; idx < thread_info.game_ply - 4; idx += 2) {
+  
+ for (int idx = start_index + 2; idx < thread_info.game_ply - 4; idx += 2) {
 
     if (thread_info.game_hist[idx].m_diff < s_m &&
         thread_info.game_hist[idx + 1].m_diff > s_m &&
@@ -118,14 +118,22 @@ int eval(Position &position, ThreadInfo &thread_info) {
         thread_info.game_hist[idx + 4].m_diff < s_m) {
 
       s = s_m + thread_info.game_hist[idx + 4].m_diff;
+      break;
+    }
+
+    if (thread_info.game_hist[idx].m_diff < 0 &&
+        thread_info.game_hist[idx].m_diff == material_eval(position)) {
+
+      s = 1;
+      break;
     }
   }
-  if (s) {
+  if (s && total_mat(position) > 3500) {
 
     if (thread_info.search_ply % 2) {
-      bonus2 = -20 * (eval < -500 ? 3 : eval < -150 ? 2 : 1);
+      bonus2 = -40 * (eval < -300 ? 2 : eval < 0 ? 1 : 0);
     } else {
-      bonus2 = 20 * (eval > 500 ? 3 : eval > 150 ? 2 : 1);
+      bonus2 = 40 * (eval > 300 ? 2 : eval > 0 ? 1 : 0);
     }
   }
 
