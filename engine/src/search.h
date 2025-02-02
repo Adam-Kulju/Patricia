@@ -108,7 +108,7 @@ int eval(Position &position, ThreadInfo &thread_info) {
   // Give a small bonus if we have sacrificed material at some point in the
   // search tree If we are completely winning, give a bigger bonus to
   // incentivize finding the most stylish move when everything wins
-  
+
  for (int idx = start_index + 2; idx < thread_info.game_ply - 4; idx += 2) {
 
     if (thread_info.game_hist[idx].m_diff < s_m &&
@@ -409,24 +409,17 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   }
 
   if (ply && is_draw(position, thread_info)) { // Draw detection
-    int draw_score = 2 - (thread_info.nodes & 3);
+    int draw_score = 1 - (thread_info.nodes & 3);    
 
-    int m = material_eval(position);
+    int material = material_eval(position);
 
-    if (ply % 2) {
-      if (m > 0) {
-        return draw_score;
-      }
-      if (m < 0 || total_mat(position) < 3000) {
-        draw_score += 50;
-      }
-    } else {
-      if (m < 0) {
-        return draw_score;
-      } else if (m > 0 || total_mat(position) > 3000) {
-        draw_score -= 50;
-      }
+    if (material < 0){
+      draw_score += 50;
     }
+    else if (material > 0){
+      draw_score -= 50;
+    }
+                                                      
 
     return draw_score;
     // We want to discourage draws at the root.
