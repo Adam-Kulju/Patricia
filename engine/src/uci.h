@@ -417,7 +417,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
 
       // Calculate time allotted to search
 
-      time = std::max(2, time - 50);
+      time = std::max(0, time - 25);
       thread_info.max_time = time / 2;
       thread_info.opt_time = (time / 20 + increment * 8 / 10) * 6 / 10;
 
