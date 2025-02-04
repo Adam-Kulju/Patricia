@@ -109,7 +109,7 @@ int eval(Position &position, ThreadInfo &thread_info) {
   // search tree If we are completely winning, give a bigger bonus to
   // incentivize finding the most stylish move when everything wins
 
- for (int idx = start_index + 2; idx < thread_info.game_ply - 4; idx += 2) {
+  for (int idx = start_index + 2; idx < thread_info.game_ply - 4; idx += 2) {
 
     if (thread_info.game_hist[idx].m_diff < s_m &&
         thread_info.game_hist[idx + 1].m_diff > s_m &&
@@ -118,22 +118,14 @@ int eval(Position &position, ThreadInfo &thread_info) {
         thread_info.game_hist[idx + 4].m_diff < s_m) {
 
       s = s_m + thread_info.game_hist[idx + 4].m_diff;
-      break;
-    }
-
-    if (thread_info.game_hist[idx].m_diff < 0 &&
-        thread_info.game_hist[idx].m_diff == material_eval(position)) {
-
-      s = 1;
-      break;
     }
   }
-  if (s && total_mat(position) > 3500) {
+  if (s) {
 
     if (thread_info.search_ply % 2) {
-      bonus2 = -40 * (eval < -300 ? 2 : eval < 0 ? 1 : 0);
+      bonus2 = -20 * (eval < -500 ? 3 : eval < -150 ? 2 : 1);
     } else {
-      bonus2 = 40 * (eval > 300 ? 2 : eval > 0 ? 1 : 0);
+      bonus2 = 20 * (eval > 500 ? 3 : eval > 150 ? 2 : 1);
     }
   }
 
@@ -326,7 +318,7 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
   int num_moves =
       movegen(position, moves.moves, in_check); // Generate and score moves
 
-  score_moves(position, thread_info, moves, MoveNone, num_moves);
+  score_moves(position, thread_info, moves, MoveNone, num_moves, -107);
 
   for (int indx = 0; indx < num_moves; indx++) {
     Move move = get_next_move(moves.moves, moves.scores, indx, num_moves);
@@ -409,17 +401,24 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   }
 
   if (ply && is_draw(position, thread_info)) { // Draw detection
-    int draw_score = 1 - (thread_info.nodes & 3);    
+    int draw_score = 2 - (thread_info.nodes & 3);
 
-    int material = material_eval(position);
+    int m = material_eval(position);
 
-    if (material < 0){
-      draw_score += 50;
+    if (ply % 2) {
+      if (m > 0) {
+        return draw_score;
+      }
+      if (m < 0 || total_mat(position) < 3000) {
+        draw_score += 50;
+      }
+    } else {
+      if (m < 0) {
+        return draw_score;
+      } else if (m > 0 || total_mat(position) > 3000) {
+        draw_score -= 50;
+      }
     }
-    else if (material > 0){
-      draw_score -= 50;
-    }
-                                                      
 
     return draw_score;
     // We want to discourage draws at the root.
@@ -470,7 +469,8 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   TTEntry &entry = probe_entry(hash, tt_hit, thread_info.searches, TT);
 
   int entry_type = EntryTypes::None, tt_static_eval = ScoreNone,
-      tt_score = ScoreNone, tt_move = MoveNone;
+      tt_score = ScoreNone;
+  Move tt_move = MoveNone;
 
   if (tt_hit && !singular_search) { // TT probe
     entry_type = entry.get_type();
@@ -576,6 +576,52 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     }
   }
 
+  MoveInfo moves;
+  int num_moves = movegen(position, moves.moves, in_check),
+      best_score = ScoreNone, moves_played = 0; // Generate and score moves
+
+  int p_beta = beta + 250;
+  if (depth >= 5 && abs(beta) < MateScore && (!tt_hit || entry.depth + 4 <= depth || tt_score >= p_beta)){
+    int threshold = p_beta - static_eval;
+    Move p_tt_move = (tt_move != MoveNone && SEE(position, tt_move, threshold) ? tt_move : MoveNone);
+
+    int moves_searched = 0;
+
+    score_moves(position, thread_info, moves, p_tt_move, num_moves, threshold);
+
+    for (int indx = 0; indx < num_moves; indx++){
+      Move move = get_next_move(moves.moves, moves.scores, indx, num_moves);
+      int move_score = moves.scores[indx];
+
+      if (move_score < GoodCaptureBaseScore){
+        break;
+      }
+      if (move == excluded_move || !is_legal(position, move)){
+        continue;
+      }
+
+      moves_searched++;
+
+      Position moved_position = position;
+      make_move(moved_position, move);
+      update_nnue_state(thread_info, move, position);
+      ss_push(position, thread_info, move);
+
+      int score = -qsearch(-p_beta, -p_beta + 1, moved_position, thread_info, TT);
+      if (score >= p_beta){
+        score = -search<is_pv>(-p_beta, -p_beta + 1, depth - 4, false, moved_position, thread_info, TT);
+      }
+
+      ss_pop(thread_info);
+      thread_info.phase = phase;
+
+      if (score >= p_beta){
+        return score;
+      }
+
+    }
+  }
+
   if ((is_pv || cutnode) && tt_move == MoveNone && depth > IIRMinDepth) {
     // Internal Iterative Reduction: If we are in a PV node and have no TT move,
     // reduce the depth.
@@ -588,12 +634,9 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   int num_captures = 0;
   thread_info.KillerMoves[ply + 1] = MoveNone;
 
-  MoveInfo moves;
-  int num_moves = movegen(position, moves.moves, in_check),
-      best_score = ScoreNone, moves_played = 0; // Generate and score moves
   bool is_capture = false, skip = false;
 
-  score_moves(position, thread_info, moves, tt_move, num_moves);
+  score_moves(position, thread_info, moves, tt_move, num_moves, -107);
 
   for (int indx = 0; indx < num_moves && !skip; indx++) {
     Move move = get_next_move(moves.moves, moves.scores, indx, num_moves);
@@ -681,7 +724,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
               ply < thread_info.current_iter) {
 
             // In some cases we can even double extend
-            extension = 2;
+            extension = 2 + (!is_cap(position, tt_move) && sScore + 75 < sBeta);
           } else {
             extension = 1;
           }

@@ -290,7 +290,7 @@ bool SEE(Position &position, Move move, int threshold) {
 }
 
 void score_moves(Position &position, ThreadInfo &thread_info,
-                 MoveInfo &scored_moves, Move tt_move, int len) {
+                 MoveInfo &scored_moves, Move tt_move, int len, int see_threshold) {
 
   // score the moves
 
@@ -334,7 +334,7 @@ void score_moves(Position &position, ThreadInfo &thread_info,
       scored_moves.scores[idx] = GoodCaptureBaseScore +
                                  SeeValues[get_piece_type(to_piece)] * 100 -
                                  SeeValues[get_piece_type(from_piece)] / 100 -
-                                 TTMoveScore * !SEE(position, move, -107);
+                                 TTMoveScore * !SEE(position, move, see_threshold);
 
       int piece = position.board[extract_from(move)], to = extract_to(move);
 
