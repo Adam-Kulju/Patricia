@@ -4,6 +4,12 @@
 #include <cstdint>
 #include <span>
 
+namespace Generate {
+uint8_t GenQuiets = 0;
+uint8_t GenCaptures = 1;
+uint8_t GenAll = 2;
+} // namespace Generate
+
 constexpr int TTMoveScore = 10000000;
 constexpr int QueenPromoScore = 5000000;
 constexpr int GoodCaptureBaseScore = 2000000;
@@ -19,7 +25,7 @@ uint64_t shift_pawns(uint64_t bb, int dir) {
 }
 
 void pawn_moves(const Position &position, uint64_t check_filter,
-                std::span<Move> move_list, int &key) {
+                std::span<Move> move_list, int &key, int gen_type) {
 
   uint8_t color = position.color;
   uint64_t third_rank = color ? Ranks[5] : Ranks[2];
@@ -34,40 +40,45 @@ void pawn_moves(const Position &position, uint64_t check_filter,
   uint64_t our_non_promos = position.pieces_bb[PieceTypes::Pawn] &
                             position.colors_bb[color] & (~seventh_rank);
 
-  uint64_t move_1 = shift_pawns(our_non_promos, dir) & empty_squares;
-  uint64_t move_2 =
-      shift_pawns(move_1 & third_rank, dir) & empty_squares & check_filter;
-  move_1 &= check_filter;
+  if (gen_type != Generate::GenCaptures) {
+    uint64_t move_1 = shift_pawns(our_non_promos, dir) & empty_squares;
+    uint64_t move_2 =
+        shift_pawns(move_1 & third_rank, dir) & empty_squares & check_filter;
+    move_1 &= check_filter;
 
-  while (move_1) {
-    int to = pop_lsb(move_1);
-    move_list[key++] = pack_move(to - (dir), to, MoveTypes::Normal);
-  }
-  while (move_2) {
-    int to = pop_lsb(move_2);
-    move_list[key++] = pack_move(to - (2 * dir), to, MoveTypes::Normal);
-  }
-
-  uint64_t cap_left = shift_pawns(our_non_promos & ~Files[0], left) &
-                      position.colors_bb[color ^ 1] & check_filter;
-  uint64_t cap_right = shift_pawns(our_non_promos & ~Files[7], right) &
-                       position.colors_bb[color ^ 1] & check_filter;
-
-  while (cap_left) {
-    int to = pop_lsb(cap_left);
-    move_list[key++] = pack_move(to - (left), to, MoveTypes::Normal);
-  }
-  while (cap_right) {
-    int to = pop_lsb(cap_right);
-    move_list[key++] = pack_move(to - (right), to, MoveTypes::Normal);
+    while (move_1) {
+      int to = pop_lsb(move_1);
+      move_list[key++] = pack_move(to - (dir), to, MoveTypes::Normal);
+    }
+    while (move_2) {
+      int to = pop_lsb(move_2);
+      move_list[key++] = pack_move(to - (2 * dir), to, MoveTypes::Normal);
+    }
   }
 
-  if (position.ep_square != SquareNone) {
-    uint64_t ep_captures =
-        our_non_promos & PawnAttacks[color ^ 1][position.ep_square];
-    while (ep_captures) {
-      int from = pop_lsb(ep_captures);
-      move_list[key++] = pack_move(from, position.ep_square, MoveTypes::EnPassant);
+  if (gen_type != Generate::GenQuiets) {
+    uint64_t cap_left = shift_pawns(our_non_promos & ~Files[0], left) &
+                        position.colors_bb[color ^ 1] & check_filter;
+    uint64_t cap_right = shift_pawns(our_non_promos & ~Files[7], right) &
+                         position.colors_bb[color ^ 1] & check_filter;
+
+    while (cap_left) {
+      int to = pop_lsb(cap_left);
+      move_list[key++] = pack_move(to - (left), to, MoveTypes::Normal);
+    }
+    while (cap_right) {
+      int to = pop_lsb(cap_right);
+      move_list[key++] = pack_move(to - (right), to, MoveTypes::Normal);
+    }
+
+    if (position.ep_square != SquareNone) {
+      uint64_t ep_captures =
+          our_non_promos & PawnAttacks[color ^ 1][position.ep_square];
+      while (ep_captures) {
+        int from = pop_lsb(ep_captures);
+        move_list[key++] =
+            pack_move(from, position.ep_square, MoveTypes::EnPassant);
+      }
     }
   }
 
@@ -80,38 +91,57 @@ void pawn_moves(const Position &position, uint64_t check_filter,
 
   while (move_promo) {
     int to = pop_lsb(move_promo);
-    for (int i = 0; i < 4; i++) {
+    for (int i = (gen_type == Generate::GenCaptures ? 3 : 0);
+         i < (gen_type == Generate::GenQuiets ? 3 : 4); i++) {
+      // if captures, only generate the queen promo
+      // if notm generate all EXCEPT the queen promo
+
       move_list[key++] = pack_move_promo(to - (dir), to, i);
     }
   }
-  while (cap_left_promo) {
-    int to = pop_lsb(cap_left_promo);
-    for (int i = 0; i < 4; i++) {
-      move_list[key++] = pack_move_promo(to - (left), to, i);
+
+  if (gen_type != Generate::GenQuiets) {
+    while (cap_left_promo) {
+      int to = pop_lsb(cap_left_promo);
+      for (int i = 0; i < 4; i++) {
+        move_list[key++] = pack_move_promo(to - (left), to, i);
+      }
     }
-  }
-  while (cap_right_promo) {
-    int to = pop_lsb(cap_right_promo);
-    for (int i = 0; i < 4; i++) {
-      move_list[key++] = pack_move_promo(to - (right), to, i);
+    while (cap_right_promo) {
+      int to = pop_lsb(cap_right_promo);
+      for (int i = 0; i < 4; i++) {
+        move_list[key++] = pack_move_promo(to - (right), to, i);
+      }
     }
   }
 }
 
 int movegen(const Position &position, std::span<Move> move_list,
-            uint64_t checkers) {
+            uint64_t checkers, int gen_type) {
 
   uint8_t color = position.color, king_pos = get_king_pos(position, color);
   int opp_color = color ^ 1;
   int idx = 0;
-  uint64_t stm_pieces = position.colors_bb[color];
+  uint64_t stm_pieces = position.colors_bb[color],
+           opp_pieces = position.colors_bb[color ^ 1];
+
+  uint64_t targets = 0;
+  if (gen_type != Generate::GenCaptures) {
+    targets |= ~opp_pieces;
+  }
+  if (gen_type != Generate::GenQuiets) {
+    targets |= opp_pieces;
+  }
+  targets &= ~stm_pieces;
+
   uint64_t occ = position.colors_bb[0] | position.colors_bb[1];
   uint64_t check_filter = ~0;
 
   uint64_t king = get_king_pos(position, color);
-  uint64_t king_attacks = KingAttacks[king] & ~stm_pieces;
+  uint64_t king_attacks = KingAttacks[king] & targets;
   while (king_attacks) {
-    move_list[idx++] = pack_move(king_pos, pop_lsb(king_attacks), MoveTypes::Normal);
+    move_list[idx++] =
+        pack_move(king_pos, pop_lsb(king_attacks), MoveTypes::Normal);
   }
 
   if (checkers) {
@@ -122,12 +152,12 @@ int movegen(const Position &position, std::span<Move> move_list,
     check_filter = BetweenBBs[king][get_lsb(checkers)];
   }
 
-  pawn_moves(position, check_filter, move_list, idx);
+  pawn_moves(position, check_filter, move_list, idx, gen_type);
 
   uint64_t knights = position.pieces_bb[PieceTypes::Knight] & stm_pieces;
   while (knights) {
     int from = pop_lsb(knights);
-    uint64_t to = KnightAttacks[from] & ~stm_pieces & check_filter;
+    uint64_t to = KnightAttacks[from] & targets & check_filter;
     while (to) {
       move_list[idx++] = pack_move(from, pop_lsb(to), MoveTypes::Normal);
     }
@@ -138,7 +168,7 @@ int movegen(const Position &position, std::span<Move> move_list,
                        stm_pieces;
   while (diagonals) {
     int from = pop_lsb(diagonals);
-    uint64_t to = get_bishop_attacks(from, occ) & ~stm_pieces & check_filter;
+    uint64_t to = get_bishop_attacks(from, occ) & targets & check_filter;
     while (to) {
       move_list[idx++] = pack_move(from, pop_lsb(to), MoveTypes::Normal);
     }
@@ -149,14 +179,16 @@ int movegen(const Position &position, std::span<Move> move_list,
                          stm_pieces;
   while (orthogonals) {
     int from = pop_lsb(orthogonals);
-    uint64_t to = get_rook_attacks(from, occ) & ~stm_pieces & check_filter;
+    uint64_t to = get_rook_attacks(from, occ) & targets & check_filter;
     while (to) {
       move_list[idx++] = pack_move(from, pop_lsb(to), MoveTypes::Normal);
     }
   }
 
-  if (checkers) { // If we're in check there's no point in
-                  // seeing if we can castle (can be optimized)
+  if (checkers ||
+      gen_type ==
+          Generate::GenCaptures) { // If we're in check there's no point in
+                                   // seeing if we can castle (can be optimized)
     return idx;
   }
   // Requirements: the king and rook cannot have moved, all squares between them
@@ -164,39 +196,41 @@ int movegen(const Position &position, std::span<Move> move_list,
   // (It can't end up in check either, but that gets filtered just like any
   // illegal move.)
 
+  for (int side : {Sides::Queenside, Sides::Kingside}) {
 
-  for (int side : {Sides::Queenside, Sides::Kingside}){
-
-    if (position.castling_squares[color][side] == SquareNone){
+    if (position.castling_squares[color][side] == SquareNone) {
       continue;
     }
 
     int rook_target = 56 * color + 3 + 2 * side;
     int king_target = 56 * color + 2 + 4 * side;
 
-    uint64_t castle_bb = BetweenBBs[position.castling_squares[color][side]][rook_target];
+    uint64_t castle_bb =
+        BetweenBBs[position.castling_squares[color][side]][rook_target];
     castle_bb |= BetweenBBs[king_pos][king_target];
-    castle_bb &= ~(1ull << king_pos) & ~(1ull << position.castling_squares[color][side]);
+    castle_bb &=
+        ~(1ull << king_pos) & ~(1ull << position.castling_squares[color][side]);
 
-    if (occ & castle_bb){
+    if (occ & castle_bb) {
       continue;
     }
     bool invalid = false;
 
-    if (king_target != king_pos){
+    if (king_target != king_pos) {
       int dir = (king_target > king_pos) ? 1 : -1;
 
-      for (int i = king_pos + dir; i != king_target; i += dir){
-        if (attacks_square(position, i, opp_color)){
+      for (int i = king_pos + dir; i != king_target; i += dir) {
+        if (attacks_square(position, i, opp_color)) {
           invalid = true;
           break;
         }
-
       }
     }
 
-    if (!invalid){
-      move_list[idx++] = pack_move(king_pos, position.castling_squares[color][side], MoveTypes::Castling);
+    if (!invalid) {
+      move_list[idx++] =
+          pack_move(king_pos, position.castling_squares[color][side],
+                    MoveTypes::Castling);
     }
   }
 
@@ -205,18 +239,18 @@ int movegen(const Position &position, std::span<Move> move_list,
 
 // Not to be used in performance critical areas
 int legal_movegen(const Position &position, std::span<Move> move_list) {
-  uint64_t checkers = attacks_square(position, 
-                                     get_king_pos(position, position.color), 
-                                     position.color ^ 1);
+  uint64_t checkers = attacks_square(
+      position, get_king_pos(position, position.color), position.color ^ 1);
   std::array<Move, ListSize> pseudo_list;
-  int pseudo_nmoves = movegen(position, pseudo_list, checkers);
+  int pseudo_nmoves =
+      movegen(position, pseudo_list, checkers, Generate::GenAll);
 
   int legal_nmoves = 0;
   for (int i = 0; i < pseudo_nmoves; i++) {
     if (is_legal(position, pseudo_list[i]))
       move_list[legal_nmoves++] = pseudo_list[i];
   }
-  
+
   return legal_nmoves;
 }
 
@@ -235,7 +269,8 @@ bool SEE(Position &position, Move move, int threshold) {
     return true;
   }
 
-  // Store bishops and rooks here to more quickly determine later new revealed attackers
+  // Store bishops and rooks here to more quickly determine later new revealed
+  // attackers
   uint64_t bishops = position.pieces_bb[PieceTypes::Bishop] |
                      position.pieces_bb[PieceTypes::Queen];
   uint64_t rooks = position.pieces_bb[PieceTypes::Rook] |
@@ -252,8 +287,8 @@ bool SEE(Position &position, Move move, int threshold) {
     all_attackers &= occ;
 
     uint64_t stm_attackers = all_attackers & position.colors_bb[stm];
-    
-    if (! stm_attackers) {
+
+    if (!stm_attackers) {
       return stm != position.color;
     }
 
@@ -270,17 +305,16 @@ bool SEE(Position &position, Move move, int threshold) {
     }
 
     // A new slider behind might be revealed
-    if (attackerType == PieceTypes::Pawn || 
-        attackerType == PieceTypes::Bishop || 
+    if (attackerType == PieceTypes::Pawn ||
+        attackerType == PieceTypes::Bishop ||
         attackerType == PieceTypes::Queen) {
       all_attackers |= get_bishop_attacks(to, occ) & bishops;
-    } 
-    if (attackerType == PieceTypes::Rook ||
-             attackerType == PieceTypes::Queen) {
+    }
+    if (attackerType == PieceTypes::Rook || attackerType == PieceTypes::Queen) {
       all_attackers |= get_rook_attacks(to, occ) & rooks;
     }
 
-    gain = - gain - SeeValues[attackerType] - 1;
+    gain = -gain - SeeValues[attackerType] - 1;
     if (gain >= 0) {
       return stm == position.color;
     }

@@ -31,7 +31,7 @@ uint64_t perft(int depth, Position &position, bool first)
   int nmoves =
       movegen(position, list,
               attacks_square(position, get_king_pos(position, position.color),
-                             position.color ^ 1));
+                             position.color ^ 1), Generate::GenAll);
 
   if (depth <= 1) {
     for (int i = 0; i < nmoves; i++) {
@@ -142,7 +142,7 @@ Move uci_to_internal(const Position &position, std::string uci) {
   int nmoves =
       movegen(position, list,
               attacks_square(position, get_king_pos(position, position.color),
-                             position.color ^ 1));
+                             position.color ^ 1), Generate::GenAll);
 
   for (int i = 0; i < nmoves; i++) {
     if (internal_to_uci(position, list[i]) == uci)

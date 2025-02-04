@@ -1,5 +1,5 @@
 #pragma once
-#include "movegen.h"
+#include "movepick.h"
 #include "nnue.h"
 #include "params.h"
 #include "position.h"
@@ -271,12 +271,13 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
   TTEntry &entry = probe_entry(hash, tt_hit, thread_info.searches, TT);
 
   int entry_type = EntryTypes::None, tt_static_eval = ScoreNone,
-      tt_score = ScoreNone; // Initialize TT variables and check for a hash hit
+      tt_score = ScoreNone, tt_move = MoveNone; // Initialize TT variables and check for a hash hit
 
   if (tt_hit) {
     entry_type = entry.get_type();
     tt_static_eval = entry.static_eval;
     tt_score = score_from_tt(entry.score, ply);
+    tt_move = entry.best_move;
   }
 
   if (tt_score != ScoreNone) {
@@ -322,23 +323,17 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
       alpha = best_score;
     }
   }
-  MoveInfo moves;
-  int num_moves =
-      movegen(position, moves.moves, in_check); // Generate and score moves
+  
+  MovePicker picker;
+  init_picker(picker, position, -107, in_check);
 
-  score_moves(position, thread_info, moves, MoveNone, num_moves);
+  while (Move move = next_move(picker, position, thread_info, tt_move, !in_check)) {
 
-  for (int indx = 0; indx < num_moves; indx++) {
-    Move move = get_next_move(moves.moves, moves.scores, indx, num_moves);
-
+    if (picker.stage > Stages::Captures && !in_check){
+      break;
+    }
     if (!is_legal(position, move)) {
       continue;
-    }
-
-    int move_score = moves.scores[indx];
-    if (move_score < GoodCaptureBaseScore &&
-        !in_check) { // If we're not in check only look at good captures
-      break;
     }
 
     Position moved_position = position;
@@ -380,7 +375,6 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
 
   insert_entry(entry, hash, 0, best_move, raw_eval,
                score_to_tt(best_score, ply), entry_type, thread_info.searches);
-
   return best_score;
 }
 
@@ -588,15 +582,14 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   int num_captures = 0;
   thread_info.KillerMoves[ply + 1] = MoveNone;
 
-  MoveInfo moves;
-  int num_moves = movegen(position, moves.moves, in_check),
-      best_score = ScoreNone, moves_played = 0; // Generate and score moves
+  MovePicker picker;
+  init_picker(picker, position, -107, in_check);
+
+  int best_score = ScoreNone, moves_played = 0; // Generate and score moves
   bool is_capture = false, skip = false;
 
-  score_moves(position, thread_info, moves, tt_move, num_moves);
 
-  for (int indx = 0; indx < num_moves && !skip; indx++) {
-    Move move = get_next_move(moves.moves, moves.scores, indx, num_moves);
+  while (Move move = next_move(picker, position, thread_info, tt_move, skip)) {
 
     if (root) {
       bool pv_skip = false;
@@ -618,8 +611,6 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       continue;
     }
 
-    int move_score = moves.scores[indx];
-
     uint64_t curr_nodes = thread_info.nodes;
 
     int hist_score = thread_info.HistoryScores[position.board[extract_from(move)]]
@@ -639,7 +630,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       // Futility Pruning (FP): If we're far worse than alpha and our move isn't
       // a good capture, we can skip the rest.
 
-      if (!in_check && depth < FPDepth && move_score < GoodCaptureBaseScore &&
+      if (!in_check && depth < FPDepth && picker.stage > Stages::Captures &&
           static_eval + FPMargin1 + FPMargin2 * depth < alpha) {
         skip = true;
       }
@@ -667,7 +658,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     // better than all other moves, extend it under certain conditions.
 
     if (!root && ply < thread_info.current_iter * 2) {
-      if (!singular_search && depth >= SEDepth && move_score == TTMoveScore &&
+      if (!singular_search && depth >= SEDepth && move == tt_move &&
           abs(entry.score) < MateScore && entry.depth >= depth - 3 &&
           entry_type != EntryTypes::UBound) {
 
