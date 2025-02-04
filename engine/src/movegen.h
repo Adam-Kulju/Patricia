@@ -67,7 +67,8 @@ void pawn_moves(const Position &position, uint64_t check_filter,
         our_non_promos & PawnAttacks[color ^ 1][position.ep_square];
     while (ep_captures) {
       int from = pop_lsb(ep_captures);
-      move_list[key++] = pack_move(from, position.ep_square, MoveTypes::EnPassant);
+      move_list[key++] =
+          pack_move(from, position.ep_square, MoveTypes::EnPassant);
     }
   }
 
@@ -111,7 +112,8 @@ int movegen(const Position &position, std::span<Move> move_list,
   uint64_t king = get_king_pos(position, color);
   uint64_t king_attacks = KingAttacks[king] & ~stm_pieces;
   while (king_attacks) {
-    move_list[idx++] = pack_move(king_pos, pop_lsb(king_attacks), MoveTypes::Normal);
+    move_list[idx++] =
+        pack_move(king_pos, pop_lsb(king_attacks), MoveTypes::Normal);
   }
 
   if (checkers) {
@@ -164,39 +166,41 @@ int movegen(const Position &position, std::span<Move> move_list,
   // (It can't end up in check either, but that gets filtered just like any
   // illegal move.)
 
+  for (int side : {Sides::Queenside, Sides::Kingside}) {
 
-  for (int side : {Sides::Queenside, Sides::Kingside}){
-
-    if (position.castling_squares[color][side] == SquareNone){
+    if (position.castling_squares[color][side] == SquareNone) {
       continue;
     }
 
     int rook_target = 56 * color + 3 + 2 * side;
     int king_target = 56 * color + 2 + 4 * side;
 
-    uint64_t castle_bb = BetweenBBs[position.castling_squares[color][side]][rook_target];
+    uint64_t castle_bb =
+        BetweenBBs[position.castling_squares[color][side]][rook_target];
     castle_bb |= BetweenBBs[king_pos][king_target];
-    castle_bb &= ~(1ull << king_pos) & ~(1ull << position.castling_squares[color][side]);
+    castle_bb &=
+        ~(1ull << king_pos) & ~(1ull << position.castling_squares[color][side]);
 
-    if (occ & castle_bb){
+    if (occ & castle_bb) {
       continue;
     }
     bool invalid = false;
 
-    if (king_target != king_pos){
+    if (king_target != king_pos) {
       int dir = (king_target > king_pos) ? 1 : -1;
 
-      for (int i = king_pos + dir; i != king_target; i += dir){
-        if (attacks_square(position, i, opp_color)){
+      for (int i = king_pos + dir; i != king_target; i += dir) {
+        if (attacks_square(position, i, opp_color)) {
           invalid = true;
           break;
         }
-
       }
     }
 
-    if (!invalid){
-      move_list[idx++] = pack_move(king_pos, position.castling_squares[color][side], MoveTypes::Castling);
+    if (!invalid) {
+      move_list[idx++] =
+          pack_move(king_pos, position.castling_squares[color][side],
+                    MoveTypes::Castling);
     }
   }
 
@@ -205,9 +209,8 @@ int movegen(const Position &position, std::span<Move> move_list,
 
 // Not to be used in performance critical areas
 int legal_movegen(const Position &position, std::span<Move> move_list) {
-  uint64_t checkers = attacks_square(position, 
-                                     get_king_pos(position, position.color), 
-                                     position.color ^ 1);
+  uint64_t checkers = attacks_square(
+      position, get_king_pos(position, position.color), position.color ^ 1);
   std::array<Move, ListSize> pseudo_list;
   int pseudo_nmoves = movegen(position, pseudo_list, checkers);
 
@@ -216,7 +219,7 @@ int legal_movegen(const Position &position, std::span<Move> move_list) {
     if (is_legal(position, pseudo_list[i]))
       move_list[legal_nmoves++] = pseudo_list[i];
   }
-  
+
   return legal_nmoves;
 }
 
@@ -235,7 +238,8 @@ bool SEE(Position &position, Move move, int threshold) {
     return true;
   }
 
-  // Store bishops and rooks here to more quickly determine later new revealed attackers
+  // Store bishops and rooks here to more quickly determine later new revealed
+  // attackers
   uint64_t bishops = position.pieces_bb[PieceTypes::Bishop] |
                      position.pieces_bb[PieceTypes::Queen];
   uint64_t rooks = position.pieces_bb[PieceTypes::Rook] |
@@ -252,8 +256,8 @@ bool SEE(Position &position, Move move, int threshold) {
     all_attackers &= occ;
 
     uint64_t stm_attackers = all_attackers & position.colors_bb[stm];
-    
-    if (! stm_attackers) {
+
+    if (!stm_attackers) {
       return stm != position.color;
     }
 
@@ -270,17 +274,16 @@ bool SEE(Position &position, Move move, int threshold) {
     }
 
     // A new slider behind might be revealed
-    if (attackerType == PieceTypes::Pawn || 
-        attackerType == PieceTypes::Bishop || 
+    if (attackerType == PieceTypes::Pawn ||
+        attackerType == PieceTypes::Bishop ||
         attackerType == PieceTypes::Queen) {
       all_attackers |= get_bishop_attacks(to, occ) & bishops;
-    } 
-    if (attackerType == PieceTypes::Rook ||
-             attackerType == PieceTypes::Queen) {
+    }
+    if (attackerType == PieceTypes::Rook || attackerType == PieceTypes::Queen) {
       all_attackers |= get_rook_attacks(to, occ) & rooks;
     }
 
-    gain = - gain - SeeValues[attackerType] - 1;
+    gain = -gain - SeeValues[attackerType] - 1;
     if (gain >= 0) {
       return stm == position.color;
     }
@@ -290,29 +293,34 @@ bool SEE(Position &position, Move move, int threshold) {
 }
 
 void score_moves(Position &position, ThreadInfo &thread_info,
-                 MoveInfo &scored_moves, Move tt_move, int len) {
+                 MoveInfo &scored_moves, Move tt_move, int len,
+                 bool score_quiets) {
 
   // score the moves
 
   int ply = thread_info.search_ply;
+  Move their_last = MoveNone, their_piece = MoveNone, our_last = MoveNone,
+       our_piece = MoveNone;
 
-  int their_last =
-      ply < 1
-          ? MoveNone
-          : extract_to(
-                thread_info.game_hist[thread_info.game_ply - 1].played_move);
-  int their_piece =
-      ply < 1 ? Pieces::Blank
-              : thread_info.game_hist[thread_info.game_ply - 1].piece_moved;
+  if (score_quiets) {
+    their_last =
+        ply < 1
+            ? MoveNone
+            : extract_to(
+                  thread_info.game_hist[thread_info.game_ply - 1].played_move);
+    their_piece =
+        ply < 1 ? Pieces::Blank
+                : thread_info.game_hist[thread_info.game_ply - 1].piece_moved;
 
-  int our_last =
-      ply < 2
-          ? MoveNone
-          : extract_to(
-                thread_info.game_hist[thread_info.game_ply - 2].played_move);
-  int our_piece =
-      ply < 2 ? Pieces::Blank
-              : thread_info.game_hist[thread_info.game_ply - 2].piece_moved;
+    our_last =
+        ply < 2
+            ? MoveNone
+            : extract_to(
+                  thread_info.game_hist[thread_info.game_ply - 2].played_move);
+    our_piece =
+        ply < 2 ? Pieces::Blank
+                : thread_info.game_hist[thread_info.game_ply - 2].piece_moved;
+  }
 
   for (int idx = 0; idx < len; idx++) {
     Move move = scored_moves.moves[idx];
@@ -345,6 +353,10 @@ void score_moves(Position &position, ThreadInfo &thread_info,
     else if (move == thread_info.KillerMoves[thread_info.search_ply]) {
       // Killer move score
       scored_moves.scores[idx] = KillerMoveScore;
+    }
+
+    else if (!score_quiets) {
+      scored_moves.scores[idx] = 0;
     }
 
     else {

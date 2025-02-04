@@ -326,7 +326,7 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
   int num_moves =
       movegen(position, moves.moves, in_check); // Generate and score moves
 
-  score_moves(position, thread_info, moves, MoveNone, num_moves);
+  score_moves(position, thread_info, moves, MoveNone, num_moves, in_check);
 
   for (int indx = 0; indx < num_moves; indx++) {
     Move move = get_next_move(moves.moves, moves.scores, indx, num_moves);
@@ -593,7 +593,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       best_score = ScoreNone, moves_played = 0; // Generate and score moves
   bool is_capture = false, skip = false;
 
-  score_moves(position, thread_info, moves, tt_move, num_moves);
+  score_moves(position, thread_info, moves, tt_move, num_moves, true);
 
   for (int indx = 0; indx < num_moves && !skip; indx++) {
     Move move = get_next_move(moves.moves, moves.scores, indx, num_moves);
