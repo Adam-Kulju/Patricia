@@ -32,7 +32,7 @@ Move next_move(MovePicker &picker, Position &position, ThreadInfo &thread_info,
 
   if (picker.stage == Stages::TT) {
     picker.stage++;
-    if (tt_move != MoveNone) {
+    if (tt_move != MoveNone && is_pseudo_legal(position, tt_move, picker.checkers)) {
       return tt_move;
     }
   }
