@@ -673,14 +673,14 @@ bool is_pseudo_legal(const Position &position, Move move, uint64_t checkers) {
 
     int dir = color == Colors::White ? Directions::North : Directions::South;
 
-    legal_to |= (square << dir) & empty_squares;
-    legal_to |= ((legal_to & Ranks[2]) << dir) & empty_squares;
-    legal_to |= (((square & ~Files[0]) << (dir - 1)) |
-                     ((square & ~Files[7]) << (dir + 1)) &&
+    legal_to |= (shift_pawns(square, dir)) & empty_squares;
+    legal_to |= (shift_pawns(legal_to & Ranks[2], dir) & empty_squares);
+    legal_to |= ((shift_pawns(square & ~Files[0], dir - 1)) |
+                     (shift_pawns(square & ~Files[7], dir + 1)) &&
                  position.colors_bb[color ^ 1]);
 
     if (type != MoveTypes::Promotion){
-      legal_to &= ~(Ranks[0] | Ranks[8]);
+      legal_to &= ~(Ranks[0] | Ranks[7]);
     }
 
     return (legal_to >> (to-1)) & 1;

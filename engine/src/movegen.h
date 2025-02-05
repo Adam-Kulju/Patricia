@@ -16,14 +16,6 @@ constexpr int GoodCaptureBaseScore = 2000000;
 constexpr int BadCaptureBaseScore = -2000000;
 constexpr int KillerMoveScore = 100000;
 
-uint64_t shift_pawns(uint64_t bb, int dir) {
-  if (dir >= 0) {
-    return bb << dir;
-  } else {
-    return bb >> -dir;
-  }
-}
-
 void pawn_moves(const Position &position, uint64_t check_filter,
                 std::span<Move> move_list, int &key, int gen_type) {
 
