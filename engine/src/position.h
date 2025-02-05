@@ -603,6 +603,7 @@ void make_move(Position &position, Move move) { // Perform a move on the board.
   __builtin_prefetch(&TT[hash_to_idx(temp_hash)]);
 }
 
+
 bool is_pseudo_legal(const Position &position, Move move, uint64_t checkers) {
   if (move == MoveNone) {
     return false;
@@ -669,21 +670,21 @@ bool is_pseudo_legal(const Position &position, Move move, uint64_t checkers) {
 
   if (piece_type == PieceTypes::Pawn) {
     uint64_t square = (1ull << from);
-    uint64_t legal_to;
+    uint64_t legal_to = 0;
 
     int dir = color == Colors::White ? Directions::North : Directions::South;
 
-    legal_to |= (shift_pawns(square, dir)) & empty_squares;
+    legal_to |= (shift_pawns(square, dir) & empty_squares);
     legal_to |= (shift_pawns(legal_to & Ranks[2], dir) & empty_squares);
-    legal_to |= ((shift_pawns(square & ~Files[0], dir - 1)) |
-                     (shift_pawns(square & ~Files[7], dir + 1)) &&
+
+    legal_to |= (((shift_pawns(square & ~Files[0], dir - 1)) |
+                     (shift_pawns(square & ~Files[7], dir + 1))) &
                  position.colors_bb[color ^ 1]);
 
     if (type != MoveTypes::Promotion){
       legal_to &= ~(Ranks[0] | Ranks[7]);
     }
-
-    return (legal_to >> (to-1)) & 1;
+    return (legal_to >> (to)) & 1;
   }
 
   uint64_t attacks = 0;
