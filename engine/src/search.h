@@ -162,6 +162,7 @@ void ss_push(Position &position, ThreadInfo &thread_info, Move move) {
   // update search stack after makemove
   thread_info.search_ply++;
 
+
   thread_info.game_hist[thread_info.game_ply].position_key =
       position.zobrist_key;
   thread_info.game_hist[thread_info.game_ply].played_move = move;
@@ -242,7 +243,6 @@ bool is_draw(const Position &position,
 int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
             std::vector<TTBucket> &TT) { // Performs a quiescence search on the
                                          // given position.
-
   if (out_of_time(thread_info)) {
     // return if out of time
     return correct_eval(
@@ -271,7 +271,8 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
   TTEntry &entry = probe_entry(hash, tt_hit, thread_info.searches, TT);
 
   int entry_type = EntryTypes::None, tt_static_eval = ScoreNone,
-      tt_score = ScoreNone, tt_move = MoveNone; // Initialize TT variables and check for a hash hit
+      tt_score = ScoreNone;
+      Move tt_move = MoveNone; // Initialize TT variables and check for a hash hit
 
   if (tt_hit) {
     entry_type = entry.get_type();
@@ -327,6 +328,9 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
   MovePicker picker;
   init_picker(picker, position, -107, in_check);
 
+  if (!is_cap(position, tt_move)){
+    tt_move = MoveNone;
+  }
   while (Move move = next_move(picker, position, thread_info, tt_move, !in_check)) {
 
     if (picker.stage > Stages::Captures && !in_check){
@@ -335,6 +339,7 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
     if (!is_legal(position, move)) {
       continue;
     }
+
 
     Position moved_position = position;
     make_move(moved_position, move);
@@ -590,7 +595,6 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
 
   while (Move move = next_move(picker, position, thread_info, tt_move, skip)) {
-
     if (root) {
       bool pv_skip = false;
       for (int i = 0; i < thread_info.multipv_index; i++) {

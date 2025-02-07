@@ -78,7 +78,6 @@ Move next_move(MovePicker &picker, Position &position, ThreadInfo &thread_info,
             picker.bad_captures.moves[picker.bad_captures.len++] = move;
         }
     }
-
     picker.idx = 0;
     picker.stage++;
 
