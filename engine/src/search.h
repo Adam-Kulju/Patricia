@@ -328,7 +328,7 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
   MovePicker picker;
   init_picker(picker, position, -107, in_check);
 
-  if (!is_cap(position, tt_move)){
+  if (!is_cap(position, tt_move) || !SEE(position, tt_move, -107)){
     tt_move = MoveNone;
   }
   while (Move move = next_move(picker, position, thread_info, tt_move, !in_check)) {
