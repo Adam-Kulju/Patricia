@@ -603,6 +603,107 @@ void make_move(Position &position, Move move) { // Perform a move on the board.
   __builtin_prefetch(&TT[hash_to_idx(temp_hash)]);
 }
 
+
+bool is_pseudo_legal(const Position &position, Move move, uint64_t checkers) {
+  if (move == MoveNone) {
+    return false;
+  }
+  int from = extract_from(move), to = extract_to(move), color = position.color;
+  uint64_t us = position.colors_bb[color], them = position.colors_bb[color ^ 1];
+  uint64_t occ = (position.colors_bb[0] | position.colors_bb[1]);
+  uint64_t empty_squares = ~occ;
+
+  if ((1ull << to) & us) {
+    return false;
+  }
+
+  int piece = position.board[from];
+  if (piece == Pieces::Blank || get_color(piece) != color) {
+    return false;
+  }
+
+  int piece_type = get_piece_type(piece);
+  int type = extract_type(move);
+
+  if (checkers & (checkers - 1)) {
+    return (type == MoveTypes::Normal && piece_type == PieceTypes::King &&
+            (KingAttacks[from] & (1ull << to)));
+  }
+
+  if (type == MoveTypes::Castling) {
+    int side = to > from;
+    int rook_target = 56 * color + 3 + 2 * side;
+    int king_target = 56 * color + 2 + 4 * side;
+
+    uint64_t castle_bb =
+        BetweenBBs[position.castling_squares[color][side]][rook_target];
+    castle_bb |= BetweenBBs[from][king_target];
+    castle_bb &=
+        ~(1ull << from) & ~(1ull << position.castling_squares[color][side]);
+
+    return (!checkers && position.castling_squares[color][side] != SquareNone &&
+            !castle_bb);
+  }
+
+  if (type == MoveTypes::EnPassant) {
+    uint64_t pawn_attacks =
+        position.pieces_bb[PieceTypes::Pawn] & position.colors_bb[color];
+    int dir = color ? -1 : 1;
+    return (to == position.ep_square && piece_type == PieceTypes::Pawn &&
+            (to == from + Directions::Northwest * dir ||
+             to == from + Directions::Northeast * dir));
+  }
+
+  if (type == MoveTypes::Promotion && piece_type != PieceTypes::Pawn) {
+    return false;
+  }
+
+  if (piece_type == PieceTypes::King) {
+    return (KingAttacks[from] & (1ull << to));
+  }
+
+  if (checkers) {
+    if (!(BetweenBBs[get_king_pos(position, color)][get_lsb(checkers)] & (1ull << to))) {
+      return false;
+    }
+  }
+
+  if (piece_type == PieceTypes::Pawn) {
+    uint64_t square = (1ull << from);
+    uint64_t legal_to = 0;
+
+    int dir = color == Colors::White ? Directions::North : Directions::South;
+
+    legal_to |= (shift_pawns(square, dir) & empty_squares);
+    legal_to |= (shift_pawns(legal_to & Ranks[2], dir) & empty_squares);
+
+    legal_to |= (((shift_pawns(square & ~Files[0], dir - 1)) |
+                     (shift_pawns(square & ~Files[7], dir + 1))) &
+                 position.colors_bb[color ^ 1]);
+
+    if (type != MoveTypes::Promotion){
+      legal_to &= ~(Ranks[0] | Ranks[7]);
+    }
+    return (legal_to >> (to)) & 1;
+  }
+
+  uint64_t attacks = 0;
+  if (piece_type == PieceTypes::Knight){
+    attacks = KnightAttacks[from];
+  }
+  else if (piece_type == PieceTypes::Bishop){
+    attacks = get_bishop_attacks(from, occ);
+  }
+  else if (piece_type == PieceTypes::Rook){
+    attacks = get_rook_attacks(from, occ);
+  }
+  else if (piece_type == PieceTypes::Queen){
+    attacks = get_bishop_attacks(from, occ) | get_rook_attacks(from, occ);
+  }
+
+  return (attacks & (1ull << to));
+}
+
 bool is_legal(const Position &position,
               Move move) { // Perform a move on the board.
   uint64_t occupied =

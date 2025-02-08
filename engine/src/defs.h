@@ -107,6 +107,7 @@ constexpr int SquareNone = 255;
 struct MoveInfo {
   std::array<Move, ListSize> moves;
   std::array<int, ListSize> scores;
+  uint8_t len = 0;
 };
 
 struct Position {

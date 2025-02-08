@@ -471,3 +471,11 @@ void print_bbs(const Position &pos) {
   printf("Black Piece bitboard:\n");
   print_bb(pos.colors_bb[Colors::Black]);
 }
+
+uint64_t shift_pawns(uint64_t bb, int dir) {
+  if (dir >= 0) {
+    return bb << dir;
+  } else {
+    return bb >> -dir;
+  }
+}

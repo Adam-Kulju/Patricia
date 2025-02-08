@@ -22,37 +22,43 @@ void run_thread(Position &position, ThreadInfo &thread_info, std::thread &s) {
   }
 }
 
-uint64_t perft(int depth, Position &position, bool first)
+uint64_t perft(int depth, Position &position, bool first,
+               ThreadInfo &thread_info)
 // Performs a perft search to the desired depth,
 // displaying results for each move at the root.
 {
-  std::array<Move, ListSize> list;
   uint64_t total_nodes = 0;
-  int nmoves =
-      movegen(position, list,
-              attacks_square(position, get_king_pos(position, position.color),
-                             position.color ^ 1));
+  uint64_t checkers = attacks_square(
+      position, get_king_pos(position, position.color), position.color ^ 1);
 
   if (depth <= 1) {
+    std::array<Move, ListSize> list;
+    int nmoves = movegen(position, list, checkers, Generate::GenAll);
+
     for (int i = 0; i < nmoves; i++) {
       total_nodes += is_legal(position, list[i]);
     }
+
     return total_nodes;
   }
 
-  for (int i = 0; i < nmoves;
-       i++) // Loop through all of the moves, skipping illegal ones.
+  MovePicker picker;
+  init_picker(picker, position, -107, checkers);
+
+  while (Move move = next_move(picker, position, thread_info, MoveNone,
+                               false)) // Loop through all of the moves,
+                                       // skipping illegal ones.
   {
-    if (!is_legal(position, list[i])) {
+    if (!is_legal(position, move)) {
       continue;
     }
     Position new_position = position;
-    make_move(new_position, list[i]);
+    make_move(new_position, move);
 
-    uint64_t nodes = perft(depth - 1, new_position, false);
+    uint64_t nodes = perft(depth - 1, new_position, false, thread_info);
 
     if (first) {
-      printf("%s: %" PRIu64 "\n", internal_to_uci(position, list[i]).c_str(),
+      printf("%s: %" PRIu64 "\n", internal_to_uci(position, move).c_str(),
              nodes);
     }
     total_nodes += nodes;
@@ -60,7 +66,6 @@ uint64_t perft(int depth, Position &position, bool first)
 
   return total_nodes;
 }
-
 
 void bench(Position &position, ThreadInfo &thread_info) {
   std::vector<std::string> fens = {
@@ -142,7 +147,8 @@ Move uci_to_internal(const Position &position, std::string uci) {
   int nmoves =
       movegen(position, list,
               attacks_square(position, get_king_pos(position, position.color),
-                             position.color ^ 1));
+                             position.color ^ 1),
+              Generate::GenAll);
 
   for (int i = 0; i < nmoves; i++) {
     if (internal_to_uci(position, list[i]) == uci)
@@ -183,16 +189,16 @@ void uci(ThreadInfo &thread_info, Position &position) {
     }
 
     if (command == "quit") {
-        thread_data.terminate = true;
+      thread_data.terminate = true;
 
-        reset_barrier.arrive_and_wait();
-        idle_barrier.arrive_and_wait();
+      reset_barrier.arrive_and_wait();
+      idle_barrier.arrive_and_wait();
 
-        for (int i = 0; i < thread_data.threads.size(); i++) {
-          if (thread_data.threads[i].joinable()) {
-            thread_data.threads[i].join();
-          }
+      for (int i = 0; i < thread_data.threads.size(); i++) {
+        if (thread_data.threads[i].joinable()) {
+          thread_data.threads[i].join();
         }
+      }
       std::exit(0);
     }
 
@@ -423,21 +429,21 @@ void uci(ThreadInfo &thread_info, Position &position) {
 
     run:
       run_thread(position, thread_info, s);
-    } 
-    
+    }
+
     else if (command == "perft") {
       int depth;
       input_stream >> depth;
       auto start_time = std::chrono::steady_clock::now();
 
-      uint64_t nodes = perft(depth, position, true);
+      uint64_t nodes = perft(depth, position, true, thread_info);
 
       printf("%" PRIu64 " nodes %" PRIu64 " nps\n", nodes,
              (uint64_t)(nodes * 1000 /
                         (std::max((int64_t)1, time_elapsed(start_time)))));
     }
 
-    else if (command == "bench"){
+    else if (command == "bench") {
       bench(position, thread_info);
     }
   }
