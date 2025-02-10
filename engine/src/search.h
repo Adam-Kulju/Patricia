@@ -819,15 +819,15 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       update_history(thread_info.CapHistScores[piece][sq], bonus);
 
     } else {
+    
+      Move their_last = extract_to((ss - 1)->played_move);
 
-      int their_last = ply < 1 ? MoveNone : extract_to((ss - 1)->played_move);
-
-      int their_piece = (ply < 1 || their_last == MoveNone)
+      int their_piece = (their_last == MoveNone)
                             ? Pieces::Blank
                             : (ss - 1)->piece_moved;
 
-      int our_last = ply < 2 ? MoveNone : extract_to((ss - 2)->played_move);
-      int our_piece = (ply < 2 || our_last == MoveNone) ? Pieces::Blank
+      Move our_last = extract_to((ss - 2)->played_move);
+      int our_piece = (our_last == MoveNone) ? Pieces::Blank
                                                         : (ss - 2)->piece_moved;
 
       for (int i = 0; i < num_quiets; i++) {
