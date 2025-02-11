@@ -43,7 +43,7 @@ uint64_t perft(int depth, Position &position, bool first,
   }
 
   MovePicker picker;
-  init_picker(picker, position, -107, checkers);
+  init_picker(picker, position, -107, checkers, &(thread_info.game_hist[thread_info.game_ply]));
 
   while (Move move = next_move(picker, position, thread_info, MoveNone,
                                false)) // Loop through all of the moves,

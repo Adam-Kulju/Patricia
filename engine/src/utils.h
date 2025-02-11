@@ -95,7 +95,7 @@ std::vector<TTBucket> TT(TT_size);
 void new_game(ThreadInfo &thread_info, std::vector<TTBucket> &TT) {
   // Reset TT and other thread_info values for a new game
 
-  thread_info.game_ply = 0;
+  thread_info.game_ply = 6;
   thread_info.thread_id = 0;
   std::memset(&thread_info.HistoryScores, 0, sizeof(thread_info.HistoryScores));
   std::memset(&thread_info.ContHistScores, 0,
