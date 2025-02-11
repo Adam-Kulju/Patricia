@@ -109,7 +109,7 @@ int eval(Position &position, ThreadInfo &thread_info) {
   // search tree If we are completely winning, give a bigger bonus to
   // incentivize finding the most stylish move when everything wins
 
- for (int idx = start_index + 2; idx < thread_info.game_ply - 4; idx += 2) {
+  for (int idx = start_index + 2; idx < thread_info.game_ply - 4; idx += 2) {
 
     if (thread_info.game_hist[idx].m_diff < s_m &&
         thread_info.game_hist[idx + 1].m_diff > s_m &&
@@ -151,9 +151,15 @@ int correct_eval(const Position &position, ThreadInfo &thread_info, int eval) {
   int corr =
       thread_info
           .PawnCorrHist[position.color][get_corrhist_index(position.pawn_key)];
-  
-  corr += thread_info.NonPawnCorrHist[position.color][Colors::White][get_corrhist_index(position.non_pawn_key[Colors::White])];
-  corr += thread_info.NonPawnCorrHist[position.color][Colors::Black][get_corrhist_index(position.non_pawn_key[Colors::Black])];
+
+  corr +=
+      thread_info
+          .NonPawnCorrHist[position.color][Colors::White][get_corrhist_index(
+              position.non_pawn_key[Colors::White])];
+  corr +=
+      thread_info
+          .NonPawnCorrHist[position.color][Colors::Black][get_corrhist_index(
+              position.non_pawn_key[Colors::Black])];
 
   return std::clamp(eval + (CorrWeight * corr / 512), -MateScore, MateScore);
 }
@@ -161,7 +167,6 @@ int correct_eval(const Position &position, ThreadInfo &thread_info, int eval) {
 void ss_push(Position &position, ThreadInfo &thread_info, Move move) {
   // update search stack after makemove
   thread_info.search_ply++;
-
 
   thread_info.game_hist[thread_info.game_ply].position_key =
       position.zobrist_key;
@@ -214,15 +219,14 @@ bool is_draw(const Position &position,
   if (halfmoves >= 100) {
     int color = position.color;
 
-    if (!attacks_square(position, get_king_pos(position, color), color ^ 1)){
+    if (!attacks_square(position, get_king_pos(position, color), color ^ 1)) {
       return true;
     }
 
     MoveInfo moves;
-    if (legal_movegen(position, moves.moves)){
+    if (legal_movegen(position, moves.moves)) {
       return true;
     }
-
   }
   if (material_draw(position)) {
     return true;
@@ -274,7 +278,7 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
 
   int entry_type = EntryTypes::None, tt_static_eval = ScoreNone,
       tt_score = ScoreNone;
-      Move tt_move = MoveNone; // Initialize TT variables and check for a hash hit
+  Move tt_move = MoveNone; // Initialize TT variables and check for a hash hit
 
   if (tt_hit) {
     entry_type = entry.get_type();
@@ -326,22 +330,22 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
       alpha = best_score;
     }
   }
-  
+
   MovePicker picker;
   init_picker(picker, position, -107, in_check, ss);
 
-  if (!is_cap(position, tt_move)){
+  if (!is_cap(position, tt_move)) {
     tt_move = MoveNone;
   }
-  while (Move move = next_move(picker, position, thread_info, tt_move, !in_check)) {
+  while (Move move =
+             next_move(picker, position, thread_info, tt_move, !in_check)) {
 
-    if (picker.stage > Stages::Captures && !in_check){
+    if (picker.stage > Stages::Captures && !in_check) {
       break;
     }
     if (!is_legal(position, move)) {
       continue;
     }
-
 
     Position moved_position = position;
     make_move(moved_position, move);
@@ -410,17 +414,15 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   }
 
   if (ply && is_draw(position, thread_info)) { // Draw detection
-    int draw_score = 1 - (thread_info.nodes & 3);    
+    int draw_score = 1 - (thread_info.nodes & 3);
 
     int material = material_eval(position);
 
-    if (material < 0){
+    if (material < 0) {
       draw_score += 50;
-    }
-    else if (material > 0){
+    } else if (material > 0) {
       draw_score -= 50;
     }
-                                                      
 
     return draw_score;
     // We want to discourage draws at the root.
@@ -595,7 +597,6 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   int best_score = ScoreNone, moves_played = 0; // Generate and score moves
   bool is_capture = false, skip = false;
 
-
   while (Move move = next_move(picker, position, thread_info, tt_move, skip)) {
     if (root) {
       bool pv_skip = false;
@@ -619,8 +620,9 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
     uint64_t curr_nodes = thread_info.nodes;
 
-    int hist_score = thread_info.HistoryScores[position.board[extract_from(move)]]
-                                      [extract_to(move)];
+    int hist_score =
+        thread_info.HistoryScores[position.board[extract_from(move)]]
+                                 [extract_to(move)];
 
     is_capture = is_cap(position, move);
     if (!is_capture && !is_pv && best_score > -MateScore) {
@@ -641,7 +643,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
         skip = true;
       }
 
-      if (!is_pv && !is_capture && depth < 4 && hist_score < -4096 * depth){
+      if (!is_pv && !is_capture && depth < 4 && hist_score < -4096 * depth) {
         skip = true;
       }
     }
@@ -687,8 +689,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
           // that we'll probably beat beta with a full search too.
 
           return sBeta;
-        }
-        else if (cutnode){
+        } else if (cutnode) {
           extension = -1;
         }
       }
@@ -718,8 +719,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
         // alpha/beta
         R /= 2;
       } else {
-        R -= hist_score /
-             10000;
+        R -= hist_score / 10000;
       }
 
       // Increase reduction if not in pv
@@ -821,16 +821,13 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       update_history(thread_info.CapHistScores[piece][sq], bonus);
 
     } else {
-    
+
       Move their_last = extract_to((ss - 1)->played_move);
 
-      int their_piece = (their_last == MoveNone)
-                            ? Pieces::Blank
-                            : (ss - 1)->piece_moved;
+      int their_piece = (ss - 1)->piece_moved;
 
       Move our_last = extract_to((ss - 2)->played_move);
-      int our_piece = (our_last == MoveNone) ? Pieces::Blank
-                                                        : (ss - 2)->piece_moved;
+      int our_piece = (ss - 2)->piece_moved;
 
       for (int i = 0; i < num_quiets; i++) {
 
@@ -851,6 +848,11 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
         update_history(
             thread_info.ContHistScores[our_piece][our_last][piece_m][sq_m],
             -bonus);
+
+        update_history(
+            thread_info.ContHistScores[(ss - 4)->piece_moved][extract_to(
+                (ss - 4)->played_move)][piece_m][sq_m],
+            -bonus / 2);
       }
 
       update_history(thread_info.HistoryScores[piece][sq], bonus);
@@ -860,6 +862,10 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
           bonus);
       update_history(thread_info.ContHistScores[our_piece][our_last][piece][sq],
                      bonus);
+      update_history(
+          thread_info.ContHistScores[(ss - 4)->piece_moved][extract_to(
+              (ss - 4)->played_move)][piece][sq],
+          bonus / 2);
 
       thread_info.KillerMoves[ply] = best_move;
     }
@@ -893,10 +899,12 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
         thread_info.PawnCorrHist[color][get_corrhist_index(position.pawn_key)],
         bonus);
     update_corrhist(
-        thread_info.NonPawnCorrHist[color][Colors::White][get_corrhist_index(position.non_pawn_key[Colors::White])],
+        thread_info.NonPawnCorrHist[color][Colors::White][get_corrhist_index(
+            position.non_pawn_key[Colors::White])],
         bonus);
     update_corrhist(
-        thread_info.NonPawnCorrHist[color][Colors::Black][get_corrhist_index(position.non_pawn_key[Colors::Black])],
+        thread_info.NonPawnCorrHist[color][Colors::Black][get_corrhist_index(
+            position.non_pawn_key[Colors::Black])],
         bonus);
   }
 
@@ -1124,11 +1132,10 @@ void iterative_deepen(
               bm_stability);
         }
 
-        if (depth == 6 && thread_info.best_scores[0] < -100){
+        if (depth == 6 && thread_info.best_scores[0] < -100) {
           thread_info.phase = PhaseTypes::Endgame;
           thread_info.nnue_state.reset_nnue(position, thread_info.phase);
-        }
-        else if (depth == 6 && thread_info.best_scores[0] > 300){
+        } else if (depth == 6 && thread_info.best_scores[0] > 300) {
           thread_info.phase = PhaseTypes::Sacrifice;
           thread_info.nnue_state.reset_nnue(position, thread_info.phase);
         }
@@ -1151,7 +1158,7 @@ void iterative_deepen(
 finish:
   // wait for all threads to finish searching
   // printf("%i\n", thread_info.thread_id);
-  if (thread_info.thread_id == 0){
+  if (thread_info.thread_id == 0) {
     thread_data.stop = true;
   }
   search_end_barrier.arrive_and_wait();
