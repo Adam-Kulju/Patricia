@@ -251,6 +251,8 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
   }
   int color = position.color;
 
+  GameHistory *ss = &(thread_info.game_hist[thread_info.game_ply]);
+
   thread_info.nodes++;
 
   int ply = thread_info.search_ply;
@@ -326,7 +328,7 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
   }
   
   MovePicker picker;
-  init_picker(picker, position, -107, in_check);
+  init_picker(picker, position, -107, in_check, ss);
 
   if (!is_cap(position, tt_move)){
     tt_move = MoveNone;
@@ -588,7 +590,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   thread_info.KillerMoves[ply + 1] = MoveNone;
 
   MovePicker picker;
-  init_picker(picker, position, -107, in_check);
+  init_picker(picker, position, -107, in_check, ss);
 
   int best_score = ScoreNone, moves_played = 0; // Generate and score moves
   bool is_capture = false, skip = false;
