@@ -128,9 +128,9 @@ constexpr int MaxSearchDepth = 127;
 
 struct GameHistory { // keeps the state of the board at a particular point in
                      // the game
-  uint64_t position_key; // Hash key of the position at the time
-  Move played_move;      // The move that was played
-  uint8_t piece_moved; // The piece that was moved (will be useful for histories
+  uint64_t position_key = 0; // Hash key of the position at the time
+  Move played_move = MoveNone;      // The move that was played
+  uint8_t piece_moved = Pieces::Blank; // The piece that was moved (will be useful for histories
                        // later)
   // int16_t sacrifice_scale;
   bool is_cap;

@@ -89,10 +89,14 @@ Move next_move(MovePicker &picker, Position &position, ThreadInfo &thread_info,
                                 Generate::GenQuiets);
 
     int their_last = extract_to((picker.ss - 1)->played_move);
-    int their_piece = (picker.ss - 1)->piece_moved;
+    int their_piece = (their_last == MoveNone)
+                            ? Pieces::Blank
+                            : (picker.ss - 1)->piece_moved;
 
     int our_last = extract_to((picker.ss - 2)->played_move);
-    int our_piece = (picker.ss - 2)->piece_moved;
+    int our_piece = (their_last == MoveNone)
+                            ? Pieces::Blank
+                            : (picker.ss - 2)->piece_moved;
 
     for (int i = 0; i < picker.quiets.len; i++) {
       Move move = picker.quiets.moves[i];
