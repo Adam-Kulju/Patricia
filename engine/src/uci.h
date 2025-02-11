@@ -340,7 +340,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
     }
 
     else if (command == "position") {
-      thread_info.game_ply = 0;
+      thread_info.game_ply = 6;
       std::string setup;
       input_stream >> setup;
       if (setup == "fen") {

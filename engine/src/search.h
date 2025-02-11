@@ -596,7 +596,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
   int best_score = ScoreNone, moves_played = 0; // Generate and score moves
   bool is_capture = false, skip = false;
-
+  
   while (Move move = next_move(picker, position, thread_info, tt_move, skip)) {
     if (root) {
       bool pv_skip = false;
