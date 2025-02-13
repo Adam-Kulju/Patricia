@@ -585,6 +585,47 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     depth--;
   }
 
+  int p_beta = beta + 250;
+  if (depth >= 5 && abs(beta) < MateScore &&
+      (!tt_hit || entry.depth + 4 <= depth || tt_score >= p_beta)) {
+
+    int threshold = p_beta - static_eval;
+    MovePicker probcut_p;
+    init_picker(probcut_p, position, threshold, in_check, ss);
+    Move p_tt_move =
+        (tt_move != MoveNone && SEE(position, tt_move, threshold) ? tt_move
+                                                                  : MoveNone);
+
+    while (Move move = next_move(probcut_p, position, thread_info, p_tt_move, true)) {
+
+      if (probcut_p.stage > Stages::Captures) {
+        break;
+      }
+      if (move == excluded_move || !is_legal(position, move)) {
+        continue;
+      }
+
+      Position moved_position = position;
+      make_move(moved_position, move);
+      update_nnue_state(thread_info, move, position);
+      ss_push(position, thread_info, move);
+
+      int score =
+          -qsearch(-p_beta, -p_beta + 1, moved_position, thread_info, TT);
+      if (score >= p_beta) {
+        score = -search<is_pv>(-p_beta, -p_beta + 1, depth - 4, false,
+                               moved_position, thread_info, TT);
+      }
+
+      ss_pop(thread_info);
+      thread_info.phase = phase;
+
+      if (score >= p_beta) {
+        return score;
+      }
+    }
+  }
+
   Move quiets[64];
   int num_quiets = 0;
   Move captures[64];
@@ -596,7 +637,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
   int best_score = ScoreNone, moves_played = 0; // Generate and score moves
   bool is_capture = false, skip = false;
-  
+
   while (Move move = next_move(picker, position, thread_info, tt_move, skip)) {
     if (root) {
       bool pv_skip = false;
