@@ -744,7 +744,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     ss_push(position, thread_info, move);
 
     bool full_search = false;
-    int newdepth = depth - 1 + extension;
+    int newdepth = std::min(depth - 1 + extension, 126);
 
     // Late Move Reductions (LMR): Moves ordered later in search and at high
     // depths can be searched to a lesser depth than normal. If the reduced
