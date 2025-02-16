@@ -585,7 +585,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     depth--;
   }
 
-  int p_beta = beta + 250;
+  int p_beta = beta + 150;
   if (depth >= 5 && abs(beta) < MateScore &&
       (!tt_hit || entry.depth + 4 <= depth || tt_score >= p_beta)) {
 
