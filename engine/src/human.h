@@ -38,24 +38,22 @@ void search_human(Position &position, ThreadInfo &thread_info) {
     int m_diff = starting_mat - thread_info.pv_material[i];
     int eval_diff = thread_info.best_scores[0] - thread_info.best_scores[i];
 
-    if (thread_info.game_ply < 10 && m_diff > 0 && eval_diff < 80 &&
-        thread_info.best_scores[i] > -100) {
-      best_move = thread_info.best_moves[i];
-      mistake = eval_diff;
-      break;
-    }
-
-    if (thread_info.game_ply < 5 && eval_diff < 50 && thread_info.best_scores[i] > -100 && i < 3){
-      if (dist(rd) % 2 == 1){
+    if (thread_info.game_ply < 5 && eval_diff < 50 &&
+        thread_info.best_scores[i] > -100 && i < 3) {
+      if (dist(rd) % 2 == 1) {
         best_move = thread_info.best_moves[i];
         mistake = eval_diff;
       }
     }
 
     if (thread_info.game_ply > 5 && eval_diff > 0 &&
-        eval_diff < thread_info.cp_accum_loss + 10 && thread_info.best_scores[0] < 1000) {
+        eval_diff < thread_info.cp_accum_loss + 10 &&
+        thread_info.best_scores[0] < 1000) {
       best_move = thread_info.best_moves[i];
       mistake = eval_diff;
+      if (m_diff > 0) {
+        break;
+      }
     }
   }
 

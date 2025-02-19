@@ -441,14 +441,16 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   }
   thread_info.nodes++;
 
-  thread_info.pv[pv_index] = MoveNone;
-
   bool root = !ply, color = position.color, raised_alpha = false;
 
   Move best_move = MoveNone;
   Move excluded_move = thread_info.excluded_move;
 
   bool singular_search = (excluded_move != MoveNone);
+
+  if (!singular_search){
+    thread_info.pv[pv_index] = MoveNone;
+  }
 
   thread_info.excluded_move =
       MoveNone; // If we currently are in singular search, this sets it so moves
@@ -821,6 +823,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
         }
 
         else {
+
           thread_info.pv[pv_index] = best_move;
           for (int n = 0; n < MaxSearchDepth + ply + 1; n++) {
             thread_info.pv[pv_index + 1 + n] =
@@ -1137,8 +1140,8 @@ void iterative_deepen(
           nps = wezly;
         }
 
-        if (!thread_info.doing_datagen &&
-            !(thread_info.is_human && thread_info.multipv_index)) {
+        if (!thread_info.doing_datagen /*&&
+            !(thread_info.is_human && thread_info.multipv_index)*/) {
           printf("info multipv %i depth %i seldepth %i score %s nodes %" PRIu64
                  " nps %" PRIi64 " time %" PRIi64 " pv ",
                  thread_info.multipv_index + 1, depth, thread_info.seldepth,
