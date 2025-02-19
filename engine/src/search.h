@@ -856,7 +856,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     int piece = position.board[extract_from(best_move)],
         sq = extract_to(best_move);
 
-    int bonus = std::min((int)HistBonus * (depth - 1), (int)HistMax);
+    int bonus = std::min((int)HistBonus * (depth - 1 + (best_score > beta + 125)), (int)HistMax);
 
     // Update history scores and the killer move.
 
