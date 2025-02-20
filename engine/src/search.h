@@ -773,6 +773,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
       R += cutnode;
 
+
       // Clamp reduction so we don't immediately go into qsearch
       R = std::clamp(R, 0, depth - 1);
 
@@ -782,6 +783,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       if (score > alpha) {
         full_search = R > 1;
         newdepth += (score > (best_score + 60 + newdepth * 2));
+        newdepth -= (score < best_score + newdepth && !root);
       }
     } else {
       full_search = moves_played || !is_pv;
