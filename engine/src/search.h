@@ -448,7 +448,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
   bool singular_search = (excluded_move != MoveNone);
 
-  if (!singular_search){
+  if (!singular_search) {
     thread_info.pv[pv_index] = MoveNone;
   }
 
@@ -598,7 +598,8 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
         (tt_move != MoveNone && SEE(position, tt_move, threshold) ? tt_move
                                                                   : MoveNone);
 
-    while (Move move = next_move(probcut_p, position, thread_info, p_tt_move, true)) {
+    while (Move move =
+               next_move(probcut_p, position, thread_info, p_tt_move, true)) {
 
       if (probcut_p.stage > Stages::Captures) {
         break;
@@ -667,6 +668,8 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
         thread_info.HistoryScores[position.board[extract_from(move)]]
                                  [extract_to(move)];
 
+    int lmr_depth = depth - LMRTable[depth][moves_played];
+
     is_capture = is_cap(position, move);
     if (!is_capture && !is_pv && best_score > -MateScore) {
 
@@ -681,8 +684,8 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       // Futility Pruning (FP): If we're far worse than alpha and our move isn't
       // a good capture, we can skip the rest.
 
-      if (!in_check && depth < FPDepth && picker.stage > Stages::Captures &&
-          static_eval + FPMargin1 + FPMargin2 * depth < alpha) {
+      if (!in_check && lmr_depth < FPDepth && picker.stage > Stages::Captures &&
+          static_eval + FPMargin1 + FPMargin2 * lmr_depth < alpha) {
         skip = true;
       }
 
@@ -773,9 +776,8 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
       R += cutnode;
 
-
       // Clamp reduction so we don't immediately go into qsearch
-      R = std::clamp(R, 1, newdepth - 1);
+      R = std::clamp(R, 1, depth - 1);
 
       // Reduced search, reduced window
       score = -search<false>(-alpha - 1, -alpha, newdepth - R + 1, true,
@@ -858,7 +860,8 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     int piece = position.board[extract_from(best_move)],
         sq = extract_to(best_move);
 
-    int bonus = std::min((int)HistBonus * (depth - 1 + (best_score > beta + 125)), (int)HistMax);
+    int bonus = std::min(
+        (int)HistBonus * (depth - 1 + (best_score > beta + 125)), (int)HistMax);
 
     // Update history scores and the killer move.
 
