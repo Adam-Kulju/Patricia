@@ -45,7 +45,7 @@ TUNE_PARAM(LMPDepth, 6, 3, 7);
 TUNE_PARAM(SEDepth, 5, 4, 10);
 TUNE_PARAM(SEDoubleExtMargin, 18, 10, 30);
 TUNE_PARAM(FPDepth, 9, 5, 11);
-TUNE_PARAM(FPMargin1, 100, 50, 150);
+TUNE_PARAM(FPMargin1, 140, 50, 150);
 TUNE_PARAM(FPMargin2, 115, 75, 175);
 TUNE_PARAM(IIRMinDepth, 2, 1, 5);
 TUNE_PARAM(SeePruningDepth, 7, 5, 11);
