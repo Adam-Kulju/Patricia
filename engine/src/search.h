@@ -1204,7 +1204,7 @@ void iterative_deepen(
 finish:
   // wait for all threads to finish searching
   // printf("%i\n", thread_info.thread_id);
-  if (thread_info.thread_id == 0) {
+  if (thread_info.thread_id == 0 && !thread_info.doing_datagen) {
     thread_data.stop = true;
   }
   search_end_barrier.arrive_and_wait();
