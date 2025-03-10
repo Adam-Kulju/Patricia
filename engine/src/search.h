@@ -641,6 +641,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   bool is_capture = false, skip = false;
 
   while (Move move = next_move(picker, position, thread_info, tt_move, skip)) {
+
     if (root) {
       bool pv_skip = false;
       for (int i = 0; i < thread_info.multipv_index; i++) {

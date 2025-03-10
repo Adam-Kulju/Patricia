@@ -212,8 +212,24 @@ void set_board(Position &position, ThreadInfo &thread_info,
 
     if (right == 'k') {
       square = base + 7;
+      if (thread_data.is_frc && castling_rights == "KQkq"){
+        for (int i = base; i < SquareNone; i++){
+          if (position.board[i] == Pieces::WRook + color){
+            square = i;
+            break;
+          }
+        }
+      }
     } else if (right == 'q') {
       square = base;
+      if (thread_data.is_frc && castling_rights == "KQkq"){
+        for (int i = base + 7; i >= 0; i--){
+          if (position.board[i] == Pieces::WRook + color){
+            square = i;
+            break;
+          }
+        }
+      }
     } else {
       square = right - 'a' + 56 * color;
     }
@@ -241,6 +257,134 @@ void set_board(Position &position, ThreadInfo &thread_info,
   }
 
   position.halfmoves = halfmoves;
+}
+
+std::string export_fen(const Position &position,
+                       const ThreadInfo &thread_info) {
+
+  std::string fen = "";
+  bool subtracted = true;
+
+  for (int pos = 56; pos >= 0; pos++) {
+
+    if (pos % 8 == 0 && !subtracted) {
+      pos -= 17;
+      if (pos >= -1) {
+        fen += "/";
+      }
+      subtracted = true;
+    }
+
+    else if (position.board[pos] != Pieces::Blank) {
+
+      switch (position.board[pos]) {
+
+      case Pieces::WPawn:
+        fen += "P";
+        break;
+      case Pieces::WKnight:
+        fen += "N";
+        break;
+      case Pieces::WBishop:
+        fen += "B";
+        break;
+      case Pieces::WRook:
+        fen += "R";
+        break;
+      case Pieces::WQueen:
+        fen += "Q";
+        break;
+      case Pieces::WKing:
+        fen += "K";
+        break;
+      case Pieces::BPawn:
+        fen += "p";
+        break;
+      case Pieces::BKnight:
+        fen += "n";
+        break;
+      case Pieces::BBishop:
+        fen += "b";
+        break;
+      case Pieces::BRook:
+        fen += "r";
+        break;
+      case Pieces::BQueen:
+        fen += "q";
+        break;
+      case Pieces::BKing:
+        fen += "k";
+        break;
+      default:
+        printf("Error parsing board!");
+        print_board(position);
+        std::exit(1);
+      }
+
+      subtracted = false;
+    }
+
+    else {
+      int empty_squares = 0;
+      subtracted = false;
+
+      do {
+        empty_squares++;
+        pos++;
+      } while (position.board[pos] == Pieces::Blank && pos % 8 != 0);
+
+      fen += std::to_string(empty_squares);
+      pos--;
+    }
+  }
+
+  fen += " ";
+
+  if (position.color == Colors::Black) {
+    fen += "b ";
+  } else {
+    fen += "w ";
+  }
+
+  bool has_castling_rights = false;
+  int indx = 0;
+
+  for (char rights : std::string("KQkq")) {
+
+    int color = indx > 1 ? Colors::Black : Colors::White;
+    int side = indx % 2 == 0 ? Sides::Kingside : Sides::Queenside;
+    if (position.castling_squares[color][side] != SquareNone) {
+      fen += rights;
+      has_castling_rights = true;
+    }
+
+    indx++;
+  }
+
+  if (has_castling_rights) {
+    fen += " ";
+  } else {
+    fen += "- ";
+  }
+
+  if (position.ep_square != SquareNone) {
+
+    char file = get_file(position.ep_square) + 'a';
+    fen += file;
+
+    char rank = get_rank(position.ep_square) + '1';
+
+    fen += rank;
+    fen += " ";
+
+  } else {
+    fen += "- ";
+  }
+
+  fen += std::to_string(position.halfmoves) + " ";
+  fen += std::to_string((thread_info.game_ply + 1) / 2);
+
+  return fen;
 }
 
 uint64_t
@@ -603,7 +747,6 @@ void make_move(Position &position, Move move) { // Perform a move on the board.
   __builtin_prefetch(&TT[hash_to_idx(temp_hash)]);
 }
 
-
 bool is_pseudo_legal(const Position &position, Move move, uint64_t checkers) {
   if (move == MoveNone) {
     return false;
@@ -663,7 +806,8 @@ bool is_pseudo_legal(const Position &position, Move move, uint64_t checkers) {
   }
 
   if (checkers) {
-    if (!(BetweenBBs[get_king_pos(position, color)][get_lsb(checkers)] & (1ull << to))) {
+    if (!(BetweenBBs[get_king_pos(position, color)][get_lsb(checkers)] &
+          (1ull << to))) {
       return false;
     }
   }
@@ -678,26 +822,23 @@ bool is_pseudo_legal(const Position &position, Move move, uint64_t checkers) {
     legal_to |= (shift_pawns(legal_to & Ranks[2], dir) & empty_squares);
 
     legal_to |= (((shift_pawns(square & ~Files[0], dir - 1)) |
-                     (shift_pawns(square & ~Files[7], dir + 1))) &
+                  (shift_pawns(square & ~Files[7], dir + 1))) &
                  position.colors_bb[color ^ 1]);
 
-    if (type != MoveTypes::Promotion){
+    if (type != MoveTypes::Promotion) {
       legal_to &= ~(Ranks[0] | Ranks[7]);
     }
     return (legal_to >> (to)) & 1;
   }
 
   uint64_t attacks = 0;
-  if (piece_type == PieceTypes::Knight){
+  if (piece_type == PieceTypes::Knight) {
     attacks = KnightAttacks[from];
-  }
-  else if (piece_type == PieceTypes::Bishop){
+  } else if (piece_type == PieceTypes::Bishop) {
     attacks = get_bishop_attacks(from, occ);
-  }
-  else if (piece_type == PieceTypes::Rook){
+  } else if (piece_type == PieceTypes::Rook) {
     attacks = get_rook_attacks(from, occ);
-  }
-  else if (piece_type == PieceTypes::Queen){
+  } else if (piece_type == PieceTypes::Queen) {
     attacks = get_bishop_attacks(from, occ) | get_rook_attacks(from, occ);
   }
 
