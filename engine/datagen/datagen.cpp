@@ -25,134 +25,6 @@ void fill(std::string filename) {
 int num_threads = 1;
 std::chrono::steady_clock::time_point start_time;
 
-std::string export_fen(const Position &position,
-                       const ThreadInfo &thread_info) {
-
-  std::string fen = "";
-  bool subtracted = true;
-
-  for (int pos = 56; pos >= 0; pos++) {
-
-    if (pos % 8 == 0 && !subtracted) {
-      pos -= 17;
-      if (pos >= -1) {
-        fen += "/";
-      }
-      subtracted = true;
-    }
-
-    else if (position.board[pos] != Pieces::Blank) {
-
-      switch (position.board[pos]) {
-
-      case Pieces::WPawn:
-        fen += "P";
-        break;
-      case Pieces::WKnight:
-        fen += "N";
-        break;
-      case Pieces::WBishop:
-        fen += "B";
-        break;
-      case Pieces::WRook:
-        fen += "R";
-        break;
-      case Pieces::WQueen:
-        fen += "Q";
-        break;
-      case Pieces::WKing:
-        fen += "K";
-        break;
-      case Pieces::BPawn:
-        fen += "p";
-        break;
-      case Pieces::BKnight:
-        fen += "n";
-        break;
-      case Pieces::BBishop:
-        fen += "b";
-        break;
-      case Pieces::BRook:
-        fen += "r";
-        break;
-      case Pieces::BQueen:
-        fen += "q";
-        break;
-      case Pieces::BKing:
-        fen += "k";
-        break;
-      default:
-        printf("Error parsing board!");
-        print_board(position);
-        std::exit(1);
-      }
-
-      subtracted = false;
-    }
-
-    else {
-      int empty_squares = 0;
-      subtracted = false;
-
-      do {
-        empty_squares++;
-        pos++;
-      } while (position.board[pos] == Pieces::Blank && pos % 8 != 0);
-
-      fen += std::to_string(empty_squares);
-      pos--;
-    }
-  }
-
-  fen += " ";
-
-  if (position.color == Colors::Black) {
-    fen += "b ";
-  } else {
-    fen += "w ";
-  }
-
-  bool has_castling_rights = false;
-  int indx = 0;
-
-  for (char rights : std::string("KQkq")) {
-
-    int color = indx > 1 ? Colors::Black : Colors::White;
-    int side = indx % 2 == 0 ? Sides::Kingside : Sides::Queenside;
-    if (position.castling_squares[color][side] != SquareNone) {
-      fen += rights;
-      has_castling_rights = true;
-    }
-
-    indx++;
-  }
-
-  if (has_castling_rights) {
-    fen += " ";
-  } else {
-    fen += "- ";
-  }
-
-  if (position.ep_square != SquareNone) {
-
-    char file = get_file(position.ep_square) + 'a';
-    fen += file;
-
-    char rank = get_rank(position.ep_square) + '1';
-
-    fen += rank;
-    fen += " ";
-
-  } else {
-    fen += "- ";
-  }
-
-  fen += std::to_string(position.halfmoves) + " ";
-  fen += std::to_string((thread_info.game_ply + 1) / 2);
-
-  return fen;
-}
-
 Move random_move(Position &position,
                  ThreadInfo &thread_info) { // Get a random legal move
 
@@ -340,6 +212,8 @@ int main(int argc, char *argv[]) {
 
   init_LMR();
   init_bbs();
+
+  thread_data.is_frc = true;
 
   if (argc > 1) {
     num_threads = std::atoi(argv[1]);
