@@ -14,6 +14,14 @@ A killer bunny who will not hesitate to ram as many pieces as possible down your
 
 ***
 
+## Download/Play Against Patricia
+Binaries for the most recent release of Patricia, as well as instructions on how to build Patricia from source, can be found on the [Releases](https://github.com/Adam-Kulju/Patricia/releases) page. <br><br>
+Patricia plays on Lichess under two different accounts: <br><br>
+[Full Strength Patricia](https://lichess.org/@/PatriciaBot) <br><br>
+[Weakened Patricia for humans to play against](https://lichess.org/@/littlePatricia) <br>
+
+***
+
 ## Aggression
 The metric that Patricia's aggression claims are based off of is Stefan Pohl's [EAS tool (found here)](https://www.sp-cc.de/eas-ratinglist.htm), which is the most well known and best regarded tool for determining the aggressiveness of chess engines. It looks at a combination of factors, such as sacrifice rate, short win rate, and unnecessary draw rate, and outputs a score that captures how "exciting" an engine tends to play. It's not a perfect statistic but from my experience it reflects the "eye test" well.
 
