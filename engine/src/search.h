@@ -331,6 +331,8 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
     }
   }
 
+  int futility = best_score + 200;
+
   MovePicker picker;
   init_picker(picker, position, -107, in_check, ss);
 
@@ -344,6 +346,11 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
       break;
     }
     if (!is_legal(position, move)) {
+      continue;
+    }
+
+    if (best_score > -MateScore && is_cap(position, move) && futility <= alpha && !SEE(position, move, 1)){
+      best_score = std::max(best_score, futility);
       continue;
     }
 
@@ -767,22 +774,24 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       }
 
       // Increase reduction if not in pv
-      R += !is_pv;
+      R -= is_pv;
 
       // Increase reduction if not improving
       R += !improving;
 
       R += cutnode;
 
+      R -= (tt_hit && entry.depth > depth);
+
 
       // Clamp reduction so we don't immediately go into qsearch
-      R = std::clamp(R, 1, newdepth - 1);
+      R = std::clamp(R, 0, newdepth - 1);
 
       // Reduced search, reduced window
-      score = -search<false>(-alpha - 1, -alpha, newdepth - R + 1, true,
+      score = -search<false>(-alpha - 1, -alpha, newdepth - R, true,
                              moved_position, thread_info, TT);
       if (score > alpha) {
-        full_search = R > 1;
+        full_search = R > 0;
         newdepth += (score > (best_score + 60 + newdepth * 2));
         newdepth -= (score < best_score + newdepth && !root);
       }
