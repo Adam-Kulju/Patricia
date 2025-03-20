@@ -349,7 +349,7 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
       continue;
     }
 
-    if (best_score > -MateScore && is_cap(position, move) && futility <= alpha && !SEE(position, move, 1)){
+    if (best_score > -MateScore && !in_check && is_cap(position, move) && futility <= alpha && !SEE(position, move, 1)){
       best_score = std::max(best_score, futility);
       continue;
     }
