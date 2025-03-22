@@ -331,7 +331,7 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
     }
   }
 
-  int futility = best_score + 200;
+  int futility = best_score + 400;
 
   MovePicker picker;
   init_picker(picker, position, -107, in_check, ss);
