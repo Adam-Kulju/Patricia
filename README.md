@@ -18,7 +18,8 @@ A killer bunny who will not hesitate to ram as many pieces as possible down your
 Binaries for the most recent release of Patricia, as well as instructions on how to build Patricia from source, can be found on the [Releases](https://github.com/Adam-Kulju/Patricia/releases) page. <br><br>
 Patricia plays on Lichess under two different accounts: <br><br>
 [Full Strength Patricia](https://lichess.org/@/PatriciaBot) <br><br>
-[Weakened Patricia for humans to play against](https://lichess.org/@/littlePatricia) <br>
+[Weakened Patricia for humans to play against](https://lichess.org/@/littlePatricia) <br><br>
+Several of Patricia's best games can be found at the bottom of [this page](https://www.sp-cc.de/patricia_eas_engine.htm).<br>
 
 ***
 
