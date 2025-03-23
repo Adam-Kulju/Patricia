@@ -338,7 +338,7 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
     tt_move = MoveNone;
   }
 
-  int futility = best_score + 150;
+  int futility = best_score + 250;
   while (Move move =
              next_move(picker, position, thread_info, tt_move, !in_check)) {
 
