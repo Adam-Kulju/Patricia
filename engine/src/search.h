@@ -338,14 +338,14 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
     tt_move = MoveNone;
   }
 
-  int futility = best_score + 250;
+  int futility = best_score + 300;
   while (Move move =
              next_move(picker, position, thread_info, tt_move, !in_check)) {
 
     if (picker.stage > Stages::Captures && !in_check) {
       break;
     }
-    if (best_score > -MateScore && !in_check && is_cap(position, move) && futility <= alpha && !SEE(position, move, 1)){
+    if (best_score > -MateScore && is_cap(position, move) && futility <= alpha && !SEE(position, move, 1)){
       best_score = std::max(best_score, futility);
       continue;
     }
