@@ -767,7 +767,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       }
 
       // Increase reduction if not in pv
-      R += !is_pv;
+      R -= is_pv;
 
       // Increase reduction if not improving
       R += !improving;
@@ -776,13 +776,13 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
 
       // Clamp reduction so we don't immediately go into qsearch
-      R = std::clamp(R, 1, newdepth + 1);
+      R = std::clamp(R, 0, newdepth - 1);
 
       // Reduced search, reduced window
-      score = -search<false>(-alpha - 1, -alpha, newdepth - R + 1, true,
+      score = -search<false>(-alpha - 1, -alpha, newdepth - R, true,
                              moved_position, thread_info, TT);
       if (score > alpha) {
-        full_search = R > 1;
+        full_search = R > 0;
         newdepth += (score > (best_score + 60 + newdepth * 2));
         newdepth -= (score < best_score + newdepth && !root);
       }
