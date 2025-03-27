@@ -769,6 +769,8 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       // Increase reduction if not in pv
       R -= is_pv;
 
+      R -= (tt_hit && entry.depth >= depth);
+
       // Increase reduction if not improving
       R += !improving;
 
