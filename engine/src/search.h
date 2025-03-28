@@ -587,7 +587,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     depth--;
   }
 
-  int p_beta = beta + 250;
+  int p_beta = beta + 100;
   if (depth >= 5 && abs(beta) < MateScore &&
       (!tt_hit || entry.depth + 4 <= depth || tt_score >= p_beta)) {
 
@@ -766,7 +766,6 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
         R -= hist_score / 10000;
       }
 
-      // Increase reduction if not in pv
       R -= is_pv;
 
       R -= (tt_hit && entry.depth >= depth);
