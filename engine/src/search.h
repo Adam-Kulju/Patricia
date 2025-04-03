@@ -554,7 +554,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     }
     if (static_eval >= beta && depth >= NMPMinDepth &&
         has_non_pawn_material(position, color) &&
-        (ss - 1)->played_move != MoveNone) {
+        (ss - 1)->played_move != MoveNone && beta > -MateScore) {
 
       // Null Move Pruning (NMP): If we can give our opponent a free move and
       // still beat beta on a reduced search, we can prune the node.
@@ -671,6 +671,8 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     is_capture = is_cap(position, move);
     if (!is_capture && !is_pv && best_score > -MateScore) {
 
+      int lmr_depth = depth - LMRTable[depth][moves_played];
+
       // Late Move Pruning (LMP): If we've searched enough moves, we can skip
       // the rest.
 
@@ -682,8 +684,8 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       // Futility Pruning (FP): If we're far worse than alpha and our move isn't
       // a good capture, we can skip the rest.
 
-      if (!in_check && depth < FPDepth && picker.stage > Stages::Captures &&
-          static_eval + FPMargin1 + FPMargin2 * depth < alpha) {
+      if (!in_check && lmr_depth < FPDepth && picker.stage > Stages::Captures &&
+          static_eval + FPMargin1 + FPMargin2 * lmr_depth < alpha) {
         skip = true;
       }
 
