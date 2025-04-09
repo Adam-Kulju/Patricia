@@ -150,7 +150,7 @@ int eval(Position &position, ThreadInfo &thread_info) {
 int correct_eval(const Position &position, ThreadInfo &thread_info, int eval) {
 
   eval = eval * (200 - position.halfmoves) / 200;
-  
+
   int corr =
       thread_info
           .PawnCorrHist[position.color][get_corrhist_index(position.pawn_key)];
@@ -939,7 +939,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
                : raised_alpha     ? EntryTypes::Exact
                                   : EntryTypes::UBound;
 
-  bool best_capture = position.board[extract_to(best_move)] == Pieces::Blank;
+  bool best_capture = is_cap(position, best_move);
 
   if (!in_check && (!best_move || !best_capture) &&
       !(best_score >= beta && best_score <= static_eval) &&
