@@ -148,6 +148,9 @@ int eval(Position &position, ThreadInfo &thread_info) {
 }
 
 int correct_eval(const Position &position, ThreadInfo &thread_info, int eval) {
+
+  eval = eval * (200 - position.halfmoves) / 200;
+  
   int corr =
       thread_info
           .PawnCorrHist[position.color][get_corrhist_index(position.pawn_key)];
