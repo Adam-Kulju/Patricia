@@ -474,7 +474,7 @@ bool is_cap(const Position &position, Move &move) {
 }
 
 void update_nnue_state(ThreadInfo &thread_info, Move move,
-                       const Position &position) { // Updates the nnue state
+                       const Position &position, const Position &moved_position) { // Updates the nnue state
 
   int from = extract_from(move), to = extract_to(move);
   int from_piece = position.board[from];
@@ -522,9 +522,8 @@ void update_nnue_state(ThreadInfo &thread_info, Move move,
     if (thread_info.phase == PhaseTypes::Middlegame &&
         total_mat(position) - MaterialValues[get_piece_type(captured_piece)] <
             PhaseBound) {
-      thread_info.nnue_state.reset_and_add_sub_sub(
-          position, from_piece, from, to_piece, to, captured_piece,
-          captured_square, PhaseTypes::Endgame);
+
+      thread_info.nnue_state.change_phases(moved_position, PhaseTypes::Endgame);
 
       thread_info.phase = PhaseTypes::Endgame;
 

@@ -353,7 +353,7 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
     Position moved_position = position;
     make_move(moved_position, move);
 
-    update_nnue_state(thread_info, move, position);
+    update_nnue_state(thread_info, move, position, moved_position);
 
     ss_push(position, thread_info, move);
     int score = -qsearch(-beta, -alpha, moved_position, thread_info, TT);
@@ -612,7 +612,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
       Position moved_position = position;
       make_move(moved_position, move);
-      update_nnue_state(thread_info, move, position);
+      update_nnue_state(thread_info, move, position, moved_position);
       ss_push(position, thread_info, move);
 
       int score =
@@ -745,7 +745,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     Position moved_position = position;
     make_move(moved_position, move);
 
-    update_nnue_state(thread_info, move, position);
+    update_nnue_state(thread_info, move, position, moved_position);
 
     ss_push(position, thread_info, move);
 

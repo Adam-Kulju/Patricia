@@ -168,6 +168,7 @@ public:
   void pop();
   int evaluate(int color, int phase);
   void reset_nnue(const Position &position, int phase);
+  void change_phases(const Position &position, int phase);
   void reset_and_add_sub_sub(const Position &position, int from_piece, int from,
                              int to_piece, int to, int captured,
                              int captured_sq, int phase);
@@ -297,10 +298,8 @@ void NNUE_State::reset_nnue(const Position &position, int phase) {
   }
 }
 
-void NNUE_State::reset_and_add_sub_sub(const Position &position, int from_piece,
-                                       int from, int to_piece, int to,
-                                       int captured, int captured_sq,
-                                       int phase) {
+void NNUE_State::change_phases(const Position &position, int phase) {
+
   m_curr++;
   m_curr->init(phase == PhaseTypes::Middlegame ? g_nnue.feature_bias
                                                   : phase == PhaseTypes::Endgame ? g_nnue2.feature_bias : g_nnue3.feature_bias);
@@ -309,24 +308,5 @@ void NNUE_State::reset_and_add_sub_sub(const Position &position, int from_piece,
     if (position.board[square] != Pieces::Blank) {
       update_feature<true>(position.board[square], square, phase);
     }
-  }
-
-  const auto [white_from, black_from] = feature_indices(from_piece, from);
-  const auto [white_to, black_to] = feature_indices(to_piece, to);
-  const auto [white_capt, black_capt] = feature_indices(captured, captured_sq);
-
-  const NNUE_Params *ptr =
-      (phase == PhaseTypes::Middlegame ? &g_nnue : phase == PhaseTypes::Endgame ? &g_nnue2 : &g_nnue3);
-
-  for (size_t i = 0; i < LAYER1_SIZE; ++i) {
-    m_curr->white[i] = m_curr->white[i] +
-                         ptr->feature_v[white_to * LAYER1_SIZE + i] -
-                         ptr->feature_v[white_from * LAYER1_SIZE + i] -
-                         ptr->feature_v[white_capt * LAYER1_SIZE + i];
-
-    m_curr->black[i] = m_curr->black[i] +
-                         ptr->feature_v[black_to * LAYER1_SIZE + i] -
-                         ptr->feature_v[black_from * LAYER1_SIZE + i] -
-                         ptr->feature_v[black_capt * LAYER1_SIZE + i];
   }
 }
