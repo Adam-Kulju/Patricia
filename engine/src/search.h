@@ -779,6 +779,8 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
       R += cutnode;
 
+      R -= (attacks_square(moved_position, get_king_pos(position, color ^ 1), color) != 0);
+
 
       // Clamp reduction so we don't immediately go into qsearch
       R = std::clamp(R, 0, newdepth - 1);
