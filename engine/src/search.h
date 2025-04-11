@@ -944,10 +944,10 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   bool best_capture = is_cap(position, best_move);
 
   if (!in_check && (!best_move || !best_capture) &&
-      !(best_score >= beta && best_score <= static_eval) &&
-      !(!best_move && best_score >= static_eval)) {
+      !(best_score >= beta && best_score <= ss->static_eval) &&
+      !(!best_move && best_score >= ss->static_eval)) {
 
-    int bonus = std::clamp((best_score - static_eval) * depth / 8, -256, 256);
+    int bonus = std::clamp((best_score - ss->static_eval) * depth / 8, -256, 256);
 
     update_corrhist(
         thread_info.PawnCorrHist[color][get_corrhist_index(position.pawn_key)],
