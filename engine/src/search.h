@@ -591,7 +591,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   }
 
   int p_beta = beta + 250;
-  if (depth >= 5 && abs(beta) < MateScore &&
+  if (!in_check && depth >= 5 && abs(beta) < MateScore &&
       (!tt_hit || entry.depth + 4 <= depth || tt_score >= p_beta)) {
 
     int threshold = p_beta - static_eval;
