@@ -1,4 +1,5 @@
 #include "../src/search.h"
+#include <cmath>
 #include <fstream>
 #include <random>
 
@@ -66,7 +67,7 @@ void play_game(ThreadInfo &thread_info, uint64_t &num_fens, int id,
     set_board(position, thread_info,
               "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
 
-    int moves = 10 + (dist(rd) % 2);
+    int moves = 8 + (dist(rd) % 2);
 
     for (int i = 0; i < moves;
          i++) { // Perform 10-11 random moves to increase the scope of the data
@@ -78,6 +79,15 @@ void play_game(ThreadInfo &thread_info, uint64_t &num_fens, int id,
       ss_push(position, thread_info, move); // fill the game hist stack as we go
       make_move(position, move);
     }
+  }
+
+  thread_info.start_time = std::chrono::steady_clock::now();
+  search_position(position, thread_info, TT);
+
+  int score = thread_info.best_scores[0];
+
+  if (abs(score) > 400) {
+    return;
   }
 
   /*set_board(position, thread_info,
@@ -112,14 +122,31 @@ void play_game(ThreadInfo &thread_info, uint64_t &num_fens, int id,
       break;
     }
 
+    int r = dist(rd) % 100;
+
+    int threshold = 0;
+    if (thread_info.game_ply < 30) {
+      threshold = 80 * std::pow(0.9, thread_info.game_ply - 5);
+    }
+
+    if (r > threshold && threshold > 20) {
+      thread_info.multipv = 2;
+    }
+
     thread_info.start_time = std::chrono::steady_clock::now();
     search_position(position, thread_info, TT);
 
     int score = thread_info.best_scores[0];
+    Move best_move = thread_info.best_moves[0];
+
+    if (thread_info.multipv > 1 && thread_info.best_moves[1] != MoveNone) {
+      score = thread_info.best_scores[1];
+      best_move = thread_info.best_moves[1];
+    }
 
     int s = score;
 
-    Move best_move = thread_info.best_moves[0];
+    thread_info.multipv = 1;
 
     if (color) {
       score *= -1;
@@ -157,8 +184,9 @@ void play_game(ThreadInfo &thread_info, uint64_t &num_fens, int id,
 
     make_move(position, best_move);
 
-    if (!(is_noisy ||
-          in_check)) { // If the best move isn't a noisy move and we're not in
+    if (!(is_noisy || in_check) &&
+        threshold <
+            20) { // If the best move isn't a noisy move and we're not in
       // check, add the position to the ones to write to a file
       if (fkey > 4999) {
         printf("%i %i\n", fkey, thread_info.game_ply);
@@ -175,6 +203,9 @@ void play_game(ThreadInfo &thread_info, uint64_t &num_fens, int id,
         printf("~%li positions written\n", total_fens);
         printf("Approximate speed: %" PRIi64 " pos/s\n\n",
                (int64_t)(total_fens * 1000 / time_elapsed(start_time)));
+        if (total_fens > 251000000) {
+          exit(0);
+        }
       }
     }
   }
