@@ -528,6 +528,8 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
   ss->static_eval = static_eval;
 
+  thread_info.KillerMoves[ply + 1] = MoveNone;
+
   bool improving = false;
 
   // Improving: Is our eval better than it was last turn? If so we can prune
@@ -635,7 +637,6 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   int num_quiets = 0;
   Move captures[64];
   int num_captures = 0;
-  thread_info.KillerMoves[ply + 1] = MoveNone;
 
   MovePicker picker;
   init_picker(picker, position, -107, in_check, ss);
