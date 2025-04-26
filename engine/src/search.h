@@ -636,6 +636,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   Move captures[64];
   int num_captures = 0;
   thread_info.KillerMoves[ply + 1] = MoveNone;
+  thread_info.FailHighCount[ply + 2] = 0;
 
   MovePicker picker;
   init_picker(picker, position, -107, in_check, ss);
@@ -781,6 +782,8 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
       R -= (attacks_square(moved_position, get_king_pos(position, color ^ 1), color) != 0);
 
+      R += thread_info.FailHighCount[ply + 1] > 4;
+
 
       // Clamp reduction so we don't immediately go into qsearch
       R = std::clamp(R, 0, newdepth - 1);
@@ -862,6 +865,8 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   }
 
   if (best_score >= beta) {
+
+    thread_info.FailHighCount[ply]++;
 
     int piece = position.board[extract_from(best_move)],
         sq = extract_to(best_move);
@@ -1031,6 +1036,7 @@ void iterative_deepen(
   thread_info.best_scores = {ScoreNone, ScoreNone, ScoreNone, ScoreNone,
                              ScoreNone};
   std::memset(&thread_info.KillerMoves, 0, sizeof(thread_info.KillerMoves));
+  std::memset(&thread_info.FailHighCount, 0, sizeof(thread_info.FailHighCount));
 
   // Prepare root moves
   thread_info.root_moves.reserve(ListSize);
