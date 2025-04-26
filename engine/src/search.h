@@ -526,6 +526,8 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     }
   }
 
+  int corr = abs(static_eval - raw_eval);
+
   ss->static_eval = static_eval;
 
   bool improving = false;
@@ -784,6 +786,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
       R += thread_info.FailHighCount[ply + 1] > 4;
 
+      R -= corr / 24;
 
       // Clamp reduction so we don't immediately go into qsearch
       R = std::clamp(R, 0, newdepth - 1);
