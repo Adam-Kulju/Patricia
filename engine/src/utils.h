@@ -19,6 +19,7 @@ struct ThreadInfo {
   uint16_t game_ply;   // how far we're into the game
   uint16_t search_ply; // depth that we are in the search tree
 
+  uint64_t tb_hits;
   uint64_t nodes; // Total nodes searched so far this search
   std::vector<RootMoveInfo> root_moves;
 

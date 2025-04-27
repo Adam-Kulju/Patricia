@@ -95,6 +95,9 @@ constexpr int16_t GameSize = 2000;
 constexpr int32_t Mate = -32000;
 constexpr int32_t MateScore = 30000;
 constexpr int32_t ScoreNone = -32001;
+
+typedef uint32_t TbResult;
+
 typedef uint16_t Move;
 /*The format of a move structure is:      from     to      promo
                                          (<< 10)  (<< 2)

@@ -459,6 +459,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       MoveNone; // If we currently are in singular search, this sets it so moves
                 // *after* it are not in singular search
   int score = ScoreNone;
+  int max_score = -ScoreNone;
 
   uint64_t hash = position.zobrist_key;
   uint8_t phase = thread_info.phase;
@@ -864,6 +865,10 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     thread_info.best_scores[thread_info.multipv_index] = best_score;
   }
 
+  if (best_score == ScoreNone) { // handle no legal moves (stalemate/checkmate)
+    return singular_search ? alpha : in_check ? (Mate + ply) : 0;
+  }
+
   if (best_score >= beta) {
 
     thread_info.FailHighCount[ply]++;
@@ -938,9 +943,8 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     }
   }
 
-  if (best_score == ScoreNone) { // handle no legal moves (stalemate/checkmate)
-    return singular_search ? alpha : in_check ? (Mate + ply) : 0;
-  }
+ // if (is_pv)
+   // score = std::min(score, max_score);
 
   entry_type = best_score >= beta ? EntryTypes::LBound
                : raised_alpha     ? EntryTypes::Exact
@@ -1028,6 +1032,7 @@ void iterative_deepen(
   thread_info.nnue_state.reset_nnue(position, total_mat(position) < PhaseBound);
   calculate(position);
   thread_info.nodes = 0;
+  thread_info.tb_hits = 0;
   thread_info.time_checks = 0;
   thread_info.phase = total_mat(position) < PhaseBound;
   thread_info.search_ply = 0; // reset all relevant thread_info
@@ -1140,10 +1145,12 @@ void iterative_deepen(
 
       if (thread_info.thread_id == 0) {
 
+        uint64_t tb_hits = thread_info.tb_hits;
         uint64_t nodes = thread_info.nodes;
 
         for (auto &td : thread_data.thread_infos) {
           nodes += td.nodes;
+          tb_hits += td.tb_hits;
         }
 
         int64_t search_time = time_elapsed(thread_info.start_time);
@@ -1159,9 +1166,9 @@ void iterative_deepen(
         if (!thread_info.doing_datagen /*&&
             !(thread_info.is_human && thread_info.multipv_index)*/) {
           printf("info multipv %i depth %i seldepth %i score %s nodes %" PRIu64
-                 " nps %" PRIi64 " time %" PRIi64 " pv ",
+                 " nps %" PRIi64 " tbhits %" PRIu64 " time %" PRIi64 " pv ",
                  thread_info.multipv_index + 1, depth, thread_info.seldepth,
-                 eval_string.c_str(), nodes, nps, search_time);
+                 eval_string.c_str(), nodes, nps, tb_hits, search_time);
           print_pv(position, thread_info);
         }
 
@@ -1235,6 +1242,7 @@ void search_position(Position &position, ThreadInfo &thread_info,
   thread_info.position = position;
   thread_info.thread_id = 0;
   thread_info.nodes = 0;
+  thread_info.tb_hits = 0;
 
   int num_threads = thread_data.num_threads;
 
