@@ -5,6 +5,7 @@
 #include "position.h"
 #include "tm.h"
 #include "utils.h"
+#include "fathom/src/tbprobe.h"
 
 constexpr int NormalizationFactor = 195;
 
@@ -13,6 +14,30 @@ void update_history(int16_t &entry, int score) { // Update history score
 }
 void update_corrhist(int16_t &entry, int score) { // Update history score
   entry += score - entry * abs(score) / 1024;
+}
+
+TbResult probe_tb(Position &pos) {
+  if (pop_count(pos.colors_bb[Colors::White] | pos.colors_bb[Colors::Black]) > TB_LARGEST)
+    return TB_RESULT_FAILED;
+
+  int castling_flags = 0;
+  if (pos.castling_squares[Colors::White][Sides::Kingside] != SquareNone) castling_flags |= 0x1;
+  if (pos.castling_squares[Colors::White][Sides::Queenside] != SquareNone) castling_flags |= 0x2;
+  if (pos.castling_squares[Colors::Black][Sides::Kingside] != SquareNone) castling_flags |= 0x4;
+  if (pos.castling_squares[Colors::Black][Sides::Queenside] != SquareNone) castling_flags |= 0x8;
+
+  return tb_probe_wdl(
+    pos.colors_bb[Colors::White],
+    pos.colors_bb[Colors::Black],
+    pos.pieces_bb[PieceTypes::King],
+    pos.pieces_bb[PieceTypes::Queen],
+    pos.pieces_bb[PieceTypes::Rook],
+    pos.pieces_bb[PieceTypes::Bishop],
+    pos.pieces_bb[PieceTypes::Knight],
+    pos.pieces_bb[PieceTypes::Pawn],
+    pos.halfmoves, castling_flags,
+    pos.ep_square == SquareNone ? 0 : pos.ep_square,
+    pos.color == Colors::White);
 }
 
 bool out_of_time(ThreadInfo &thread_info) {
@@ -459,6 +484,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       MoveNone; // If we currently are in singular search, this sets it so moves
                 // *after* it are not in singular search
   int score = ScoreNone;
+  int best_score = ScoreNone;
   int max_score = -ScoreNone;
 
   uint64_t hash = position.zobrist_key;
@@ -496,6 +522,42 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
         (entry_type == EntryTypes::LBound && tt_score >= beta) ||
         (entry_type == EntryTypes::UBound && tt_score <= alpha)) {
       return tt_score;
+    }
+  }
+
+  const TbResult tb_result = (root || singular_search) ? TB_RESULT_FAILED : probe_tb(position);
+  if (tb_result != TB_RESULT_FAILED) {
+
+    thread_info.tb_hits++;
+    int tb_score;
+    uint8_t tb_bound;
+
+    if (tb_result == TB_LOSS) {
+      tb_score = ply - SCORE_TB_WIN;
+      tb_bound = EntryTypes::UBound;
+    }
+    else if (tb_result == TB_WIN) {
+      tb_score = SCORE_TB_WIN - ply;
+      tb_bound = EntryTypes::LBound;
+    }
+    else {
+      tb_score = 0;
+      tb_bound = EntryTypes::Exact;
+    }
+
+    if ((tb_bound == EntryTypes::Exact) || (EntryTypes::LBound ? tb_score >= beta : tb_score <= alpha)) {
+      insert_entry(entry, hash, depth, MoveNone, ScoreNone,
+        score_to_tt(tb_score, ply), tb_bound, thread_info.searches);
+      return tb_score;
+    }
+
+    if (is_pv) {
+      if (tb_bound == EntryTypes::LBound) {
+        best_score = tb_score;
+        alpha = std::max(alpha, best_score);
+      } else {
+        max_score = tb_score;
+      }
     }
   }
 
@@ -642,7 +704,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   MovePicker picker;
   init_picker(picker, position, -107, in_check, ss);
 
-  int best_score = ScoreNone, moves_played = 0; // Generate and score moves
+  int moves_played = 0; // Generate and score moves
   bool is_capture = false, skip = false;
 
   while (Move move = next_move(picker, position, thread_info, tt_move, skip)) {
@@ -943,8 +1005,8 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     }
   }
 
- // if (is_pv)
-   // score = std::min(score, max_score);
+  if (is_pv)
+    score = std::min(score, max_score);
 
   entry_type = best_score >= beta ? EntryTypes::LBound
                : raised_alpha     ? EntryTypes::Exact
