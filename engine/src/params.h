@@ -50,7 +50,7 @@ TUNE_PARAM(FPMargin2, 115, 75, 175);
 TUNE_PARAM(IIRMinDepth, 2, 1, 5);
 TUNE_PARAM(SeePruningDepth, 7, 5, 11);
 TUNE_PARAM(SeePruningQuietMargin, -84, -110, -50);
-TUNE_PARAM(SeePruningNoisyMargin, -35, -50, -10);
+TUNE_PARAM(SeePruningNoisyMargin, -100, -50, -150);
 TUNE_PARAM(HistBonus, 282, 200, 400);
 TUNE_PARAM(HistMax, 2565, 1500, 3500);
 TUNE_PARAM(AgeDiffDiv, 5, 2, 6);
