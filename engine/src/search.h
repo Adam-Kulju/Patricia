@@ -590,7 +590,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     depth--;
   }
 
-  int p_beta = beta + 250;
+  int p_beta = beta + ProbcutMargin;
   if (!in_check && depth >= 5 && abs(beta) < MateScore &&
       (!tt_hit || entry.depth + 4 <= depth || tt_score >= p_beta)) {
 
@@ -691,7 +691,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
         skip = true;
       }
 
-      if (!is_pv && !is_capture && depth < 4 && hist_score < -4096 * depth) {
+      if (!is_pv && !is_capture && depth < HistPruningDepth && hist_score < -4096 * depth) {
         skip = true;
       }
     }
@@ -699,7 +699,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     if (!root && best_score > -MateScore && depth < SeePruningDepth) {
 
       int margin =
-          is_capture ? SeePruningQuietMargin : (depth * SeePruningNoisyMargin);
+          is_capture ? SeePruningQuietMargin : SeePruningNoisyMargin;
 
       if (!SEE(position, move, depth * margin)) {
         // SEE pruning: if we are hanging material, prune under certain
@@ -728,7 +728,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
               ply < thread_info.current_iter) {
 
             // In some cases we can even double extend
-            extension = 2 + (!is_capture && sScore < sBeta - 125);
+            extension = 2 + (!is_capture && sScore < sBeta - SETripleExtMargin);
           } else {
             extension = 1;
           }
@@ -767,7 +767,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
         // alpha/beta
         R /= 2;
       } else {
-        R -= hist_score / 10000;
+        R -= hist_score / HistDiv;
       }
 
       // Increase reduction if not in pv
@@ -871,7 +871,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     int piece = position.board[extract_from(best_move)],
         sq = extract_to(best_move);
 
-    int bonus = std::min((int)HistBonus * (depth - 1 + (best_score > beta + 125)), (int)HistMax);
+    int bonus = std::min((int)HistBonus * (depth - 1 + (std::min(4, (best_score - beta) / 125))), (int)HistMax);
 
     // Update history scores and the killer move.
 

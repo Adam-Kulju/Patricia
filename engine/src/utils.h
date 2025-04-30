@@ -40,7 +40,7 @@ struct ThreadInfo {
   MultiArray<int16_t, 2, 16384> PawnCorrHist;
   MultiArray<int16_t, 2, 2, 16384> NonPawnCorrHist;
   std::array<Move, MaxSearchDepth + 1> KillerMoves;
-  std::array<int16_t, MaxSearchDepth + 1> FailHighCount;
+  std::array<int16_t, MaxSearchDepth + 2> FailHighCount;
 
   uint8_t current_iter;
   uint16_t multipv = 1;
