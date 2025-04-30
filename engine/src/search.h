@@ -699,7 +699,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     if (!root && best_score > -MateScore && depth < SeePruningDepth) {
 
       int margin =
-          is_capture ? SeePruningQuietMargin : SeePruningNoisyMargin;
+          is_capture ? SeePruningQuietMargin : (depth * SeePruningNoisyMargin);
 
       if (!SEE(position, move, depth * margin)) {
         // SEE pruning: if we are hanging material, prune under certain
