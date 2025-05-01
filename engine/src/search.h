@@ -169,7 +169,7 @@ int eval(Position &position, ThreadInfo &thread_info) {
 
   eval = eval * multiplier;
 
-  return std::clamp(eval + bonus1 + bonus2, -MateScore, MateScore);
+  return std::clamp(eval + bonus1 + bonus2, ScoreLost + 1, ScoreWin - 1);
 }
 
 int correct_eval(const Position &position, ThreadInfo &thread_info, int eval) {
@@ -189,7 +189,7 @@ int correct_eval(const Position &position, ThreadInfo &thread_info, int eval) {
           .NonPawnCorrHist[position.color][Colors::Black][get_corrhist_index(
               position.non_pawn_key[Colors::Black])];
 
-  return std::clamp(eval + (CorrWeight * corr / 512), -MateScore, MateScore);
+  return std::clamp(eval + (CorrWeight * corr / 512), ScoreLost + 1, ScoreWin - 1);
 }
 
 void ss_push(Position &position, ThreadInfo &thread_info, Move move) {
@@ -279,7 +279,7 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
     // return if out of time
     return correct_eval(
         position, thread_info,
-        thread_info.nnue_state.evaluate(position.color, thread_info.phase));
+        eval(position, thread_info));
   }
   int color = position.color;
 
@@ -405,7 +405,7 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
   }
 
   if (best_score == ScoreNone) { // handle no legal moves (stalemate/checkmate)
-    return Mate + ply;
+    return ply - ScoreMate;
   }
 
   // insert entries and return
@@ -490,7 +490,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   uint64_t hash = position.zobrist_key;
   uint8_t phase = thread_info.phase;
 
-  int mate_distance = -Mate - ply;
+  int mate_distance = ScoreMate - ply;
   if (mate_distance <
       beta) // Mate distance pruning; if we're at depth 10 but we've already
             // found a mate in 3, there's no point searching this.
@@ -533,11 +533,11 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     uint8_t tb_bound;
 
     if (tb_result == TB_LOSS) {
-      tb_score = ply - SCORE_TB_WIN;
+      tb_score = ply - ScoreTbWin;
       tb_bound = EntryTypes::UBound;
     }
     else if (tb_result == TB_WIN) {
-      tb_score = SCORE_TB_WIN - ply;
+      tb_score = ScoreTbWin - ply;
       tb_bound = EntryTypes::LBound;
     }
     else {
@@ -545,7 +545,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       tb_bound = EntryTypes::Exact;
     }
 
-    if ((tb_bound == EntryTypes::Exact) || (EntryTypes::LBound ? tb_score >= beta : tb_score <= alpha)) {
+    if ((tb_bound == EntryTypes::Exact) || (tb_bound == EntryTypes::LBound ? tb_score >= beta : tb_score <= alpha)) {
       insert_entry(entry, hash, depth, MoveNone, ScoreNone,
         score_to_tt(tb_score, ply), tb_bound, thread_info.searches);
       return tb_score;
@@ -639,7 +639,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       // we don't call ss_pop because the nnue state was never pushed
 
       if (score >= beta) {
-        if (score > MateScore) {
+        if (score >= ScoreWin) {
           score = beta;
         }
         return score;
@@ -654,7 +654,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   }
 
   int p_beta = beta + ProbcutMargin;
-  if (!in_check && depth >= 5 && abs(beta) < MateScore &&
+  if (!in_check && depth >= 5 && abs(beta) < ScoreWin &&
       (!tt_hit || entry.depth + 4 <= depth || tt_score >= p_beta)) {
 
     int threshold = p_beta - static_eval;
@@ -736,7 +736,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
                                  [extract_to(move)];
 
     is_capture = is_cap(position, move);
-    if (!is_capture && !is_pv && best_score > -MateScore) {
+    if (!is_capture && !is_pv && best_score > ScoreLost) {
 
       // Late Move Pruning (LMP): If we've searched enough moves, we can skip
       // the rest.
@@ -759,7 +759,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       }
     }
 
-    if (!root && best_score > -MateScore && depth < SeePruningDepth) {
+    if (!root && best_score > ScoreLost && depth < SeePruningDepth) {
 
       int margin =
           is_capture ? SeePruningQuietMargin : SeePruningNoisyMargin;
@@ -778,7 +778,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
     if (!root && ply < thread_info.current_iter * 2) {
       if (!singular_search && depth >= SEDepth && move == tt_move &&
-          abs(entry.score) < MateScore && entry.depth >= depth - 3 &&
+          abs(entry.score) < ScoreWin && entry.depth >= depth - 3 &&
           entry_type != EntryTypes::UBound) {
 
         int sBeta = entry.score - depth;
@@ -928,7 +928,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   }
 
   if (best_score == ScoreNone) { // handle no legal moves (stalemate/checkmate)
-    return singular_search ? alpha : in_check ? (Mate + ply) : 0;
+    return singular_search ? alpha : in_check ? (ply - ScoreMate) : 0;
   }
 
   if (best_score >= beta) {
@@ -1195,12 +1195,12 @@ void iterative_deepen(
 
       std::string eval_string;
 
-      if (abs(score) < MateScore) {
+      if (abs(score) <= ScoreTbWin) {
         eval_string = "cp " + std::to_string(score * 100 / NormalizationFactor);
-      } else if (score > MateScore) {
-        eval_string = "mate " + std::to_string((-Mate - score + 1) / 2);
+      } else if (score > 0) {
+        eval_string = "mate " + std::to_string((ScoreMate - score + 1) / 2);
       } else {
-        eval_string = "mate " + std::to_string((Mate - score) / 2);
+        eval_string = "mate " + std::to_string((-ScoreMate - score) / 2);
       }
 
       thread_info.best_moves[thread_info.multipv_index] = thread_info.pv[0];

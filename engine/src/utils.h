@@ -118,9 +118,9 @@ uint16_t get_hash_low_bits(uint64_t hash) {
 int32_t score_to_tt(int32_t score, int32_t ply) {
   if (score == ScoreNone)
     return ScoreNone;
-  if (score > MateScore)
+  if (score >= ScoreWin)
     return score + ply;
-  if (score < -MateScore)
+  if (score <= ScoreLost)
     return score - ply;
   return score;
 }
@@ -128,9 +128,9 @@ int32_t score_to_tt(int32_t score, int32_t ply) {
 int32_t score_from_tt(int32_t score, int32_t ply) {
   if (score == ScoreNone)
     return ScoreNone;
-  if (score > MateScore)
+  if (score >= ScoreWin)
     return score - ply;
-  if (score < -MateScore)
+  if (score <= ScoreLost)
     return score + ply;
   return score;
 }

@@ -92,9 +92,12 @@ using MultiArray = typename MultiArrayImpl<T, Ns...>::Type;
 
 constexpr int16_t ListSize = 256;
 constexpr int16_t GameSize = 2000;
-constexpr int32_t Mate = -32000;
-constexpr int32_t MateScore = 30000;
+
 constexpr int32_t ScoreNone = -32001;
+constexpr int32_t ScoreMate = 32000;
+constexpr int32_t ScoreTbWin = 31500;
+constexpr int32_t ScoreWin = 31000;
+constexpr int32_t ScoreLost = -ScoreWin;
 
 typedef uint32_t TbResult;
 
