@@ -2,7 +2,7 @@
 
 EXE := patricia
 
-SOURCES := src/patricia.cpp
+SOURCES := src/patricia.cpp src/fathom/src/tbprobe.c
 
 CXX := clang++
 

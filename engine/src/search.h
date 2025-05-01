@@ -5,6 +5,7 @@
 #include "position.h"
 #include "tm.h"
 #include "utils.h"
+#include "fathom/src/tbprobe.h"
 
 constexpr int NormalizationFactor = 195;
 
@@ -13,6 +14,30 @@ void update_history(int16_t &entry, int score) { // Update history score
 }
 void update_corrhist(int16_t &entry, int score) { // Update history score
   entry += score - entry * abs(score) / 1024;
+}
+
+TbResult probe_tb(Position &pos) {
+  if (pop_count(pos.colors_bb[Colors::White] | pos.colors_bb[Colors::Black]) > TB_LARGEST)
+    return TB_RESULT_FAILED;
+
+  int castling_flags = 0;
+  if (pos.castling_squares[Colors::White][Sides::Kingside] != SquareNone) castling_flags |= 0x1;
+  if (pos.castling_squares[Colors::White][Sides::Queenside] != SquareNone) castling_flags |= 0x2;
+  if (pos.castling_squares[Colors::Black][Sides::Kingside] != SquareNone) castling_flags |= 0x4;
+  if (pos.castling_squares[Colors::Black][Sides::Queenside] != SquareNone) castling_flags |= 0x8;
+
+  return tb_probe_wdl(
+    pos.colors_bb[Colors::White],
+    pos.colors_bb[Colors::Black],
+    pos.pieces_bb[PieceTypes::King],
+    pos.pieces_bb[PieceTypes::Queen],
+    pos.pieces_bb[PieceTypes::Rook],
+    pos.pieces_bb[PieceTypes::Bishop],
+    pos.pieces_bb[PieceTypes::Knight],
+    pos.pieces_bb[PieceTypes::Pawn],
+    pos.halfmoves, castling_flags,
+    pos.ep_square == SquareNone ? 0 : pos.ep_square,
+    pos.color == Colors::White);
 }
 
 bool out_of_time(ThreadInfo &thread_info) {
@@ -144,7 +169,7 @@ int eval(Position &position, ThreadInfo &thread_info) {
 
   eval = eval * multiplier;
 
-  return std::clamp(eval + bonus1 + bonus2, -MateScore, MateScore);
+  return std::clamp(eval + bonus1 + bonus2, ScoreLost + 1, ScoreWin - 1);
 }
 
 int correct_eval(const Position &position, ThreadInfo &thread_info, int eval) {
@@ -164,7 +189,7 @@ int correct_eval(const Position &position, ThreadInfo &thread_info, int eval) {
           .NonPawnCorrHist[position.color][Colors::Black][get_corrhist_index(
               position.non_pawn_key[Colors::Black])];
 
-  return std::clamp(eval + (CorrWeight * corr / 512), -MateScore, MateScore);
+  return std::clamp(eval + (CorrWeight * corr / 512), ScoreLost + 1, ScoreWin - 1);
 }
 
 void ss_push(Position &position, ThreadInfo &thread_info, Move move) {
@@ -254,7 +279,7 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
     // return if out of time
     return correct_eval(
         position, thread_info,
-        thread_info.nnue_state.evaluate(position.color, thread_info.phase));
+        eval(position, thread_info));
   }
   int color = position.color;
 
@@ -380,7 +405,7 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
   }
 
   if (best_score == ScoreNone) { // handle no legal moves (stalemate/checkmate)
-    return Mate + ply;
+    return ply - ScoreMate;
   }
 
   // insert entries and return
@@ -459,11 +484,13 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       MoveNone; // If we currently are in singular search, this sets it so moves
                 // *after* it are not in singular search
   int score = ScoreNone;
+  int best_score = ScoreNone;
+  int max_score = -ScoreNone;
 
   uint64_t hash = position.zobrist_key;
   uint8_t phase = thread_info.phase;
 
-  int mate_distance = -Mate - ply;
+  int mate_distance = ScoreMate - ply;
   if (mate_distance <
       beta) // Mate distance pruning; if we're at depth 10 but we've already
             // found a mate in 3, there's no point searching this.
@@ -495,6 +522,42 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
         (entry_type == EntryTypes::LBound && tt_score >= beta) ||
         (entry_type == EntryTypes::UBound && tt_score <= alpha)) {
       return tt_score;
+    }
+  }
+
+  const TbResult tb_result = (root || singular_search) ? TB_RESULT_FAILED : probe_tb(position);
+  if (tb_result != TB_RESULT_FAILED) {
+
+    thread_info.tb_hits++;
+    int tb_score;
+    uint8_t tb_bound;
+
+    if (tb_result == TB_LOSS) {
+      tb_score = ply - ScoreTbWin;
+      tb_bound = EntryTypes::UBound;
+    }
+    else if (tb_result == TB_WIN) {
+      tb_score = ScoreTbWin - ply;
+      tb_bound = EntryTypes::LBound;
+    }
+    else {
+      tb_score = 0;
+      tb_bound = EntryTypes::Exact;
+    }
+
+    if ((tb_bound == EntryTypes::Exact) || (tb_bound == EntryTypes::LBound ? tb_score >= beta : tb_score <= alpha)) {
+      insert_entry(entry, hash, depth, MoveNone, ScoreNone,
+        score_to_tt(tb_score, ply), tb_bound, thread_info.searches);
+      return tb_score;
+    }
+
+    if (is_pv) {
+      if (tb_bound == EntryTypes::LBound) {
+        best_score = tb_score;
+        alpha = std::max(alpha, best_score);
+      } else {
+        max_score = tb_score;
+      }
     }
   }
 
@@ -576,7 +639,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       // we don't call ss_pop because the nnue state was never pushed
 
       if (score >= beta) {
-        if (score > MateScore) {
+        if (score >= ScoreWin) {
           score = beta;
         }
         return score;
@@ -591,7 +654,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   }
 
   int p_beta = beta + ProbcutMargin;
-  if (!in_check && depth >= 5 && abs(beta) < MateScore &&
+  if (!in_check && depth >= 5 && abs(beta) < ScoreWin &&
       (!tt_hit || entry.depth + 4 <= depth || tt_score >= p_beta)) {
 
     int threshold = p_beta - static_eval;
@@ -641,7 +704,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   MovePicker picker;
   init_picker(picker, position, -107, in_check, ss);
 
-  int best_score = ScoreNone, moves_played = 0; // Generate and score moves
+  int moves_played = 0; // Generate and score moves
   bool is_capture = false, skip = false;
 
   while (Move move = next_move(picker, position, thread_info, tt_move, skip)) {
@@ -673,7 +736,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
                                  [extract_to(move)];
 
     is_capture = is_cap(position, move);
-    if (!is_capture && !is_pv && best_score > -MateScore) {
+    if (!is_capture && !is_pv && best_score > ScoreLost) {
 
       // Late Move Pruning (LMP): If we've searched enough moves, we can skip
       // the rest.
@@ -696,7 +759,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       }
     }
 
-    if (!root && best_score > -MateScore && depth < SeePruningDepth) {
+    if (!root && best_score > ScoreLost && depth < SeePruningDepth) {
 
       int margin =
           is_capture ? SeePruningQuietMargin : SeePruningNoisyMargin;
@@ -715,7 +778,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
     if (!root && ply < thread_info.current_iter * 2) {
       if (!singular_search && depth >= SEDepth && move == tt_move &&
-          abs(entry.score) < MateScore && entry.depth >= depth - 3 &&
+          abs(entry.score) < ScoreWin && entry.depth >= depth - 3 &&
           entry_type != EntryTypes::UBound) {
 
         int sBeta = entry.score - depth;
@@ -864,6 +927,10 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     thread_info.best_scores[thread_info.multipv_index] = best_score;
   }
 
+  if (best_score == ScoreNone) { // handle no legal moves (stalemate/checkmate)
+    return singular_search ? alpha : in_check ? (ply - ScoreMate) : 0;
+  }
+
   if (best_score >= beta) {
 
     thread_info.FailHighCount[ply]++;
@@ -938,9 +1005,8 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     }
   }
 
-  if (best_score == ScoreNone) { // handle no legal moves (stalemate/checkmate)
-    return singular_search ? alpha : in_check ? (Mate + ply) : 0;
-  }
+  if (is_pv)
+    score = std::min(score, max_score);
 
   entry_type = best_score >= beta ? EntryTypes::LBound
                : raised_alpha     ? EntryTypes::Exact
@@ -1028,6 +1094,7 @@ void iterative_deepen(
   thread_info.nnue_state.reset_nnue(position, total_mat(position) < PhaseBound);
   calculate(position);
   thread_info.nodes = 0;
+  thread_info.tb_hits = 0;
   thread_info.time_checks = 0;
   thread_info.phase = total_mat(position) < PhaseBound;
   thread_info.search_ply = 0; // reset all relevant thread_info
@@ -1128,22 +1195,24 @@ void iterative_deepen(
 
       std::string eval_string;
 
-      if (abs(score) < MateScore) {
+      if (abs(score) <= ScoreTbWin) {
         eval_string = "cp " + std::to_string(score * 100 / NormalizationFactor);
-      } else if (score > MateScore) {
-        eval_string = "mate " + std::to_string((-Mate - score + 1) / 2);
+      } else if (score > 0) {
+        eval_string = "mate " + std::to_string((ScoreMate - score + 1) / 2);
       } else {
-        eval_string = "mate " + std::to_string((Mate - score) / 2);
+        eval_string = "mate " + std::to_string((-ScoreMate - score) / 2);
       }
 
       thread_info.best_moves[thread_info.multipv_index] = thread_info.pv[0];
 
       if (thread_info.thread_id == 0) {
 
+        uint64_t tb_hits = thread_info.tb_hits;
         uint64_t nodes = thread_info.nodes;
 
         for (auto &td : thread_data.thread_infos) {
           nodes += td.nodes;
+          tb_hits += td.tb_hits;
         }
 
         int64_t search_time = time_elapsed(thread_info.start_time);
@@ -1159,9 +1228,9 @@ void iterative_deepen(
         if (!thread_info.doing_datagen /*&&
             !(thread_info.is_human && thread_info.multipv_index)*/) {
           printf("info multipv %i depth %i seldepth %i score %s nodes %" PRIu64
-                 " nps %" PRIi64 " time %" PRIi64 " pv ",
+                 " nps %" PRIi64 " tbhits %" PRIu64 " time %" PRIi64 " pv ",
                  thread_info.multipv_index + 1, depth, thread_info.seldepth,
-                 eval_string.c_str(), nodes, nps, search_time);
+                 eval_string.c_str(), nodes, nps, tb_hits, search_time);
           print_pv(position, thread_info);
         }
 
@@ -1235,6 +1304,7 @@ void search_position(Position &position, ThreadInfo &thread_info,
   thread_info.position = position;
   thread_info.thread_id = 0;
   thread_info.nodes = 0;
+  thread_info.tb_hits = 0;
 
   int num_threads = thread_data.num_threads;
 

@@ -1,6 +1,7 @@
 #pragma once
 #include "human.h"
 #include "search.h"
+#include "fathom/src/tbprobe.h"
 #include <iostream>
 #include <memory>
 
@@ -210,6 +211,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
              "option name MultiPV type spin default 1 min 1 max 255\n"
              "option name UCI_LimitStrength type check default false\n"
              "option name Skill_Level type spin default 21 min 1 max 21\n"
+             "option name SyzygyPath type string default\n"
              "option name UCI_Elo type spin default 3001 min 500 max 3001\n"
              "option name UCI_Chess960 type check default false\n");
 
@@ -232,37 +234,23 @@ void uci(ThreadInfo &thread_info, Position &position) {
 
     else if (command == "setoption") {
       std::string name;
-      int value;
+      std::string strValue;
       input_stream >> command;
       input_stream >> name;
       input_stream >> command;
+      input_stream >> strValue;
 
-      if (name == "UCI_LimitStrength" || name == "UCI_Chess960") {
-        std::string value;
-        input_stream >> value;
-        if (value == "true") {
-          if (name == "UCI_LimitStrength") {
-            thread_info.is_human = true;
-          } else {
-            thread_data.is_frc = true;
-          }
-        }
+      int intValue;
+      std::from_chars(strValue.data(), strValue.data() + strValue.size(), intValue);
 
-        else {
-          if (name == "UCI_LimitStrength") {
-            thread_info.is_human = false;
-          } else {
-            thread_data.is_frc = false;
-          }
-        }
-
-        continue;
+      if (name == "UCI_LimitStrength") {
+        thread_info.is_human = strValue == "true";
       }
-
-      input_stream >> value;
-
-      if (name == "Hash") {
-        resize_TT(value);
+      else if (name == "UCI_Chess960") {
+        thread_data.is_frc = strValue == "true";
+      }
+      else if (name == "Hash") {
+        resize_TT(intValue);
       }
 
       else if (name == "Threads") {
@@ -282,35 +270,43 @@ void uci(ThreadInfo &thread_info, Position &position) {
         thread_data.threads.clear();
 
         thread_data.terminate = false;
-        thread_data.num_threads = value;
+        thread_data.num_threads = intValue;
 
         reset_barrier.reset(thread_data.num_threads);
         idle_barrier.reset(thread_data.num_threads);
         search_end_barrier.reset(thread_data.num_threads);
 
-        for (int i = 0; i < value - 1; i++) {
+        for (int i = 0; i < intValue - 1; i++) {
           thread_data.thread_infos.emplace_back();
           thread_data.threads.emplace_back(loop, i);
         }
       }
 
-      else if (name == "UCI_Elo" && value != 3001) {
-        thread_info.cp_loss = 200 - (value / 13);
+      else if (name == "UCI_Elo" && intValue != 3001) {
+        thread_info.cp_loss = 200 - (intValue / 13);
       }
 
-      else if (name == "Skill_Level" && value != 21) {
-        int to_elo = skill_levels[value - 1];
+      else if (name == "Skill_Level" && intValue != 21) {
+        int to_elo = skill_levels[intValue - 1];
         thread_info.cp_loss = 200 - (to_elo / 13);
       }
 
+      else if (name == "SyzygyPath") {
+        tb_init(strValue.c_str());
+        if (TB_LARGEST)
+          printf("info string Loaded Syzygy tablebases with %" PRIi32 " pieces\n", TB_LARGEST);
+        else
+          printf("info string Failed to load Syzygy tablebases\n");
+      }
+
       else if (name == "MultiPV") {
-        thread_info.multipv = value;
+        thread_info.multipv = intValue;
       }
 
       else {
         for (auto &param : params) {
           if (name == param.name) {
-            param.value = value;
+            param.value = intValue;
             if (name == "LMRBase" || name == "LMRRatio") {
               init_LMR();
             }
