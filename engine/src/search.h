@@ -504,10 +504,14 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   bool tt_hit;
   TTEntry &entry = probe_entry(hash, tt_hit, thread_info.searches, TT);
 
+  if (singular_search) {
+    tt_hit = false;
+  }
+
   int entry_type = EntryTypes::None, tt_static_eval = ScoreNone,
       tt_score = ScoreNone, tt_move = MoveNone;
 
-  if (tt_hit && !singular_search) { // TT probe
+  if (tt_hit) { // TT probe
     entry_type = entry.get_type();
     tt_static_eval = entry.static_eval;
     tt_score = score_from_tt(entry.score, ply);
