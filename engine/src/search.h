@@ -504,17 +504,22 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   bool tt_hit;
   TTEntry &entry = probe_entry(hash, tt_hit, thread_info.searches, TT);
 
-  int entry_type = EntryTypes::None, tt_static_eval = ScoreNone,
-      tt_score = ScoreNone, tt_move = MoveNone;
+  if (singular_search) {
+    tt_hit = false;
+  }
 
-  if (tt_hit && !singular_search) { // TT probe
+  int entry_type = EntryTypes::None, tt_static_eval = ScoreNone,
+      tt_score = ScoreNone, tt_move = MoveNone, tt_depth = 0;
+
+  if (tt_hit) { // TT probe
     entry_type = entry.get_type();
     tt_static_eval = entry.static_eval;
     tt_score = score_from_tt(entry.score, ply);
     tt_move = entry.best_move;
+    tt_depth = entry.depth;
   }
 
-  if (tt_score != ScoreNone && !is_pv && entry.depth >= depth) {
+  if (tt_score != ScoreNone && !is_pv && tt_depth >= depth) {
     // If we get a useful score from the TT and it's
     // searched to at least the same depth we would
     // have searched, then we can return
@@ -655,7 +660,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
   int p_beta = beta + ProbcutMargin;
   if (!in_check && depth >= 5 && abs(beta) < ScoreWin &&
-      (!tt_hit || entry.depth + 4 <= depth || tt_score >= p_beta)) {
+      (!tt_hit || tt_depth + 4 <= depth || tt_score >= p_beta)) {
 
     int threshold = p_beta - static_eval;
     MovePicker probcut_p;
@@ -778,10 +783,10 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
     if (!root && ply < thread_info.current_iter * 2) {
       if (!singular_search && depth >= SEDepth && move == tt_move &&
-          abs(entry.score) < ScoreWin && entry.depth >= depth - 3 &&
+          abs(tt_score) < ScoreWin && tt_depth >= depth - 3 &&
           entry_type != EntryTypes::UBound) {
 
-        int sBeta = entry.score - depth;
+        int sBeta = tt_score - depth;
         thread_info.excluded_move = move;
         int sScore = search<false>(sBeta - 1, sBeta, (depth - 1) / 2, cutnode,
                                    position, thread_info, TT);
@@ -836,7 +841,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       // Increase reduction if not in pv
       R -= is_pv;
 
-      R -= (tt_hit && entry.depth >= depth);
+      R -= (tt_hit && tt_depth >= depth);
 
       // Increase reduction if not improving
       R += !improving;
