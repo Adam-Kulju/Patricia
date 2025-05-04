@@ -240,8 +240,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
       input_stream >> command;
       input_stream >> strValue;
 
-      int intValue;
-      std::from_chars(strValue.data(), strValue.data() + strValue.size(), intValue);
+      int intValue = std::stoi(strValue);
 
       if (name == "UCI_LimitStrength") {
         thread_info.is_human = strValue == "true";

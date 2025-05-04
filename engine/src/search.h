@@ -307,12 +307,14 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
   int entry_type = EntryTypes::None, tt_static_eval = ScoreNone,
       tt_score = ScoreNone;
   Move tt_move = MoveNone; // Initialize TT variables and check for a hash hit
+  bool tt_pv = false;
 
   if (tt_hit) {
     entry_type = entry.get_type();
     tt_static_eval = entry.static_eval;
     tt_score = score_from_tt(entry.score, ply);
     tt_move = entry.best_move;
+    tt_pv = entry.was_pv();
   }
 
   if (tt_score != ScoreNone) {
@@ -413,7 +415,7 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
   entry_type = best_score >= beta ? EntryTypes::LBound : EntryTypes::UBound;
 
   insert_entry(entry, hash, 0, best_move, raw_eval,
-               score_to_tt(best_score, ply), entry_type, thread_info.searches);
+               score_to_tt(best_score, ply), entry_type, tt_pv, thread_info.searches);
   return best_score;
 }
 
@@ -510,6 +512,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
   int entry_type = EntryTypes::None, tt_static_eval = ScoreNone,
       tt_score = ScoreNone, tt_move = MoveNone, tt_depth = 0;
+  bool tt_pv = is_pv;
 
   if (tt_hit) { // TT probe
     entry_type = entry.get_type();
@@ -517,6 +520,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     tt_score = score_from_tt(entry.score, ply);
     tt_move = entry.best_move;
     tt_depth = entry.depth;
+    tt_pv |= entry.was_pv();
   }
 
   if (tt_score != ScoreNone && !is_pv && tt_depth >= depth) {
@@ -552,7 +556,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
     if ((tb_bound == EntryTypes::Exact) || (tb_bound == EntryTypes::LBound ? tb_score >= beta : tb_score <= alpha)) {
       insert_entry(entry, hash, depth, MoveNone, ScoreNone,
-        score_to_tt(tb_score, ply), tb_bound, thread_info.searches);
+        score_to_tt(tb_score, ply), tb_bound, tt_pv, thread_info.searches);
       return tb_score;
     }
 
@@ -590,7 +594,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
     if (!tt_hit) {
       insert_entry(entry, hash, 0, MoveNone, raw_eval, ScoreNone,
-                   EntryTypes::None, thread_info.searches);
+                   EntryTypes::None, tt_pv, thread_info.searches);
     }
   }
 
@@ -619,7 +623,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     // Reverse Futility Pruning (RFP): If our position is way better than beta,
     // we're likely good to stop searching the node.
 
-    if (depth <= RFPMaxDepth &&
+    if (depth <= RFPMaxDepth && !tt_pv &&
         static_eval - RFPMargin * (depth - improving) >= beta) {
       return (static_eval + beta) / 2;
     }
@@ -1042,7 +1046,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   if (!singular_search) {
     insert_entry(entry, hash, depth, best_move, raw_eval,
                  score_to_tt(best_score, ply), entry_type,
-                 thread_info.searches);
+                 tt_pv, thread_info.searches);
   }
 
   return best_score;
