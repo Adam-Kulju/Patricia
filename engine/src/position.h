@@ -5,6 +5,9 @@
 #include <cstring>
 #include <sstream>
 
+int movegen(const Position &position, std::span<Move> move_list,
+  uint64_t checkers, int gen_type);
+
 int16_t total_mat(const Position &position) {
   int m = (position.material_count[0] + position.material_count[1]) * 100 +
           (position.material_count[2] + position.material_count[3]) * 300 +
@@ -751,11 +754,12 @@ bool is_pseudo_legal(const Position &position, Move move, uint64_t checkers) {
     return false;
   }
   int from = extract_from(move), to = extract_to(move), color = position.color;
+  int type = extract_type(move);
   uint64_t us = position.colors_bb[color], them = position.colors_bb[color ^ 1];
   uint64_t occ = (position.colors_bb[0] | position.colors_bb[1]);
   uint64_t empty_squares = ~occ;
 
-  if ((1ull << to) & us) {
+  if (((1ull << to) & us) && type != MoveTypes::Castling) {
     return false;
   }
 
@@ -765,7 +769,6 @@ bool is_pseudo_legal(const Position &position, Move move, uint64_t checkers) {
   }
 
   int piece_type = get_piece_type(piece);
-  int type = extract_type(move);
 
   if (checkers & (checkers - 1)) {
     return (type == MoveTypes::Normal && piece_type == PieceTypes::King &&
@@ -773,18 +776,16 @@ bool is_pseudo_legal(const Position &position, Move move, uint64_t checkers) {
   }
 
   if (type == MoveTypes::Castling) {
-    int side = to > from;
-    int rook_target = 56 * color + 3 + 2 * side;
-    int king_target = 56 * color + 2 + 4 * side;
+    std::array<Move, ListSize> pseudo_list;
+    int pseudo_nmoves =
+        movegen(position, pseudo_list, checkers, 0);
 
-    uint64_t castle_bb =
-        BetweenBBs[position.castling_squares[color][side]][rook_target];
-    castle_bb |= BetweenBBs[from][king_target];
-    castle_bb &=
-        ~(1ull << from) & ~(1ull << position.castling_squares[color][side]);
-
-    return (!checkers && position.castling_squares[color][side] != SquareNone &&
-            !castle_bb);
+    int legal_nmoves = 0;
+    for (int i = 0; i < pseudo_nmoves; i++) {
+      if (pseudo_list[i] == move)
+        return true;
+    }
+    return false;
   }
 
   if (type == MoveTypes::EnPassant) {
@@ -816,9 +817,10 @@ bool is_pseudo_legal(const Position &position, Move move, uint64_t checkers) {
     uint64_t legal_to = 0;
 
     int dir = color == Colors::White ? Directions::North : Directions::South;
+    uint64_t third_rank = Ranks[color == Colors::White ? 2 : 5];
 
     legal_to |= (shift_pawns(square, dir) & empty_squares);
-    legal_to |= (shift_pawns(legal_to & Ranks[2], dir) & empty_squares);
+    legal_to |= (shift_pawns(legal_to & third_rank, dir) & empty_squares);
 
     legal_to |= (((shift_pawns(square & ~Files[0], dir - 1)) |
                   (shift_pawns(square & ~Files[7], dir + 1))) &

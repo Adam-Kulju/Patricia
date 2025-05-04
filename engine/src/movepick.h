@@ -74,6 +74,9 @@ Move next_move(MovePicker &picker, Position &position, ThreadInfo &thread_info,
     while (picker.idx < picker.captures.len) {
       Move move = get_next_move(picker.captures.moves, picker.captures.scores,
                                 picker.idx++, picker.captures.len);
+      if (move == tt_move) {
+        continue;
+      }
       if (SEE(position, move, picker.see_threshold)) {
         return move;
       } else {
@@ -129,12 +132,17 @@ Move next_move(MovePicker &picker, Position &position, ThreadInfo &thread_info,
   }
 
   if (picker.stage == Stages::Quiets) {
+    pick_again:
     if (skip_quiets || picker.idx >= picker.quiets.len) {
       picker.idx = 0;
       picker.stage++;
     } else {
-      return get_next_move(picker.quiets.moves, picker.quiets.scores,
+      Move move = get_next_move(picker.quiets.moves, picker.quiets.scores,
                            picker.idx++, picker.quiets.len);
+      if (move == tt_move) {
+        goto pick_again;
+      }
+      return move;
     }
   }
 
