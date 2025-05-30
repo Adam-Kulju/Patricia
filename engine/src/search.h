@@ -636,7 +636,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       ss_push(position, thread_info, MoveNone);
 
       int R = NMPBase + depth / NMPDepthDiv +
-              std::min(3, (static_eval - beta) / NMPEvalDiv);
+              std::min(5, (static_eval - beta) / NMPEvalDiv);
       score = -search<false>(-alpha - 1, -alpha, depth - R, !cutnode, temp_pos,
                              thread_info, TT);
 
@@ -851,6 +851,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       R -= (attacks_square(moved_position, get_king_pos(position, color ^ 1), color) != 0);
 
       R += thread_info.FailHighCount[ply + 1] > 4;
+
 
 
       // Clamp reduction so we don't immediately go into qsearch
