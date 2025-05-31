@@ -1010,11 +1010,11 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       update_history(thread_info.CapHistScores[piece_m][sq_m], -bonus);
     }
   }
-  else if (best_score <= alpha && !root && (ss-1)->is_cap){
+  else if (best_score <= alpha && !root && !(ss-1)->is_cap){
     Move move = (ss-1)->played_move;
 
     int bonus = std::min((int)HistBonus * (depth - 1 + (best_score > beta + 125)), (int)HistMax);
-    
+
     update_history(
           thread_info.HistoryScores[(ss-1)->piece_moved][extract_to(move)], 
           bonus
