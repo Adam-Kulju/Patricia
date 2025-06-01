@@ -7,7 +7,6 @@
 #include "tm.h"
 #include "utils.h"
 
-
 constexpr int NormalizationFactor = 195;
 
 void update_history(int16_t &entry, int score) { // Update history score
@@ -626,11 +625,14 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
       Move move = (ss - 1)->played_move;
 
-      int bonus = std::min((int)HistBonus * (depth - 1), (int)HistMax);
+      if (!(ss - 1)->is_cap) {
 
-      update_history(
-          thread_info.HistoryScores[(ss - 1)->piece_moved][extract_to(move)],
-          bonus);
+        int bonus = std::min((int)HistBonus * (depth - 1), (int)HistMax);
+
+        update_history(
+            thread_info.HistoryScores[(ss - 1)->piece_moved][extract_to(move)],
+            -bonus / 2);
+      }
 
       return (static_eval + beta) / 2;
     }
