@@ -804,7 +804,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
           // Multicut: If there was another move that beat beta, it's a sign
           // that we'll probably beat beta with a full search too.
 
-          return sBeta;
+          return sScore;
         } else if (cutnode) {
           extension = -1;
         }
