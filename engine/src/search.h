@@ -686,7 +686,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       int score =
           -qsearch(-p_beta, -p_beta + 1, moved_position, thread_info, TT);
       if (score >= p_beta) {
-        score = -search<is_pv>(-p_beta, -p_beta + 1, depth - 4, false,
+        score = -search<false>(-p_beta, -p_beta + 1, depth - 4, false,
                                moved_position, thread_info, TT);
       }
 
