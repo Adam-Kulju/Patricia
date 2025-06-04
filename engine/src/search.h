@@ -601,7 +601,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   // Improving: Is our eval better than it was last turn? If so we can prune
   // less in certain circumstances (or prune more if it's not)
 
-  if (ply > 1 && !in_check && static_eval > (ss - 2)->static_eval) {
+  if (ply > 1 && !in_check && static_eval > ((ss - 2)->static_eval != ScoreNone ? (ss - 2)->static_eval : (ss - 4)->static_eval)) {
     improving = true;
   }
 
