@@ -623,7 +623,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
         static_eval - RFPMargin * (depth - improving) >= beta) {
       return (static_eval + beta) / 2;
     }
-    if (static_eval >= beta - 20 * improving && depth >= NMPMinDepth &&
+    if (static_eval >= beta + 50 * !improving && depth >= NMPMinDepth &&
         has_non_pawn_material(position, color) &&
         (ss - 1)->played_move != MoveNone) {
 
