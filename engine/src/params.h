@@ -32,7 +32,7 @@ struct CreateParam {
   CreateParam name(#name, value, min, max);
 
 
-TUNE_PARAM(NMPMinDepth, 3, 1, 5);
+TUNE_PARAM(NMPMinDepth, 4, 1, 5);
 TUNE_PARAM(NMPBase, 4, 1, 5);
 TUNE_PARAM(NMPDepthDiv, 5, 3, 9);
 TUNE_PARAM(NMPEvalDiv, 173, 100, 300);
