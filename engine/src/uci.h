@@ -213,11 +213,11 @@ void uci(ThreadInfo &thread_info, Position &position) {
              "option name UCI_Elo type spin default 3001 min 500 max 3001\n"
              "option name UCI_Chess960 type check default false\n");
 
-      /*for (auto &param : params) {
+      for (auto &param : params) {
         std::cout << "option name " << param.name << " type spin default "
                   << param.value << " min " << param.min << " max " << param.max
                   << "\n";
-      }*/
+      }
 
       printf("uciok\n");
     }
