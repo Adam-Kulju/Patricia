@@ -32,7 +32,7 @@ struct CreateParam {
   CreateParam name(#name, value, min, max);
 
 
-TUNE_PARAM(NMPMinDepth, 4, 1, 5);
+TUNE_PARAM(NMPMinDepth, 3, 1, 5);
 TUNE_PARAM(NMPBase, 4, 1, 5);
 TUNE_PARAM(NMPDepthDiv, 5, 3, 9);
 TUNE_PARAM(NMPEvalDiv, 173, 100, 300);
@@ -47,7 +47,7 @@ TUNE_PARAM(SEDepth, 5, 4, 10);
 TUNE_PARAM(HistPruningDepth, 4, 2, 7);
 TUNE_PARAM(SEDoubleExtMargin, 18, 10, 30);
 TUNE_PARAM(SETripleExtMargin, 125, 75, 175);
-TUNE_PARAM(FPDepth, 9, 5, 11);
+TUNE_PARAM(FPDepth, 11, 5, 11);
 TUNE_PARAM(FPMargin1, 100, 50, 150);
 TUNE_PARAM(FPMargin2, 115, 75, 175);
 TUNE_PARAM(IIRMinDepth, 2, 1, 5);
