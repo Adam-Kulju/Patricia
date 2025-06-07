@@ -850,7 +850,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
       R -= (attacks_square(moved_position, get_king_pos(position, color ^ 1), color) != 0);
 
-      R += thread_info.FailHighCount[ply + 1] > 4;
+      R += (thread_info.FailHighCount[ply + 1] > 4) + (thread_info.FailHighCount[ply + 2] < 5);
 
 
       // Clamp reduction so we don't immediately go into qsearch
