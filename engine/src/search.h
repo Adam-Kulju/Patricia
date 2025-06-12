@@ -749,7 +749,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       // the rest.
 
       if (depth < LMPDepth &&
-          moves_played >= LMPBase + lmr_depth * lmr_depth / (2 - improving)) {
+          moves_played >= LMPBase + depth * depth / (2 - improving)) {
         skip = true;
       }
 
@@ -761,7 +761,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
         skip = true;
       }
 
-      if (!is_pv && !is_capture && depth < HistPruningDepth && hist_score < -4096 * depth) {
+      if (!is_pv && !is_capture && lmr_depth < HistPruningDepth && hist_score < -4096 * lmr_depth) {
         skip = true;
       }
     }
