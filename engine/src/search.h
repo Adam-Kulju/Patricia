@@ -743,8 +743,6 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     is_capture = is_cap(position, move);
     if (!is_capture && !is_pv && best_score > ScoreLost) {
 
-      int lmr_depth = std::max(1, depth - LMRTable[depth][moves_played]);
-
       // Late Move Pruning (LMP): If we've searched enough moves, we can skip
       // the rest.
 
@@ -757,11 +755,11 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       // a good capture, we can skip the rest.
 
       if (!in_check && depth < FPDepth && picker.stage > Stages::Captures &&
-          static_eval + FPMargin1 + FPMargin2 * lmr_depth < alpha) {
+          static_eval + FPMargin1 + FPMargin2 * depth < alpha) {
         skip = true;
       }
 
-      if (!is_pv && !is_capture && lmr_depth < HistPruningDepth && hist_score < -4096 * lmr_depth) {
+      if (!is_pv && !is_capture && depth < HistPruningDepth && hist_score < -4096 * depth) {
         skip = true;
       }
     }
@@ -852,7 +850,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
       R -= (attacks_square(moved_position, get_king_pos(position, color ^ 1), color) != 0);
 
-      R += (thread_info.FailHighCount[ply + 1] > 4);
+      R += thread_info.FailHighCount[ply + 1] > 4;
 
 
       // Clamp reduction so we don't immediately go into qsearch
