@@ -761,7 +761,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
         skip = true;
       }
 
-      if (!is_pv && !is_capture && depth < HistPruningDepth && hist_score < -4096 * depth) {
+      if (!is_pv && !is_capture && lmr_depth < HistPruningDepth && hist_score < -4096 * lmr_depth) {
         skip = true;
       }
     }
