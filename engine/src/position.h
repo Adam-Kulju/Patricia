@@ -522,7 +522,7 @@ void update_nnue_state(ThreadInfo &thread_info, Move move,
 
   else if (captured_piece) {
 
-    if (thread_info.phase == PhaseTypes::Middlegame &&
+    /*if (thread_info.phase == PhaseTypes::Middlegame &&
         total_mat(position) - MaterialValues[get_piece_type(captured_piece)] <
             PhaseBound) {
 
@@ -532,11 +532,11 @@ void update_nnue_state(ThreadInfo &thread_info, Move move,
 
     }
 
-    else {
+    else {*/
       thread_info.nnue_state.add_sub_sub(from_piece, from, to_piece, to,
                                          captured_piece, captured_square,
                                          phase);
-    }
+    //}
   }
 
   else {

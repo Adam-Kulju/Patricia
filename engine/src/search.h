@@ -123,7 +123,7 @@ int eval(Position &position, ThreadInfo &thread_info) {
     }
   */
 
-  bool our_side = (thread_info.search_ply % 2 == 0);
+  /*bool our_side = (thread_info.search_ply % 2 == 0);
 
   int start_index = std::max(thread_info.game_ply - thread_info.search_ply, 0);
 
@@ -160,7 +160,7 @@ int eval(Position &position, ThreadInfo &thread_info) {
     } else {
       bonus2 = 40 * (eval > 300 ? 2 : eval > 0 ? 1 : 0);
     }
-  }
+  }*/
 
   // If we're winning, scale eval by material; we don't want to trade off to an
   // easily won endgame, but instead should continue the attack.
@@ -446,11 +446,11 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
     int material = material_eval(position);
 
-    if (material < 0) {
+    /*if (material < 0) {
       draw_score += 50;
     } else if (material > 0) {
       draw_score -= 50;
-    }
+    }*/
 
     return draw_score;
     // We want to discourage draws at the root.
