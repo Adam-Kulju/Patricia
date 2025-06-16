@@ -22,15 +22,15 @@
 #endif
 
 constexpr size_t INPUT_SIZE = 768;
-constexpr size_t LAYER1_SIZE = 1024;
+constexpr size_t LAYER1_SIZE = 768;
 
 constexpr int SCRELU_MIN = 0;
 constexpr int SCRELU_MAX = 255;
 
-constexpr int SCALE = 400;
+constexpr int SCALE = 245;
 
 constexpr int QA = 255;
-constexpr int QB = 64;
+constexpr int QB = 128;
 
 const auto SCRELU_MIN_VEC = get_int16_vec(SCRELU_MIN);
 const auto QA_VEC = get_int16_vec(QA);
