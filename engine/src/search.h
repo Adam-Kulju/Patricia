@@ -972,20 +972,22 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
         int piece_m = position.board[extract_from(move)],
             sq_m = extract_to(move);
 
-        update_history(thread_info.HistoryScores[piece_m][sq_m], -bonus);
+        int malus = -bonus * 15 / (15 + std::min(i, 30));
+
+        update_history(thread_info.HistoryScores[piece_m][sq_m], malus);
 
         update_history(
             thread_info.ContHistScores[their_piece][their_last][piece_m][sq_m],
-            -bonus);
+            malus);
 
         update_history(
             thread_info.ContHistScores[our_piece][our_last][piece_m][sq_m],
-            -bonus);
+            malus);
 
         update_history(
             thread_info.ContHistScores[(ss - 4)->piece_moved][extract_to(
                 (ss - 4)->played_move)][piece_m][sq_m],
-            -bonus / 2);
+            malus / 2);
       }
 
       update_history(thread_info.HistoryScores[piece][sq], bonus);
