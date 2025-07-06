@@ -972,7 +972,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
         int piece_m = position.board[extract_from(move)],
             sq_m = extract_to(move);
 
-        int malus = -bonus * 15 / (15 + std::min(i, 30));
+        int malus = -bonus * 15 / (10 + std::min(i, 30));
 
         update_history(thread_info.HistoryScores[piece_m][sq_m], malus);
 
