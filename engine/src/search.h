@@ -947,11 +947,13 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
     int bonus = std::min((int)HistBonus * (depth - 1 + (best_score > beta + 125)), (int)HistMax);
 
+    int m_bonus = bonus * (10 + std::min(moves_played, 30)) / 15;
+
     // Update history scores and the killer move.
 
     if (is_capture) {
 
-      update_history(thread_info.CapHistScores[piece][sq], bonus);
+      update_history(thread_info.CapHistScores[piece][sq], m_bonus);
 
     } else {
 
@@ -990,17 +992,17 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
             malus / 2);
       }
 
-      update_history(thread_info.HistoryScores[piece][sq], bonus);
+      update_history(thread_info.HistoryScores[piece][sq], m_bonus);
 
       update_history(
           thread_info.ContHistScores[their_piece][their_last][piece][sq],
-          bonus);
+          m_bonus);
       update_history(thread_info.ContHistScores[our_piece][our_last][piece][sq],
-                     bonus);
+                     m_bonus);
       update_history(
           thread_info.ContHistScores[(ss - 4)->piece_moved][extract_to(
               (ss - 4)->played_move)][piece][sq],
-          bonus / 2);
+          m_bonus / 2);
 
       thread_info.KillerMoves[ply] = best_move;
     }
