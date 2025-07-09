@@ -953,7 +953,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
     if (is_capture) {
 
-      update_history(thread_info.CapHistScores[piece][sq], m_bonus);
+      update_history(thread_info.CapHistScores[piece][sq], bonus);
 
     } else {
 
