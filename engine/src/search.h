@@ -374,6 +374,9 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
     if (!is_legal(position, move)) {
       continue;
     }
+    if (!in_check && SEE(position, move, beta - static_eval + 100)){
+      return beta;
+    }
 
     Position moved_position = position;
     make_move(moved_position, move);
@@ -743,6 +746,8 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     is_capture = is_cap(position, move);
     if (!is_capture && !is_pv && best_score > ScoreLost) {
 
+      int lmr_depth = std::max(1, depth - LMRTable[depth][moves_played]);
+
       // Late Move Pruning (LMP): If we've searched enough moves, we can skip
       // the rest.
 
@@ -755,11 +760,11 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       // a good capture, we can skip the rest.
 
       if (!in_check && depth < FPDepth && picker.stage > Stages::Captures &&
-          static_eval + FPMargin1 + FPMargin2 * depth < alpha) {
+          static_eval + FPMargin1 + FPMargin2 * lmr_depth < alpha) {
         skip = true;
       }
 
-      if (!is_pv && !is_capture && depth < HistPruningDepth && hist_score < -4096 * depth) {
+      if (!is_pv && !is_capture && lmr_depth < HistPruningDepth && hist_score < -4096 * lmr_depth) {
         skip = true;
       }
     }
@@ -850,7 +855,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
       R -= (attacks_square(moved_position, get_king_pos(position, color ^ 1), color) != 0);
 
-      R += thread_info.FailHighCount[ply + 1] > 4;
+      R += (thread_info.FailHighCount[ply + 1] > 4);
 
 
       // Clamp reduction so we don't immediately go into qsearch
@@ -970,20 +975,22 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
         int piece_m = position.board[extract_from(move)],
             sq_m = extract_to(move);
 
-        update_history(thread_info.HistoryScores[piece_m][sq_m], -bonus);
+        int malus = -bonus * 15 / (10 + std::min(i, 30));
+
+        update_history(thread_info.HistoryScores[piece_m][sq_m], malus);
 
         update_history(
             thread_info.ContHistScores[their_piece][their_last][piece_m][sq_m],
-            -bonus);
+            malus);
 
         update_history(
             thread_info.ContHistScores[our_piece][our_last][piece_m][sq_m],
-            -bonus);
+            malus);
 
         update_history(
             thread_info.ContHistScores[(ss - 4)->piece_moved][extract_to(
                 (ss - 4)->played_move)][piece_m][sq_m],
-            -bonus / 2);
+            malus / 2);
       }
 
       update_history(thread_info.HistoryScores[piece][sq], bonus);
