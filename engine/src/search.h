@@ -365,6 +365,8 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
   if (!is_cap(position, tt_move)) {
     tt_move = MoveNone;
   }
+  int moves_played = 0;
+  
   while (Move move =
              next_move(picker, position, thread_info, tt_move, !in_check)) {
 
@@ -374,8 +376,9 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
     if (!is_legal(position, move)) {
       continue;
     }
-    if (!in_check && SEE(position, move, beta - static_eval + 100)){
-      return beta;
+    moves_played++;
+    if (moves_played > 2){
+      break;
     }
 
     Position moved_position = position;
