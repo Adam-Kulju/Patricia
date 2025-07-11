@@ -366,7 +366,7 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
     tt_move = MoveNone;
   }
   int moves_played = 0;
-  
+
   while (Move move =
              next_move(picker, position, thread_info, tt_move, !in_check)) {
 
@@ -859,6 +859,10 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       R -= (attacks_square(moved_position, get_king_pos(position, color ^ 1), color) != 0);
 
       R += (thread_info.FailHighCount[ply + 1] > 4);
+
+      if (R >= 5){
+        R = R * 4 / 5;
+      }
 
 
       // Clamp reduction so we don't immediately go into qsearch
