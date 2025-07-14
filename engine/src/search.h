@@ -366,7 +366,7 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
     tt_move = MoveNone;
   }
   int moves_played = 0;
-  
+
   while (Move move =
              next_move(picker, position, thread_info, tt_move, !in_check)) {
 
@@ -665,7 +665,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   }
 
   int p_beta = beta + ProbcutMargin;
-  if (!in_check && depth >= 5 && abs(beta) < ScoreWin &&
+  if (!in_check && depth >= 6 && abs(beta) < ScoreWin &&
       (!tt_hit || tt_depth + 4 <= depth || tt_score >= p_beta)) {
 
     int threshold = p_beta - static_eval;
@@ -692,7 +692,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       int score =
           -qsearch(-p_beta, -p_beta + 1, moved_position, thread_info, TT);
       if (score >= p_beta) {
-        score = -search<is_pv>(-p_beta, -p_beta + 1, depth - 4, false,
+        score = -search<is_pv>(-p_beta, -p_beta + 1, depth - 3, false,
                                moved_position, thread_info, TT);
       }
 
