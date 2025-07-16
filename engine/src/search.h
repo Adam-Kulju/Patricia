@@ -622,6 +622,10 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
   if (!is_pv && !in_check && !singular_search) {
 
+    if (thread_info.Reductions[ply - 1] >= 3 && ss->static_eval + (ss - 1)->static_eval <= 0){
+      depth++;
+    }
+
     // Reverse Futility Pruning (RFP): If our position is way better than beta,
     // we're likely good to stop searching the node.
 
@@ -864,9 +868,14 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       // Clamp reduction so we don't immediately go into qsearch
       R = std::clamp(R, 0, newdepth - 1);
 
+      thread_info.Reductions[ply] = newdepth - R;
+
       // Reduced search, reduced window
       score = -search<false>(-alpha - 1, -alpha, newdepth - R, true,
                              moved_position, thread_info, TT);
+
+      thread_info.Reductions[ply] = 0;
+
       if (score > alpha) {
         full_search = R > 0;
         newdepth += (score > (best_score + 60 + newdepth * 2));
