@@ -43,7 +43,8 @@ uint64_t perft(int depth, Position &position, bool first,
   }
 
   MovePicker picker;
-  init_picker(picker, position, -107, checkers, &(thread_info.game_hist[thread_info.game_ply]));
+  init_picker(picker, position, -107, checkers,
+              &(thread_info.game_hist[thread_info.game_ply]));
 
   while (Move move = next_move(picker, position, thread_info, MoveNone,
                                false)) // Loop through all of the moves,
@@ -203,10 +204,11 @@ void uci(ThreadInfo &thread_info, Position &position) {
     }
 
     else if (command == "uci") {
-      printf("id name Patricia 4.0\n"
+      printf("id name Patricia 5.0\n"
              "id author Adam Kulju\n"
              "option name Hash type spin default 32 min 1 max 131072\n"
              "option name Threads type spin default 1 min 1 max 1024\n"
+             "option name SyzygyPath type string default null\n"
              "option name MultiPV type spin default 1 min 1 max 255\n"
              "option name UCI_LimitStrength type check default false\n"
              "option name Skill_Level type spin default 21 min 1 max 21\n"
@@ -257,6 +259,17 @@ void uci(ThreadInfo &thread_info, Position &position) {
         }
 
         continue;
+      }
+
+      else if (name == "SyzygyPath") {
+        std::string value;
+        input_stream >> value;
+        tb_init(value.c_str());
+        if (TB_LARGEST) {
+          printf("Tablebase initialized at path %s\n", value.c_str());
+        } else {
+          printf("Error initializing tablebase. Please try again!\n");
+        }
       }
 
       input_stream >> value;
