@@ -579,6 +579,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
   int32_t static_eval;
   int32_t raw_eval;
+  int complexity = 0;
 
   if (in_check) {
     static_eval = raw_eval = ScoreNone;
@@ -593,6 +594,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       raw_eval = tt_static_eval;
       static_eval = correct_eval(position, thread_info, raw_eval);
     }
+    complexity = std::abs(raw_eval - static_eval);
 
     if (!tt_hit) {
       insert_entry(entry, hash, 0, MoveNone, raw_eval, ScoreNone,
@@ -860,6 +862,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
       R += (thread_info.FailHighCount[ply + 1] > 4);
 
+      R -= (complexity > 70);
 
       // Clamp reduction so we don't immediately go into qsearch
       R = std::clamp(R, 0, newdepth - 1);
