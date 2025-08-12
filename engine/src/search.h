@@ -862,7 +862,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
       R += (thread_info.FailHighCount[ply + 1] > 4);
 
-      R -= (complexity > 40);
+      R += (complexity < 10);
 
       // Clamp reduction so we don't immediately go into qsearch
       R = std::clamp(R, 0, newdepth - 1);
