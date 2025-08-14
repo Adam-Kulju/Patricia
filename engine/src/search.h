@@ -700,7 +700,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       thread_info.phase = phase;
 
       if (score >= p_beta) {
-        return score;
+        return (score + beta) / 2;
       }
     }
   }
