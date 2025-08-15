@@ -626,7 +626,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     // we're likely good to stop searching the node.
 
     if (depth <= RFPMaxDepth &&
-        static_eval - RFPMargin * (depth - improving) >= beta) {
+        static_eval - std::max(10, RFPMargin * (depth - improving) - (cutnode * 20)) >= beta) {
       return (static_eval + beta) / 2;
     }
     if (static_eval >= beta && depth >= NMPMinDepth &&
@@ -700,7 +700,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       thread_info.phase = phase;
 
       if (score >= p_beta) {
-        return score;
+        return p_beta;
       }
     }
   }
