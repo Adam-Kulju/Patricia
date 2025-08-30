@@ -432,7 +432,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
 
       time = std::max(2, time - 50);
       thread_info.max_time = time / 2;
-      thread_info.opt_time = (time / 20 + increment * 8 / 10) * 6 / 10;
+      thread_info.opt_time = (time / 20 + increment) * 6 / 10;
 
     run:
       run_thread(position, thread_info, s);
