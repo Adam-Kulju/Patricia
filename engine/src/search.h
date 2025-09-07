@@ -622,7 +622,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
   if (!is_pv && !in_check && !singular_search) {
 
-    if (alpha < 2000 && static_eval + 400 * depth < alpha){
+    if (alpha < 2000 && depth < 5 && static_eval + 400 * depth < alpha){
       score = qsearch(alpha, beta, position, thread_info, TT);
       if (score <= alpha){
         return score;
