@@ -37,6 +37,7 @@ struct ThreadInfo {
 
   MultiArray<int16_t, 14, 64> HistoryScores;
   MultiArray<int16_t, 14, 64, 14, 64> ContHistScores;
+  MultiArray<int16_t, 14, 64, 14, 64> ContCorrHist;
   MultiArray<int16_t, 14, 64> CapHistScores;
   MultiArray<int16_t, 2, 16384> PawnCorrHist;
   MultiArray<int16_t, 2, 2, 16384> NonPawnCorrHist;
@@ -105,6 +106,7 @@ void new_game(ThreadInfo &thread_info, std::vector<TTBucket> &TT) {
   std::memset(&thread_info.CapHistScores, 0, sizeof(thread_info.CapHistScores));
   std::memset(&thread_info.PawnCorrHist, 0, sizeof(thread_info.PawnCorrHist));
   std::memset(&thread_info.NonPawnCorrHist, 0, sizeof(thread_info.NonPawnCorrHist));
+  std::memset(&thread_info.ContCorrHist, 0, sizeof(thread_info.ContCorrHist));
   std::memset(&thread_info.game_hist, 0, sizeof(thread_info.game_hist));
   std::memset(&TT[0], 0, TT_size * sizeof(TT[0]));
   thread_info.searches = 0;

@@ -1,11 +1,12 @@
 #pragma once
+#include "fathom/src/tbprobe.h"
 #include "movepick.h"
 #include "nnue.h"
 #include "params.h"
 #include "position.h"
 #include "tm.h"
 #include "utils.h"
-#include "fathom/src/tbprobe.h"
+
 
 constexpr int NormalizationFactor = 195;
 
@@ -17,27 +18,28 @@ void update_corrhist(int16_t &entry, int score) { // Update history score
 }
 
 TbResult probe_tb(Position &pos) {
-  if (pop_count(pos.colors_bb[Colors::White] | pos.colors_bb[Colors::Black]) > TB_LARGEST)
+  if (pop_count(pos.colors_bb[Colors::White] | pos.colors_bb[Colors::Black]) >
+      TB_LARGEST)
     return TB_RESULT_FAILED;
 
   int castling_flags = 0;
-  if (pos.castling_squares[Colors::White][Sides::Kingside] != SquareNone) castling_flags |= 0x1;
-  if (pos.castling_squares[Colors::White][Sides::Queenside] != SquareNone) castling_flags |= 0x2;
-  if (pos.castling_squares[Colors::Black][Sides::Kingside] != SquareNone) castling_flags |= 0x4;
-  if (pos.castling_squares[Colors::Black][Sides::Queenside] != SquareNone) castling_flags |= 0x8;
+  if (pos.castling_squares[Colors::White][Sides::Kingside] != SquareNone)
+    castling_flags |= 0x1;
+  if (pos.castling_squares[Colors::White][Sides::Queenside] != SquareNone)
+    castling_flags |= 0x2;
+  if (pos.castling_squares[Colors::Black][Sides::Kingside] != SquareNone)
+    castling_flags |= 0x4;
+  if (pos.castling_squares[Colors::Black][Sides::Queenside] != SquareNone)
+    castling_flags |= 0x8;
 
   return tb_probe_wdl(
-    pos.colors_bb[Colors::White],
-    pos.colors_bb[Colors::Black],
-    pos.pieces_bb[PieceTypes::King],
-    pos.pieces_bb[PieceTypes::Queen],
-    pos.pieces_bb[PieceTypes::Rook],
-    pos.pieces_bb[PieceTypes::Bishop],
-    pos.pieces_bb[PieceTypes::Knight],
-    pos.pieces_bb[PieceTypes::Pawn],
-    pos.halfmoves, castling_flags,
-    pos.ep_square == SquareNone ? 0 : pos.ep_square,
-    pos.color == Colors::White);
+      pos.colors_bb[Colors::White], pos.colors_bb[Colors::Black],
+      pos.pieces_bb[PieceTypes::King], pos.pieces_bb[PieceTypes::Queen],
+      pos.pieces_bb[PieceTypes::Rook], pos.pieces_bb[PieceTypes::Bishop],
+      pos.pieces_bb[PieceTypes::Knight], pos.pieces_bb[PieceTypes::Pawn],
+      pos.halfmoves, castling_flags,
+      pos.ep_square == SquareNone ? 0 : pos.ep_square,
+      pos.color == Colors::White);
 }
 
 bool out_of_time(ThreadInfo &thread_info) {
@@ -189,7 +191,16 @@ int correct_eval(const Position &position, ThreadInfo &thread_info, int eval) {
           .NonPawnCorrHist[position.color][Colors::Black][get_corrhist_index(
               position.non_pawn_key[Colors::Black])];
 
-  return std::clamp(eval + (CorrWeight * corr / 512), ScoreLost + 1, ScoreWin - 1);
+  GameHistory *ss = &(thread_info.game_hist[thread_info.game_ply]);
+
+  if ((ss - 1)->played_move != MoveNone) {
+    corr += thread_info.ContCorrHist[(ss - 2)->piece_moved][extract_to(
+        (ss - 2)->played_move)][(ss - 1)->piece_moved]
+                                    [extract_to((ss - 2)->played_move)];
+  }
+
+  return std::clamp(eval + (CorrWeight * corr / 512), ScoreLost + 1,
+                    ScoreWin - 1);
 }
 
 void ss_push(Position &position, ThreadInfo &thread_info, Move move) {
@@ -277,9 +288,7 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
                                          // given position.
   if (out_of_time(thread_info)) {
     // return if out of time
-    return correct_eval(
-        position, thread_info,
-        eval(position, thread_info));
+    return correct_eval(position, thread_info, eval(position, thread_info));
   }
   int color = position.color;
 
@@ -366,7 +375,7 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
     tt_move = MoveNone;
   }
   int moves_played = 0;
-  
+
   while (Move move =
              next_move(picker, position, thread_info, tt_move, !in_check)) {
 
@@ -377,7 +386,7 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
       continue;
     }
     moves_played++;
-    if (moves_played > 2){
+    if (moves_played > 2) {
       break;
     }
 
@@ -482,7 +491,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
   bool singular_search = (excluded_move != MoveNone);
 
-  if (!singular_search){
+  if (!singular_search) {
     thread_info.pv[pv_index] = MoveNone;
   }
 
@@ -536,7 +545,8 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     }
   }
 
-  const TbResult tb_result = (root || singular_search) ? TB_RESULT_FAILED : probe_tb(position);
+  const TbResult tb_result =
+      (root || singular_search) ? TB_RESULT_FAILED : probe_tb(position);
   if (tb_result != TB_RESULT_FAILED) {
 
     thread_info.tb_hits++;
@@ -546,19 +556,19 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     if (tb_result == TB_LOSS) {
       tb_score = ply - ScoreTbWin;
       tb_bound = EntryTypes::UBound;
-    }
-    else if (tb_result == TB_WIN) {
+    } else if (tb_result == TB_WIN) {
       tb_score = ScoreTbWin - ply;
       tb_bound = EntryTypes::LBound;
-    }
-    else {
+    } else {
       tb_score = 0;
       tb_bound = EntryTypes::Exact;
     }
 
-    if ((tb_bound == EntryTypes::Exact) || (tb_bound == EntryTypes::LBound ? tb_score >= beta : tb_score <= alpha)) {
+    if ((tb_bound == EntryTypes::Exact) ||
+        (tb_bound == EntryTypes::LBound ? tb_score >= beta
+                                        : tb_score <= alpha)) {
       insert_entry(entry, hash, depth, MoveNone, ScoreNone,
-        score_to_tt(tb_score, ply), tb_bound, thread_info.searches);
+                   score_to_tt(tb_score, ply), tb_bound, thread_info.searches);
       return tb_score;
     }
 
@@ -607,7 +617,10 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   // Improving: Is our eval better than it was last turn? If so we can prune
   // less in certain circumstances (or prune more if it's not)
 
-  if (ply > 1 && !in_check && static_eval > ((ss - 2)->static_eval != ScoreNone ? (ss - 2)->static_eval : (ss - 4)->static_eval)) {
+  if (ply > 1 && !in_check &&
+      static_eval > ((ss - 2)->static_eval != ScoreNone
+                         ? (ss - 2)->static_eval
+                         : (ss - 4)->static_eval)) {
     improving = true;
   }
 
@@ -622,9 +635,9 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
   if (!is_pv && !in_check && !singular_search) {
 
-    if (alpha < 2000 && depth < 5 && static_eval + 400 * depth < alpha){
+    if (alpha < 2000 && depth < 5 && static_eval + 400 * depth < alpha) {
       score = qsearch(alpha, beta, position, thread_info, TT);
-      if (score <= alpha){
+      if (score <= alpha) {
         return score;
       }
     }
@@ -682,7 +695,8 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
         (tt_move != MoveNone && SEE(position, tt_move, threshold) ? tt_move
                                                                   : MoveNone);
 
-    while (Move move = next_move(probcut_p, position, thread_info, p_tt_move, true)) {
+    while (Move move =
+               next_move(probcut_p, position, thread_info, p_tt_move, true)) {
 
       if (probcut_p.stage > Stages::Captures) {
         break;
@@ -774,15 +788,15 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
         skip = true;
       }
 
-      if (!is_pv && !is_capture && lmr_depth < HistPruningDepth && hist_score < -4096 * lmr_depth) {
+      if (!is_pv && !is_capture && lmr_depth < HistPruningDepth &&
+          hist_score < -4096 * lmr_depth) {
         skip = true;
       }
     }
 
     if (!root && best_score > ScoreLost && depth < SeePruningDepth) {
 
-      int margin =
-          is_capture ? SeePruningQuietMargin : SeePruningNoisyMargin;
+      int margin = is_capture ? SeePruningQuietMargin : SeePruningNoisyMargin;
 
       if (!SEE(position, move, depth * margin)) {
         // SEE pruning: if we are hanging material, prune under certain
@@ -863,10 +877,10 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
       R += cutnode;
 
-      R -= (attacks_square(moved_position, get_king_pos(position, color ^ 1), color) != 0);
+      R -= (attacks_square(moved_position, get_king_pos(position, color ^ 1),
+                           color) != 0);
 
       R += (thread_info.FailHighCount[ply + 1] > 4);
-
 
       // Clamp reduction so we don't immediately go into qsearch
       R = std::clamp(R, 0, newdepth - 1);
@@ -958,7 +972,8 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     int piece = position.board[extract_from(best_move)],
         sq = extract_to(best_move);
 
-    int bonus = std::min((int)HistBonus * (depth - 1 + (best_score > beta + 125)), (int)HistMax);
+    int bonus = std::min(
+        (int)HistBonus * (depth - 1 + (best_score > beta + 125)), (int)HistMax);
 
     // Update history scores and the killer move.
 
@@ -1040,7 +1055,8 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       !(best_score >= beta && best_score <= ss->static_eval) &&
       !(!best_move && best_score >= ss->static_eval)) {
 
-    int bonus = std::clamp((best_score - ss->static_eval) * depth / 8, -256, 256);
+    int bonus =
+        std::clamp((best_score - ss->static_eval) * depth / 8, -256, 256);
 
     update_corrhist(
         thread_info.PawnCorrHist[color][get_corrhist_index(position.pawn_key)],
@@ -1053,6 +1069,13 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
         thread_info.NonPawnCorrHist[color][Colors::Black][get_corrhist_index(
             position.non_pawn_key[Colors::Black])],
         bonus);
+
+    if ((ss-1)->played_move && (ss-2)->played_move){
+      update_corrhist(thread_info.ContCorrHist[(ss - 2)->piece_moved][extract_to(
+        (ss - 2)->played_move)][(ss - 1)->piece_moved]
+                                    [extract_to((ss - 2)->played_move)],
+        bonus);
+    }
   }
 
   // Add the search results to the TT, accounting for mate scores
