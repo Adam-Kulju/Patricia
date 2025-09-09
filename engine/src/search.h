@@ -361,6 +361,10 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
     }
 
     if (best_score >= beta) {
+      if (!tt_hit){
+        insert_entry(entry, hash, 0, MoveNone, raw_eval,
+               score_to_tt(best_score, ply), EntryTypes::LBound, thread_info.searches);
+      }
       return best_score;
     }
     if (best_score > alpha) {
