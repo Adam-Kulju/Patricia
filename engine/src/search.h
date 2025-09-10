@@ -361,6 +361,10 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
     }
 
     if (best_score >= beta) {
+      if (!tt_hit){
+        insert_entry(entry, hash, 0, MoveNone, raw_eval,
+               score_to_tt(best_score, ply), EntryTypes::LBound, thread_info.searches);
+      }
       return best_score;
     }
     if (best_score > alpha) {
@@ -768,7 +772,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
                                  [extract_to(move)];
 
     is_capture = is_cap(position, move);
-    if (!is_capture && !is_pv && best_score > ScoreLost) {
+    if (!is_capture && best_score > ScoreLost) {
 
       int lmr_depth = std::max(1, depth - LMRTable[depth][moves_played]);
 
