@@ -837,6 +837,9 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
         } else if (cutnode) {
           extension = -1;
         }
+        else if (tt_score >= beta){
+          extension = -1;
+        }
       }
     }
 
@@ -883,7 +886,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       R += (thread_info.FailHighCount[ply + 1] > 4);
 
       // Clamp reduction so we don't immediately go into qsearch
-      R = std::clamp(R, 0, newdepth - 1);
+      R = std::clamp(R, (int)is_pv * -1, newdepth - 1);
 
       // Reduced search, reduced window
       score = -search<false>(-alpha - 1, -alpha, newdepth - R, true,
