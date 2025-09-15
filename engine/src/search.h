@@ -821,8 +821,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
                                    position, thread_info, TT);
 
         if (sScore < sBeta) {
-          if (!is_pv && sScore + SEDoubleExtMargin < sBeta &&
-              ply < thread_info.current_iter) {
+          if (!is_pv && sScore + SEDoubleExtMargin < sBeta) {
 
             // In some cases we can even double extend
             extension = 2 + (!is_capture && sScore < sBeta - SETripleExtMargin);
@@ -835,6 +834,9 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
           return sBeta;
         } else if (cutnode) {
+          extension = -1;
+        }
+        else if (tt_score >= beta){
           extension = -1;
         }
       }
