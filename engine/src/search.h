@@ -1303,7 +1303,7 @@ void iterative_deepen(
           adjust_soft_limit(
               thread_info,
               find_root_move(thread_info, thread_info.best_moves[0])->nodes,
-              bm_stability);
+              bm_stability, score * 100 / NormalizationFactor);
         }
 
         if (depth == 6 && thread_info.best_scores[0] < -100) {
