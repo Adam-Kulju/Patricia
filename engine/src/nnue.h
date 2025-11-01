@@ -44,7 +44,7 @@ struct alignas(64) NNUE_Params {
   int16_t output_bias;
 };
 
-INCBIN(nnue, "nets/rw3.nnue");
+INCBIN(nnue, "nets/firefly.nnue");
 INCBIN(nnue2, "nets/rw3.nnue");
 INCBIN(nnue3, "nets/allie.nnue");
 
