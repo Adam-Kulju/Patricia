@@ -1141,7 +1141,7 @@ void iterative_deepen(
   thread_info.nodes = 0;
   thread_info.tb_hits = 0;
   thread_info.time_checks = 0;
-  thread_info.phase = total_mat(position) < PhaseBound;
+  thread_info.phase = total_mat(position) < PhaseBound ? PhaseTypes::Endgame : PhaseTypes::Sacrifice;
   thread_info.search_ply = 0; // reset all relevant thread_info
   thread_info.excluded_move = MoveNone;
   thread_info.best_moves = {0};
@@ -1306,13 +1306,21 @@ void iterative_deepen(
               bm_stability);
         }
 
-        if (depth == 6 && thread_info.best_scores[0] < -100) {
-          thread_info.phase = PhaseTypes::Endgame;
-          thread_info.nnue_state.reset_nnue(position, thread_info.phase);
-        } else if (depth == 6 && thread_info.best_scores[0] > 300) {
-          thread_info.phase = PhaseTypes::Sacrifice;
-          thread_info.nnue_state.reset_nnue(position, thread_info.phase);
+        if (depth == 6){
+          if (thread_info.best_scores[0] < 0){
+            thread_info.phase = PhaseTypes::Endgame;
+            thread_info.nnue_state.reset_nnue(position, thread_info.phase);
+          }
+          else if (thread_info.best_scores[0] > 400){
+            thread_info.phase = PhaseTypes::Sacrifice;
+            thread_info.nnue_state.reset_nnue(position, thread_info.phase);
+          }
+          else{
+            thread_info.phase = PhaseTypes::Middlegame;
+            thread_info.nnue_state.reset_nnue(position, thread_info.phase);
+          }
         }
+
       }
 
       if (thread_data.stop || thread_info.datagen_stop) {
