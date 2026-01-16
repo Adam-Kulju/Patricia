@@ -155,12 +155,12 @@ int eval(Position &position, ThreadInfo &thread_info) {
       break;
     }
   }
-  if (s && total_mat(position) > 3500) {
+  if (s && total_mat(position) > 4500) {
 
     if (thread_info.search_ply % 2) {
-      bonus2 = -40 * (eval < -300 ? 2 : eval < 0 ? 1 : 0) * 10 / (s < -300 ? 5 : s < -100 ? 10 : 20);
+      bonus2 = -50 * (eval < -500 ? 2 : eval < 0 ? 1 : 0) * 10 / (s < -300 ? 5 : s < -100 ? 10 : 20);
     } else {
-      bonus2 = 40 * (eval > 300 ? 2 : eval > 0 ? 1 : 0) * 10 / (s < -300 ? 5 : s < -100 ? 10 : 20);
+      bonus2 = 50 * (eval > 500 ? 2 : eval > 0 ? 1 : 0) * 10 / (s < -300 ? 5 : s < -100 ? 10 : 20);
     }
   }
 
@@ -168,6 +168,10 @@ int eval(Position &position, ThreadInfo &thread_info) {
   // easily won endgame, but instead should continue the attack.
 
   float multiplier = ((float)750 + total_mat(position) / 25) / 1024;
+
+  if (!position.material_count[root_color + 8] || total_mat(position) < 4000 && ((eval > 0 && our_side) || (eval < 0 && !our_side))){
+    multiplier -= 0.1;
+  }
 
   eval = eval * multiplier;
 
