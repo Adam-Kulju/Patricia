@@ -10,7 +10,9 @@
 
 using std::array;
 
+#ifndef WASM_BUILD
 typedef unsigned __int128 uint128_t;
+#endif
 
 struct ThreadInfo {
   uint16_t thread_id = 0; // ID of the thread
@@ -83,7 +85,9 @@ RootMoveInfo *find_root_move(ThreadInfo &thread_info, Move move) {
 
 struct ThreadData {
   std::vector<ThreadInfo> thread_infos;
+#ifndef WASM_BUILD
   std::vector<std::thread> threads;
+#endif
   int num_threads = 1;
   std::atomic<bool> stop = true;
   std::atomic<bool> terminate = false;
@@ -143,9 +147,29 @@ void resize_TT(int size) {
   std::memset(&TT[0], 0, TT_size * sizeof(TT[0]));
 }
 
+#ifdef WASM_BUILD
+// Use 64-bit multiply with high-bits extraction (no 128-bit support in WASM)
+inline uint64_t mulhi64(uint64_t a, uint64_t b) {
+    uint64_t a_lo = (uint32_t)a;
+    uint64_t a_hi = a >> 32;
+    uint64_t b_lo = (uint32_t)b;
+    uint64_t b_hi = b >> 32;
+    uint64_t p0 = a_lo * b_lo;
+    uint64_t p1 = a_lo * b_hi;
+    uint64_t p2 = a_hi * b_lo;
+    uint64_t p3 = a_hi * b_hi;
+    uint64_t carry = ((p0 >> 32) + (uint32_t)p1 + (uint32_t)p2) >> 32;
+    return p3 + (p1 >> 32) + (p2 >> 32) + carry;
+}
+
+uint64_t hash_to_idx(uint64_t hash) {
+    return mulhi64(hash, TT_size);
+}
+#else
 uint64_t hash_to_idx(uint64_t hash) {
   return (uint128_t(hash) * uint128_t(TT_size)) >> 64;
 }
+#endif
 
 int entry_quality(TTEntry &entry, int searches) {
   int age_diff = (MaxAge + searches - entry.get_age()) % MaxAge;
@@ -252,6 +276,7 @@ int64_t time_elapsed(std::chrono::steady_clock::time_point start_time) {
       .count();
 }
 
+#ifndef WASM_BUILD
 // ty to Ciekce (https://github.com/Ciekce/Stormphrax) for providing this code
 // in a pinch to fix a critical bug.
 
@@ -297,3 +322,4 @@ private:
 Barrier reset_barrier{1};
 Barrier idle_barrier{1};
 Barrier search_end_barrier{1};
+#endif

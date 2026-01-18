@@ -746,7 +746,9 @@ void make_move(Position &position, Move move) { // Perform a move on the board.
   position.zobrist_key = temp_hash;
   position.pawn_key = temp_pawns;
 
+#ifndef WASM_BUILD
   __builtin_prefetch(&TT[hash_to_idx(temp_hash)]);
+#endif
 }
 
 bool is_pseudo_legal(const Position &position, Move move, uint64_t checkers) {
