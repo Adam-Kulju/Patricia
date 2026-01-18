@@ -8,6 +8,7 @@ constexpr std::array<int, 20> skill_levels = {
     500,  800,  1000, 1200, 1300, 1400, 1500, 1600, 1700, 1800,
     1900, 2000, 2100, 2200, 2300, 2400, 2500, 2650, 2800, 3000};
 
+#ifndef WASM_BUILD
 void run_thread(Position &position, ThreadInfo &thread_info, std::thread &s) {
 
   // This wrapper function allows the user to call the "stop" command to stop
@@ -21,6 +22,7 @@ void run_thread(Position &position, ThreadInfo &thread_info, std::thread &s) {
                     std::ref(TT));
   }
 }
+#endif
 
 uint64_t perft(int depth, Position &position, bool first,
                ThreadInfo &thread_info)
@@ -171,7 +173,9 @@ void uci(ThreadInfo &thread_info, Position &position) {
 
   std::string input;
 
+#ifndef WASM_BUILD
   std::thread s;
+#endif
 
   while (getline(std::cin, input)) {
 
@@ -192,6 +196,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
     if (command == "quit") {
       thread_data.terminate = true;
 
+#ifndef WASM_BUILD
       reset_barrier.arrive_and_wait();
       idle_barrier.arrive_and_wait();
 
@@ -200,6 +205,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
           thread_data.threads[i].join();
         }
       }
+#endif
       std::exit(0);
     }
 
@@ -253,6 +259,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
       }
 
       else if (name == "SyzygyPath") {
+#ifndef WASM_BUILD
         std::string value;
         input_stream >> value;
         tb_init(value.c_str());
@@ -261,6 +268,10 @@ void uci(ThreadInfo &thread_info, Position &position) {
         } else {
           printf("Error initializing tablebase. Please try again!\n");
         }
+#else
+        printf("Tablebase not supported in WASM build\n");
+        continue;
+#endif
       }
 
       input_stream >> value;
@@ -270,7 +281,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
       }
 
       else if (name == "Threads") {
-
+#ifndef WASM_BUILD
         thread_data.terminate = true;
 
         reset_barrier.arrive_and_wait();
@@ -296,6 +307,9 @@ void uci(ThreadInfo &thread_info, Position &position) {
           thread_data.thread_infos.emplace_back();
           thread_data.threads.emplace_back(loop, i);
         }
+#else
+        printf("Multi-threading not supported in WASM build\n");
+#endif
       }
 
       else if (name == "Skill_Level") {
@@ -329,17 +343,21 @@ void uci(ThreadInfo &thread_info, Position &position) {
     else if (command == "stop") {
       thread_data.stop = true;
 
+#ifndef WASM_BUILD
       if (s.joinable()) {
         s.join();
       }
+#endif
     }
 
     else if (command == "ucinewgame") {
       thread_data.stop = true;
 
+#ifndef WASM_BUILD
       if (s.joinable()) {
         s.join();
       }
+#endif
 
       new_game(thread_info, TT);
       set_board(position, thread_info,
@@ -387,6 +405,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
     else if (command == "go") {
       thread_info.start_time = std::chrono::steady_clock::now();
 
+#ifndef WASM_BUILD
       for (int i = 0; i < thread_data.thread_infos.size(); i++) {
         while (thread_data.thread_infos[i].searching) {
           ;
@@ -395,6 +414,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
       if (s.joinable()) {
         s.join();
       }
+#endif
       thread_info.max_nodes_searched = UINT64_MAX / 2;
       thread_info.max_iter_depth = MaxSearchDepth;
 
@@ -435,7 +455,13 @@ void uci(ThreadInfo &thread_info, Position &position) {
       thread_info.opt_time = (time / 20 + increment) * 6 / 10;
 
     run:
+#ifdef WASM_BUILD
+      // WASM: run search synchronously (single-threaded)
+      thread_data.stop = false;
+      search_position(position, thread_info, TT);
+#else
       run_thread(position, thread_info, s);
+#endif
     }
 
     else if (command == "perft") {

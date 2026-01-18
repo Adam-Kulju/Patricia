@@ -1,5 +1,15 @@
 #pragma once
+#ifndef WASM_BUILD
 #include "fathom/src/tbprobe.h"
+#else
+// WASM: No tablebase support - define minimal stubs
+#include <cstdint>
+#define TB_RESULT_FAILED 0xFFFFFFFF
+#define TB_LARGEST 0
+#define TB_LOSS 0
+#define TB_WIN 4
+typedef uint32_t TbResult;
+#endif
 #include "movepick.h"
 #include "nnue.h"
 #include "params.h"
@@ -18,6 +28,9 @@ void update_corrhist(int16_t &entry, int score) { // Update history score
 }
 
 TbResult probe_tb(Position &pos) {
+#ifdef WASM_BUILD
+  return TB_RESULT_FAILED;
+#else
   if (pop_count(pos.colors_bb[Colors::White] | pos.colors_bb[Colors::Black]) >
       TB_LARGEST)
     return TB_RESULT_FAILED;
@@ -40,6 +53,7 @@ TbResult probe_tb(Position &pos) {
       pos.halfmoves, castling_flags,
       pos.ep_square == SquareNone ? 0 : pos.ep_square,
       pos.color == Colors::White);
+#endif
 }
 
 bool out_of_time(ThreadInfo &thread_info) {
@@ -51,11 +65,12 @@ bool out_of_time(ThreadInfo &thread_info) {
   if (thread_info.nodes >= thread_info.max_nodes_searched) {
 
     if (thread_info.max_time < INT32_MAX / 3) {
-
+#ifndef WASM_BUILD
       std::this_thread::sleep_for(std::chrono::milliseconds(
           thread_info.opt_time - time_elapsed(thread_info.start_time)));
       // If there's a max time limit and a node limit, it means we're using a
       // skill level. In that case, we don't want the engine to move instantly.
+#endif
     }
 
     if (thread_info.doing_datagen) {
@@ -1347,7 +1362,9 @@ finish:
   if (thread_info.thread_id == 0 && !thread_info.doing_datagen) {
     thread_data.stop = true;
   }
+#ifndef WASM_BUILD
   search_end_barrier.arrive_and_wait();
+#endif
   if (thread_info.thread_id == 0 && !thread_info.doing_datagen &&
       !thread_info.is_human) {
     printf("bestmove %s\n",
@@ -1363,6 +1380,7 @@ void search_position(Position &position, ThreadInfo &thread_info,
   thread_info.nodes = 0;
   thread_info.tb_hits = 0;
 
+#ifndef WASM_BUILD
   int num_threads = thread_data.num_threads;
 
   // Wait for threads to be ready
@@ -1375,6 +1393,7 @@ void search_position(Position &position, ThreadInfo &thread_info,
 
   // Tell threads to start
   idle_barrier.arrive_and_wait();
+#endif
 
   thread_data.stop = false;
   iterative_deepen(position, thread_info, TT);
@@ -1385,6 +1404,7 @@ void search_position(Position &position, ThreadInfo &thread_info,
   thread_info.searches = (thread_info.searches + 1) % MaxAge;
 }
 
+#ifndef WASM_BUILD
 void loop(int i) {
   while (true) {
     reset_barrier.arrive_and_wait();
@@ -1398,3 +1418,4 @@ void loop(int i) {
     thread_data.thread_infos[i].searching = false;
   }
 }
+#endif

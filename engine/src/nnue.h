@@ -7,19 +7,6 @@
 #include <cstring>
 #include <span>
 #include <vector>
-#ifdef _MSC_VER
-#define W_MSVC
-#pragma push_macro("_MSC_VER")
-#undef _MSC_VER
-#endif
-
-#define INCBIN_PREFIX g_
-#include "incbin.h"
-
-#ifdef W_MSVC
-#pragma pop_macro("_MSC_VER")
-#undef W_MSVC
-#endif
 
 constexpr size_t INPUT_SIZE = 768;
 constexpr size_t LAYER1_SIZE = 1024;
@@ -44,6 +31,52 @@ struct alignas(64) NNUE_Params {
   int16_t output_bias;
 };
 
+#ifdef WASM_BUILD
+// WASM: Load NNUE networks from embedded filesystem
+#include <cstdio>
+
+static NNUE_Params g_nnue_storage;
+static NNUE_Params g_nnue2_storage;
+static NNUE_Params g_nnue3_storage;
+
+inline void load_nnue_file(const char* path, NNUE_Params& params) {
+    FILE* f = fopen(path, "rb");
+    if (f) {
+        fread(&params, sizeof(NNUE_Params), 1, f);
+        fclose(f);
+    }
+}
+
+inline void init_nnue_wasm() {
+    static bool initialized = false;
+    if (!initialized) {
+        load_nnue_file("/nets/fingolfin.nnue", g_nnue_storage);
+        load_nnue_file("/nets/finarfin.nnue", g_nnue2_storage);
+        load_nnue_file("/nets/feanor.nnue", g_nnue3_storage);
+        initialized = true;
+    }
+}
+
+const NNUE_Params &g_nnue = g_nnue_storage;
+const NNUE_Params &g_nnue2 = g_nnue2_storage;
+const NNUE_Params &g_nnue3 = g_nnue3_storage;
+
+#else
+// Native: Use incbin to embed NNUE networks
+#ifdef _MSC_VER
+#define W_MSVC
+#pragma push_macro("_MSC_VER")
+#undef _MSC_VER
+#endif
+
+#define INCBIN_PREFIX g_
+#include "incbin.h"
+
+#ifdef W_MSVC
+#pragma pop_macro("_MSC_VER")
+#undef W_MSVC
+#endif
+
 INCBIN(nnue, "nets/fingolfin.nnue");
 INCBIN(nnue2, "nets/finarfin.nnue");
 INCBIN(nnue3, "nets/feanor.nnue");
@@ -53,6 +86,7 @@ const NNUE_Params &g_nnue2 =
     *reinterpret_cast<const NNUE_Params *>(g_nnue2Data);
 const NNUE_Params &g_nnue3 =
     *reinterpret_cast<const NNUE_Params *>(g_nnue3Data);
+#endif
 
 template <size_t HiddenSize> struct alignas(64) Accumulator {
   std::array<int16_t, HiddenSize> white;
