@@ -465,9 +465,9 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
     int material = material_eval(position);
 
-    if (material < 0) {
+    if (material < -100) {
       draw_score += 50;
-    } else if (material > 0) {
+    } else if (material > 100) {
       draw_score -= 50;
     }
 
