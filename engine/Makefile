@@ -1,4 +1,4 @@
-.PHONY: build datagen aarch64 cross-aarch64 cross-aarch64-clang
+.PHONY: build datagen aarch64 cross-aarch64 cross-aarch64-clang wasm
 
 EXE := patricia
 SOURCES := src/patricia.cpp src/fathom/src/tbprobe.c
@@ -50,3 +50,22 @@ cross-aarch64-clang: CXXFLAGS := --target=aarch64-linux-gnu -O3 -std=c++20 -ffas
 cross-aarch64-clang: OUT := $(EXE)_aarch64$(SUFFIX)
 cross-aarch64-clang: $(SOURCES)
 	$(CXX) $(CXXFLAGS) $^ -o $(OUT)
+
+# --- WebAssembly build (Emscripten) -----------------------------------------
+WASM_SOURCES := src/patricia.cpp
+wasm: CXX := em++
+wasm: CXXFLAGS := -O3 -std=c++20 -ffast-math \
+    -DWASM_BUILD \
+    -s WASM=1 \
+    -s MODULARIZE=1 \
+    -s EXPORT_NAME="Patricia" \
+    -s ALLOW_MEMORY_GROWTH=1 \
+    -s INITIAL_MEMORY=67108864 \
+    -s EXPORTED_FUNCTIONS='["_main","_wasm_init","_wasm_uci_command"]' \
+    -s EXPORTED_RUNTIME_METHODS='["ccall","cwrap","UTF8ToString"]' \
+    --embed-file nets/fingolfin.nnue@/nets/fingolfin.nnue \
+    --embed-file nets/finarfin.nnue@/nets/finarfin.nnue \
+    --embed-file nets/feanor.nnue@/nets/feanor.nnue
+wasm: OUT := patricia.js
+wasm: $(WASM_SOURCES)
+	$(CXX) $^ $(CXXFLAGS) -o $(OUT)

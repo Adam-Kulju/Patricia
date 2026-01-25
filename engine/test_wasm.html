@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Patricia Chess Engine - WASM Test</title>
+    <style>
+        body { font-family: monospace; padding: 20px; }
+        #output {
+            background: #1a1a1a;
+            color: #00ff00;
+            padding: 20px;
+            height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        #input { width: 80%; font-family: monospace; padding: 10px; }
+        button { padding: 10px 20px; margin-left: 10px; }
+        h1 { color: #333; }
+    </style>
+</head>
+<body>
+    <h1>Patricia Chess Engine (WASM)</h1>
+    <p>Enter UCI commands below:</p>
+    <div>
+        <input type="text" id="input" placeholder="Enter UCI command (e.g., 'uci', 'isready', 'go depth 5')">
+        <button onclick="sendCommand()">Send</button>
+    </div>
+    <h3>Output:</h3>
+    <div id="output"></div>
+
+    <script src="patricia.js"></script>
+    <script>
+        let engine = null;
+        const output = document.getElementById('output');
+        const input = document.getElementById('input');
+
+        // Capture stdout
+        const originalPrint = console.log;
+
+        function log(text) {
+            output.textContent += text + '\n';
+            output.scrollTop = output.scrollHeight;
+        }
+
+        // Initialize the engine
+        Patricia({
+            print: function(text) {
+                log(text);
+            },
+            printErr: function(text) {
+                log('[ERROR] ' + text);
+            }
+        }).then(function(Module) {
+            engine = Module;
+            log('Patricia WASM loaded successfully!');
+            log('Type "uci" to start, or "go depth 5" to search.');
+            log('');
+        }).catch(function(err) {
+            log('Failed to load Patricia: ' + err);
+        });
+
+        function sendCommand() {
+            if (!engine) {
+                log('Engine not loaded yet!');
+                return;
+            }
+            const cmd = input.value.trim();
+            if (cmd) {
+                log('> ' + cmd);
+                engine.ccall('wasm_uci_command', null, ['string'], [cmd]);
+                input.value = '';
+            }
+        }
+
+        // Allow Enter key to send command
+        input.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendCommand();
+            }
+        });
+    </script>
+</body>
+</html>
