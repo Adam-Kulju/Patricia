@@ -105,6 +105,30 @@ Patricia has support for data generation; in order to compile the datagen script
 
 ***
 
+## WebAssembly Build
+
+Patricia can be compiled to WebAssembly for use in browsers:
+
+```bash
+cd engine
+source /path/to/emsdk/emsdk_env.sh
+make wasm
+```
+
+This produces `patricia.js` and `patricia.wasm`. Use in JavaScript:
+
+```javascript
+Patricia().then(Module => {
+    Module.ccall('wasm_uci_command', null, ['string'], ['uci']);
+    Module.ccall('wasm_uci_command', null, ['string'], ['position startpos']);
+    Module.ccall('wasm_uci_command', null, ['string'], ['go depth 10']);
+});
+```
+
+Note: WASM build is single-threaded and does not support Syzygy tablebases.
+
+***
+
 ## Acknowledgements
 
 - A huge shoutout to Stefan Pohl. His EAS Tool works wonderfully, makes properly and objectively testing for increase aggression possible, and is the measure by which Patricia development progressed. He was also very invested in Patricia's development and explained many features of the EAS tool to me so that I had a better understanding of what was a sacrifice and what wasn't. He has put a lot of time into quantifying style, and I am happy to have Patricia be a proof-of-concept and culmination of his ideas.
