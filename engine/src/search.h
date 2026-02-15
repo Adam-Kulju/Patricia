@@ -1310,8 +1310,8 @@ void iterative_deepen(
               bm_stability);
         }
 
-        if (depth == 6){
-          if (thread_info.best_scores[0] < 0){
+        if (depth >= 6 && total_mat(position) >= PhaseBound){
+          if (thread_info.best_scores[0] < -20){
             thread_info.phase = PhaseTypes::Endgame;
             thread_info.nnue_state.reset_nnue(position, thread_info.phase);
           }
