@@ -861,7 +861,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     // If that beats alpha, we search at normal depth with null window
     // If that also beats alpha, we search at normal depth with full window.
 
-    if (depth >= LMRMinDepth && moves_played > is_pv) {
+    if (depth >= LMRMinDepth && moves_played > is_pv + 1 + root) {
       int R = LMRTable[depth][moves_played];
       if (is_capture) {
         // Captures get LMRd less because they're the most likely moves to beat
