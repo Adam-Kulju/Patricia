@@ -528,7 +528,8 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   }
 
   int entry_type = EntryTypes::None, tt_static_eval = ScoreNone,
-      tt_score = ScoreNone, tt_move = MoveNone, tt_depth = 0;
+      tt_score = ScoreNone, tt_depth = 0;
+  Move tt_move = MoveNone;
 
   if (tt_hit) { // TT probe
     entry_type = entry.get_type();
@@ -689,8 +690,10 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   }
 
   int p_beta = beta + ProbcutMargin;
-  if (!in_check && depth >= 5 && abs(beta) < ScoreWin &&
-      (!tt_hit || tt_depth + 4 <= depth || tt_score >= p_beta)) {
+
+  
+  if (cutnode && abs(beta) < ScoreWin && depth > 4 &&
+      (tt_hit ? (tt_score >= p_beta && is_cap(position, tt_move)) : (static_eval >= beta))) {
 
     int threshold = p_beta - static_eval;
     MovePicker probcut_p;
@@ -716,6 +719,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
       int score =
           -qsearch(-p_beta, -p_beta + 1, moved_position, thread_info, TT);
+
       if (score >= p_beta) {
         score = -search<is_pv>(-p_beta, -p_beta + 1, depth - 4, false,
                                moved_position, thread_info, TT);
@@ -725,10 +729,16 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       thread_info.phase = phase;
 
       if (score >= p_beta) {
+        if (!singular_search) {
+          insert_entry(entry, hash, depth - 4, best_move, raw_eval,
+                 score_to_tt(best_score, ply), EntryTypes::LBound,
+                 thread_info.searches);
+        }
         return score;
       }
     }
   }
+    
 
   Move quiets[64];
   int num_quiets = 0;
