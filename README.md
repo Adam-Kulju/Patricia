@@ -15,8 +15,10 @@ A killer bunny who will not hesitate to ram as many pieces as possible down your
 ***
 
 ## Analyze with Patricia
-Patricia now has a built-in GUI that supports one-stop analysis!
+Patricia now has a dedicated GUI that supports a variety of analysis needs!
+
 [Windows](https://github.com/Adam-Kulju/Patricia/raw/refs/heads/gui/gui/Patricia-Windows.zip)
+
 [Linux](https://github.com/Adam-Kulju/Patricia/raw/refs/heads/gui/gui/Patricia-Linux.zip) 
 
 Download and extract the folder. The GUI binary is the executable in the root folder - double click and the browser should open and run it automatically.
