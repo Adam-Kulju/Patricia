@@ -14,6 +14,17 @@ A killer bunny who will not hesitate to ram as many pieces as possible down your
 
 ***
 
+## Analyze with Patricia
+Patricia now has a dedicated GUI that supports a variety of analysis needs!
+
+[Windows](https://github.com/Adam-Kulju/Patricia/raw/refs/heads/gui/gui/Patricia-Windows.zip)
+
+[Linux](https://github.com/Adam-Kulju/Patricia/raw/refs/heads/gui/gui/Patricia-Linux.zip) 
+
+Download and extract the folder. The GUI binary is the executable in the root folder - double click and the browser should open and run it automatically.
+
+***
+
 ## Download/Play Against Patricia
 Binaries for the most recent release of Patricia, as well as instructions on how to build Patricia from source, can be found on the [Releases](https://github.com/Adam-Kulju/Patricia/releases) page. <br><br>
 Patricia plays on Lichess under two different accounts: <br><br>
