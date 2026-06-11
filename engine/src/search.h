@@ -200,7 +200,7 @@ int correct_eval(const Position &position, ThreadInfo &thread_info, int eval) {
   if ((ss - 1)->played_move != MoveNone) {
     corr += thread_info.ContCorrHist[(ss - 2)->piece_moved][extract_to(
         (ss - 2)->played_move)][(ss - 1)->piece_moved]
-                                    [extract_to((ss - 2)->played_move)];
+                                    [extract_to((ss - 1)->played_move)];
   }
 
   return std::clamp(eval + (CorrWeight * corr / 512), ScoreLost + 1,
@@ -1087,7 +1087,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     if ((ss-1)->played_move && (ss-2)->played_move){
       update_corrhist(thread_info.ContCorrHist[(ss - 2)->piece_moved][extract_to(
         (ss - 2)->played_move)][(ss - 1)->piece_moved]
-                                    [extract_to((ss - 2)->played_move)],
+                                    [extract_to((ss - 1)->played_move)],
         bonus);
     }
   }
