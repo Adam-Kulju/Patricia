@@ -810,7 +810,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
     if (!root && best_score > ScoreLost && depth < SeePruningDepth) {
 
-      int margin = is_capture ? SeePruningQuietMargin : SeePruningNoisyMargin;
+      int margin = is_capture ? SeePruningNoisyMargin : SeePruningQuietMargin;
 
       if (!SEE(position, move, depth * margin)) {
         // SEE pruning: if we are hanging material, prune under certain
@@ -1150,12 +1150,12 @@ void iterative_deepen(
 
   thread_info.original_opt = thread_info.opt_time;
   thread_info.datagen_stop = false;
-  thread_info.nnue_state.reset_nnue(position, total_mat(position) < PhaseBound);
+  thread_info.phase = total_mat(position) < PhaseBound ? PhaseTypes::Endgame : PhaseTypes::Sacrifice;
+  thread_info.nnue_state.reset_nnue(position, thread_info.phase);
   calculate(position);
   thread_info.nodes = 0;
   thread_info.tb_hits = 0;
   thread_info.time_checks = 0;
-  thread_info.phase = total_mat(position) < PhaseBound ? PhaseTypes::Endgame : PhaseTypes::Sacrifice;
   thread_info.search_ply = 0; // reset all relevant thread_info
   thread_info.excluded_move = MoveNone;
   thread_info.best_moves = {0};
