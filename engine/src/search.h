@@ -731,7 +731,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       if (score >= p_beta) {
         if (!singular_search) {
           insert_entry(entry, hash, depth - 4, best_move, raw_eval,
-                 score_to_tt(best_score, ply), EntryTypes::LBound,
+                 score_to_tt(score, ply), EntryTypes::LBound,
                  thread_info.searches);
         }
         return score;
