@@ -866,7 +866,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     bool is_check = (attacks_square(moved_position, get_king_pos(position, color ^ 1),
                            color) != 0);
 
-    if (extension <= 0 && is_check && ply < thread_info.search_ply){
+    if (extension <= 0 && is_check && !is_pv && ply < thread_info.search_ply){
       extension++;
     }
 
