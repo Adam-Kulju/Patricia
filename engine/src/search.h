@@ -854,12 +854,21 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       }
     }
 
+    
+
     Position moved_position = position;
     make_move(moved_position, move);
 
     update_nnue_state(thread_info, move, position, moved_position);
 
     ss_push(position, thread_info, move);
+
+    bool is_check = (attacks_square(moved_position, get_king_pos(position, color ^ 1),
+                           color) != 0);
+
+    if (extension <= 0 && is_check && ply < thread_info.search_ply){
+      extension++;
+    }
 
     bool full_search = false;
     int newdepth = std::min(depth - 1 + extension, 126);
@@ -891,8 +900,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
       R += cutnode;
 
-      R -= (attacks_square(moved_position, get_king_pos(position, color ^ 1),
-                           color) != 0);
+      R -= in_check;
 
       R += (thread_info.FailHighCount[ply + 1] > 4);
 
