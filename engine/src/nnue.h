@@ -7,6 +7,7 @@
 #include <cstring>
 #include <span>
 #include <vector>
+#include <memory>
 #ifdef _MSC_VER
 #define W_MSVC
 #pragma push_macro("_MSC_VER")
@@ -48,11 +49,15 @@ INCBIN(nnue, "nets/fingolfin.nnue");
 INCBIN(nnue2, "nets/finarfin.nnue");
 INCBIN(nnue3, "nets/feanor.nnue");
 
-const NNUE_Params &g_nnue = *reinterpret_cast<const NNUE_Params *>(g_nnueData);
-const NNUE_Params &g_nnue2 =
-    *reinterpret_cast<const NNUE_Params *>(g_nnue2Data);
-const NNUE_Params &g_nnue3 =
-    *reinterpret_cast<const NNUE_Params *>(g_nnue3Data);
+constexpr std::array<const NNUE_Params*, 3> g_networks = {
+    static_cast<const NNUE_Params*>(std::assume_aligned<64>(g_nnueData)),
+    static_cast<const NNUE_Params*>(std::assume_aligned<64>(g_nnue2Data)),
+    static_cast<const NNUE_Params*>(std::assume_aligned<64>(g_nnue3Data))
+};
+
+[[nodiscard]] inline const NNUE_Params& get_nnue(size_t index) noexcept {
+    return *g_networks[index];
+}
 
 template <size_t HiddenSize> struct alignas(64) Accumulator {
   std::array<int16_t, HiddenSize> white;
