@@ -1178,6 +1178,7 @@ void iterative_deepen(
   Move prev_best = MoveNone;
   int alpha = ScoreNone, beta = -ScoreNone;
   int bm_stability = 0;
+  int prev_score = ScoreNone;
 
   for (int depth = 1; depth <= thread_info.max_iter_depth; depth++) {
 
@@ -1314,10 +1315,11 @@ void iterative_deepen(
             bm_stability = 0;
           }
 
+          int score_diff = (prev_score != ScoreNone) ? score - prev_score : 0;
           adjust_soft_limit(
               thread_info,
               find_root_move(thread_info, thread_info.best_moves[0])->nodes,
-              bm_stability);
+              bm_stability, score_diff);
         }
 
         if (depth >= 6 && total_mat(position) >= PhaseBound){
@@ -1342,6 +1344,9 @@ void iterative_deepen(
       }
 
       prev_best = thread_info.best_moves[0];
+      if (!thread_info.multipv_index) {
+        prev_score = score;
+      }
 
       if (depth > 6 && thread_info.multipv_index == 0) {
         alpha = score - 20, beta = score + 20;
