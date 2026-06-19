@@ -33,10 +33,10 @@ constexpr int SCALE = 400;
 constexpr int QA = 255;
 constexpr int QB = 64;
 
-const auto SCRELU_MIN_VEC = get_int16_vec(SCRELU_MIN);
-const auto QA_VEC = get_int16_vec(QA);
-
 constexpr int QAB = QA * QB;
+
+inline const auto SCRELU_MIN_VEC = get_int16_vec(SCRELU_MIN);
+inline const auto QA_VEC = get_int16_vec(QA);
 
 struct alignas(64) NNUE_Params {
   std::array<int16_t, INPUT_SIZE * LAYER1_SIZE> feature_v;
@@ -50,13 +50,20 @@ INCBIN(nnue2, "nets/finarfin.nnue");
 INCBIN(nnue3, "nets/feanor.nnue");
 
 constexpr std::array<const NNUE_Params*, 3> g_networks = {
-    static_cast<const NNUE_Params*>(std::assume_aligned<64>(g_nnueData)),
-    static_cast<const NNUE_Params*>(std::assume_aligned<64>(g_nnue2Data)),
-    static_cast<const NNUE_Params*>(std::assume_aligned<64>(g_nnue3Data))
+    reinterpret_cast<const NNUE_Params*>(std::assume_aligned<64>(g_nnueData)),
+    reinterpret_cast<const NNUE_Params*>(std::assume_aligned<64>(g_nnue2Data)),
+    reinterpret_cast<const NNUE_Params*>(std::assume_aligned<64>(g_nnue3Data))
 };
 
 [[nodiscard]] inline const NNUE_Params& get_nnue(size_t index) noexcept {
     return *g_networks[index];
+}
+
+[[nodiscard]] inline const NNUE_Params& nnue_for_phase(int phase) noexcept {
+    const size_t idx = phase == PhaseTypes::Middlegame ? 0
+                     : phase == PhaseTypes::Endgame    ? 1
+                                                       : 2;
+    return get_nnue(idx);
 }
 
 template <size_t HiddenSize> struct alignas(64) Accumulator {
@@ -75,23 +82,13 @@ constexpr int32_t screlu(int16_t x) {
   return clipped * clipped;
 }
 
-template <size_t size, size_t v>
-inline void add_to_all(std::array<int16_t, size> &output,
-                       std::array<int16_t, size> &input,
-                       const std::array<int16_t, v> &delta, size_t offset) {
-  for (size_t i = 0; i < size; ++i) {
-    output[i] = input[i] + delta[offset + i];
-  }
-}
-
-template <size_t size, size_t v>
-inline void subtract_from_all(std::array<int16_t, size> &output,
-                              std::array<int16_t, size> &input,
-                              const std::array<int16_t, v> &delta,
-                              size_t offset) {
-
-  for (size_t i = 0; i < size; ++i) {
-    output[i] = input[i] - delta[offset + i];
+template <size_t size, bool Add>
+inline void apply_delta(std::array<int16_t, size> &acc,
+                        const int16_t *delta) {
+  if constexpr (Add) {
+    for (size_t i = 0; i < size; ++i) acc[i] += delta[i];
+  } else {
+    for (size_t i = 0; i < size; ++i) acc[i] -= delta[i];
   }
 }
 
@@ -120,27 +117,18 @@ screlu_flatten(const std::array<int16_t, LAYER1_SIZE> &us,
   auto sum = vec_int32_zero();
 
   for (size_t i = 0; i < LAYER1_SIZE; i += REGISTER_SIZE) {
-
     auto v_us = int16_load(&us[i]);
     auto w_us = int16_load(&weights[i]);
-
     v_us = vec_int16_clamp(v_us, SCRELU_MIN_VEC, QA_VEC);
-
     auto our_product = vec_int16_multiply(v_us, w_us);
-
     auto our_result = vec_int16_madd_int32(our_product, v_us);
-
     sum = vec_int32_add(sum, our_result);
 
     auto v_them = int16_load(&them[i]);
     auto w_them = int16_load(&weights[LAYER1_SIZE + i]);
-
     v_them = vec_int16_clamp(v_them, SCRELU_MIN_VEC, QA_VEC);
-
     auto their_product = vec_int16_multiply(v_them, w_them);
-
     auto their_result = vec_int16_madd_int32(their_product, v_them);
-
     sum = vec_int32_add(sum, their_result);
   }
 
@@ -149,12 +137,10 @@ screlu_flatten(const std::array<int16_t, LAYER1_SIZE> &us,
 #else
 
   int32_t sum = 0;
-
   for (size_t i = 0; i < LAYER1_SIZE; ++i) {
     sum += screlu(us[i]) * weights[i];
     sum += screlu(them[i]) * weights[LAYER1_SIZE + i];
   }
-
   return sum / QA;
 
 #endif
@@ -163,7 +149,7 @@ screlu_flatten(const std::array<int16_t, LAYER1_SIZE> &us,
 class NNUE_State {
 public:
   Accumulator<LAYER1_SIZE> m_accumulator_stack[MaxSearchDepth];
-  Accumulator<LAYER1_SIZE> *m_curr;
+  Accumulator<LAYER1_SIZE> *m_curr = nullptr;
 
   void add_sub(int from_piece, int from, int to_piece, int to, int phase);
   void add_sub_sub(int from_piece, int from, int to_piece, int to, int captured,
@@ -181,28 +167,24 @@ public:
   template <bool Activate>
   inline void update_feature(int piece, int square, int phase);
 
-  NNUE_State() {}
+  NNUE_State() = default;
 };
 
 void NNUE_State::add_sub(int from_piece, int from, int to_piece, int to,
                          int phase) {
-
   const auto [white_from, black_from] = feature_indices(from_piece, from);
   const auto [white_to, black_to] = feature_indices(to_piece, to);
+  const NNUE_Params &n = nnue_for_phase(phase);
 
-  const NNUE_Params *ptr =
-      (phase == PhaseTypes::Middlegame ? &g_nnue : phase == PhaseTypes::Endgame ? &g_nnue2 : &g_nnue3);
+  const int16_t *wfrom = &n.feature_v[white_from * LAYER1_SIZE];
+  const int16_t *wto   = &n.feature_v[white_to   * LAYER1_SIZE];
+  const int16_t *bfrom = &n.feature_v[black_from * LAYER1_SIZE];
+  const int16_t *bto   = &n.feature_v[black_to   * LAYER1_SIZE];
 
   for (size_t i = 0; i < LAYER1_SIZE; ++i) {
-    m_curr[1].white[i] = m_curr->white[i] +
-                         ptr->feature_v[white_to * LAYER1_SIZE + i] -
-                         ptr->feature_v[white_from * LAYER1_SIZE + i];
-
-    m_curr[1].black[i] = m_curr->black[i] +
-                         ptr->feature_v[black_to * LAYER1_SIZE + i] -
-                         ptr->feature_v[black_from * LAYER1_SIZE + i];
+    m_curr[1].white[i] = m_curr->white[i] + wto[i] - wfrom[i];
+    m_curr[1].black[i] = m_curr->black[i] + bto[i] - bfrom[i];
   }
-
   m_curr++;
 }
 
@@ -211,22 +193,19 @@ void NNUE_State::add_sub_sub(int from_piece, int from, int to_piece, int to,
   const auto [white_from, black_from] = feature_indices(from_piece, from);
   const auto [white_to, black_to] = feature_indices(to_piece, to);
   const auto [white_capt, black_capt] = feature_indices(captured, captured_sq);
+  const NNUE_Params &n = nnue_for_phase(phase);
 
-  const NNUE_Params *ptr =
-      (phase == PhaseTypes::Middlegame ? &g_nnue : phase == PhaseTypes::Endgame ? &g_nnue2 : &g_nnue3);
+  const int16_t *wfrom = &n.feature_v[white_from * LAYER1_SIZE];
+  const int16_t *wto   = &n.feature_v[white_to   * LAYER1_SIZE];
+  const int16_t *wcapt = &n.feature_v[white_capt * LAYER1_SIZE];
+  const int16_t *bfrom = &n.feature_v[black_from * LAYER1_SIZE];
+  const int16_t *bto   = &n.feature_v[black_to   * LAYER1_SIZE];
+  const int16_t *bcapt = &n.feature_v[black_capt * LAYER1_SIZE];
 
   for (size_t i = 0; i < LAYER1_SIZE; ++i) {
-    m_curr[1].white[i] = m_curr->white[i] +
-                         ptr->feature_v[white_to * LAYER1_SIZE + i] -
-                         ptr->feature_v[white_from * LAYER1_SIZE + i] -
-                         ptr->feature_v[white_capt * LAYER1_SIZE + i];
-
-    m_curr[1].black[i] = m_curr->black[i] +
-                         ptr->feature_v[black_to * LAYER1_SIZE + i] -
-                         ptr->feature_v[black_from * LAYER1_SIZE + i] -
-                         ptr->feature_v[black_capt * LAYER1_SIZE + i];
+    m_curr[1].white[i] = m_curr->white[i] + wto[i] - wfrom[i] - wcapt[i];
+    m_curr[1].black[i] = m_curr->black[i] + bto[i] - bfrom[i] - bcapt[i];
   }
-
   m_curr++;
 }
 
@@ -236,65 +215,47 @@ void NNUE_State::add_add_sub_sub(int piece1, int from1, int to1, int piece2,
   const auto [white_to1, black_to1] = feature_indices(piece1, to1);
   const auto [white_from2, black_from2] = feature_indices(piece2, from2);
   const auto [white_to2, black_to2] = feature_indices(piece2, to2);
+  const NNUE_Params &n = nnue_for_phase(phase);
 
-  const NNUE_Params *ptr =
-      (phase == PhaseTypes::Middlegame ? &g_nnue : phase == PhaseTypes::Endgame ? &g_nnue2 : &g_nnue3);
+  const int16_t *wfrom1 = &n.feature_v[white_from1 * LAYER1_SIZE];
+  const int16_t *wto1   = &n.feature_v[white_to1   * LAYER1_SIZE];
+  const int16_t *wfrom2 = &n.feature_v[white_from2 * LAYER1_SIZE];
+  const int16_t *wto2   = &n.feature_v[white_to2   * LAYER1_SIZE];
+  const int16_t *bfrom1 = &n.feature_v[black_from1 * LAYER1_SIZE];
+  const int16_t *bto1   = &n.feature_v[black_to1   * LAYER1_SIZE];
+  const int16_t *bfrom2 = &n.feature_v[black_from2 * LAYER1_SIZE];
+  const int16_t *bto2   = &n.feature_v[black_to2   * LAYER1_SIZE];
 
   for (size_t i = 0; i < LAYER1_SIZE; ++i) {
-    m_curr[1].white[i] = m_curr->white[i] +
-                         ptr->feature_v[white_to1 * LAYER1_SIZE + i] -
-                         ptr->feature_v[white_from1 * LAYER1_SIZE + i] +
-                         ptr->feature_v[white_to2 * LAYER1_SIZE + i] -
-                         ptr->feature_v[white_from2 * LAYER1_SIZE + i];
-
-    m_curr[1].black[i] = m_curr->black[i] +
-                         ptr->feature_v[black_to1 * LAYER1_SIZE + i] -
-                         ptr->feature_v[black_from1 * LAYER1_SIZE + i] +
-                         ptr->feature_v[black_to2 * LAYER1_SIZE + i] -
-                         ptr->feature_v[black_from2 * LAYER1_SIZE + i];
+    m_curr[1].white[i] = m_curr->white[i] + wto1[i] - wfrom1[i] + wto2[i] - wfrom2[i];
+    m_curr[1].black[i] = m_curr->black[i] + bto1[i] - bfrom1[i] + bto2[i] - bfrom2[i];
   }
-
   m_curr++;
 }
 
 void NNUE_State::pop() { m_curr--; }
 
 int NNUE_State::evaluate(int color, int phase) {
-
-  const NNUE_Params *ptr =
-      (phase == PhaseTypes::Middlegame ? &g_nnue : phase == PhaseTypes::Endgame ? &g_nnue2 : &g_nnue3);
+  const NNUE_Params &n = nnue_for_phase(phase);
   const auto output =
       color == Colors::White
-          ? screlu_flatten(m_curr->white, m_curr->black, ptr->output_v)
-          : screlu_flatten(m_curr->black, m_curr->white, ptr->output_v);
-
-  return (output + ptr->output_bias) * SCALE / QAB;
+          ? screlu_flatten(m_curr->white, m_curr->black, n.output_v)
+          : screlu_flatten(m_curr->black, m_curr->white, n.output_v);
+  return (output + n.output_bias) * SCALE / QAB;
 }
 
 template <bool Activate>
 inline void NNUE_State::update_feature(int piece, int square, int phase) {
   const auto [white_idx, black_idx] = feature_indices(piece, square);
-  const NNUE_Params *ptr =
-      (phase == PhaseTypes::Middlegame ? &g_nnue : phase == PhaseTypes::Endgame ? &g_nnue2 : &g_nnue3);
+  const NNUE_Params &n = nnue_for_phase(phase);
 
-  if constexpr (Activate) {
-    add_to_all(m_curr->white, m_curr->white, ptr->feature_v,
-               white_idx * LAYER1_SIZE);
-    add_to_all(m_curr->black, m_curr->black, ptr->feature_v,
-               black_idx * LAYER1_SIZE);
-  } else {
-    subtract_from_all(m_curr->white, m_curr->white, ptr->feature_v,
-                      white_idx * LAYER1_SIZE);
-    subtract_from_all(m_curr->black, m_curr->black, ptr->feature_v,
-                      black_idx * LAYER1_SIZE);
-  }
+  apply_delta<LAYER1_SIZE, Activate>(m_curr->white, &n.feature_v[white_idx * LAYER1_SIZE]);
+  apply_delta<LAYER1_SIZE, Activate>(m_curr->black, &n.feature_v[black_idx * LAYER1_SIZE]);
 }
 
 void NNUE_State::reset_nnue(const Position &position, int phase) {
-
   m_curr = &m_accumulator_stack[0];
-  m_curr->init(phase == PhaseTypes::Middlegame ? g_nnue.feature_bias
-                                                  : phase == PhaseTypes::Endgame ? g_nnue2.feature_bias : g_nnue3.feature_bias);
+  m_curr->init(nnue_for_phase(phase).feature_bias);
 
   for (int square = a1; square < SqNone; square++) {
     if (position.board[square] != Pieces::Blank) {
@@ -304,10 +265,8 @@ void NNUE_State::reset_nnue(const Position &position, int phase) {
 }
 
 void NNUE_State::change_phases(const Position &position, int phase) {
-
   m_curr++;
-  m_curr->init(phase == PhaseTypes::Middlegame ? g_nnue.feature_bias
-                                                  : phase == PhaseTypes::Endgame ? g_nnue2.feature_bias : g_nnue3.feature_bias);
+  m_curr->init(nnue_for_phase(phase).feature_bias);
 
   for (int square = a1; square < SqNone; square++) {
     if (position.board[square] != Pieces::Blank) {
