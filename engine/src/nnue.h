@@ -49,23 +49,22 @@ INCBIN(nnue, "nets/fingolfin.nnue");
 INCBIN(nnue2, "nets/finarfin.nnue");
 INCBIN(nnue3, "nets/feanor.nnue");
 
-constexpr std::array<const NNUE_Params*, 3> g_networks = {
-    reinterpret_cast<const NNUE_Params*>(std::assume_aligned<64>(g_nnueData)),
-    reinterpret_cast<const NNUE_Params*>(std::assume_aligned<64>(g_nnue2Data)),
-    reinterpret_cast<const NNUE_Params*>(std::assume_aligned<64>(g_nnue3Data))
-};
-
 [[nodiscard]] inline const NNUE_Params& get_nnue(size_t index) noexcept {
-    return *g_networks[index];
+    const void* data = index == 0 ? static_cast<const void*>(g_nnueData)
+                     : index == 1 ? static_cast<const void*>(g_nnue2Data)
+                                  : static_cast<const void*>(g_nnue3Data);
+
+    return *reinterpret_cast<const NNUE_Params*>(
+        std::assume_aligned<64>(data));
 }
 
 [[nodiscard]] inline const NNUE_Params& nnue_for_phase(int phase) noexcept {
     const size_t idx = phase == PhaseTypes::Middlegame ? 0
                      : phase == PhaseTypes::Endgame    ? 1
                                                        : 2;
+
     return get_nnue(idx);
 }
-
 template <size_t HiddenSize> struct alignas(64) Accumulator {
   std::array<int16_t, HiddenSize> white;
   std::array<int16_t, HiddenSize> black;
