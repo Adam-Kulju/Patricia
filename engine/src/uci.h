@@ -317,7 +317,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
       else {
         for (auto &param : params) {
           if (name == param.name) {
-            param.value = value;
+            *param.value = value;
             if (name == "LMRBase" || name == "LMRRatio") {
               init_LMR();
             }
