@@ -4,8 +4,10 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <memory>
 #include <span>
 #include <utility>
 
@@ -16,6 +18,8 @@
 #endif
 
 #define INCBIN_PREFIX g_
+#undef INCBIN_ALIGNMENT
+#define INCBIN_ALIGNMENT 64
 #include "incbin.h"
 
 #ifdef W_MSVC
@@ -114,7 +118,7 @@ feature_indices(int piece, int sq) noexcept {
 screlu_flatten(const std::array<int16_t, LAYER1_SIZE>     &us,
                const std::array<int16_t, LAYER1_SIZE>     &them,
                const std::array<int16_t, LAYER1_SIZE * 2> &weights) noexcept {
-#if defined(__AVX512F__) || defined(__AVX2__)
+#if defined(__AVX512BW__) || defined(__AVX2__)
   auto sum = vec_int32_zero();
 
   const auto accumulate = [&](const int16_t* acc, const int16_t* w) {
@@ -130,18 +134,37 @@ screlu_flatten(const std::array<int16_t, LAYER1_SIZE>     &us,
   }
   return vec_int32_hadd(sum) / QA;
 #else
-  int32_t sum = 0;
+  int64_t sum = 0;
   for (size_t i = 0; i < LAYER1_SIZE; ++i) {
-    sum += screlu(us[i])   * weights[i];
-    sum += screlu(them[i]) * weights[LAYER1_SIZE + i];
+    sum += static_cast<int64_t>(screlu(us[i]))   * weights[i];
+    sum += static_cast<int64_t>(screlu(them[i])) * weights[LAYER1_SIZE + i];
   }
-  return sum / QA;
+  return static_cast<int32_t>(sum / QA);
 #endif
 }
 
 class NNUE_State {
 public:
-  NNUE_State() = default;
+  NNUE_State() noexcept : m_curr(m_stack.data()) {}
+
+  NNUE_State(const NNUE_State& other) noexcept
+      : m_stack(other.m_stack),
+        m_curr(m_stack.data() + other.current_index()) {}
+
+  NNUE_State& operator=(const NNUE_State& other) noexcept {
+    if (this != &other) {
+      const size_t index = other.current_index();
+      m_stack = other.m_stack;
+      m_curr = m_stack.data() + index;
+    }
+    return *this;
+  }
+
+  NNUE_State(NNUE_State&& other) noexcept : NNUE_State(other) {}
+
+  NNUE_State& operator=(NNUE_State&& other) noexcept {
+    return operator=(other);
+  }
 
   void add_sub(int from_piece, int from, int to_piece, int to, int phase);
   void add_sub_sub(int from_piece, int from, int to_piece, int to,
@@ -161,7 +184,16 @@ private:
 
   void refresh_from_position(const Position& position, int phase);
 
+  [[nodiscard]] size_t current_index() const noexcept {
+    assert(m_curr != nullptr);
+    const auto index = m_curr - m_stack.data();
+    assert(index >= 0);
+    assert(static_cast<size_t>(index) < m_stack.size());
+    return static_cast<size_t>(index);
+  }
+
   [[nodiscard]] Accumulator<LAYER1_SIZE>& next() noexcept {
+    assert(m_curr != nullptr);
     assert(m_curr + 1 < m_stack.data() + m_stack.size());
     return *(m_curr + 1);
   }
@@ -171,8 +203,8 @@ private:
                             const int16_t* w_add, const int16_t* w_sub,
                             const int16_t* b_add, const int16_t* b_sub) noexcept {
     for (size_t i = 0; i < LAYER1_SIZE; ++i) {
-      dst.white[i] = src.white[i] + w_add[i] - w_sub[i];
-      dst.black[i] = src.black[i] + b_add[i] - b_sub[i];
+      dst.white[i] = static_cast<int16_t>(src.white[i] + w_add[i] - w_sub[i]);
+      dst.black[i] = static_cast<int16_t>(src.black[i] + b_add[i] - b_sub[i]);
     }
   }
 
@@ -183,8 +215,8 @@ private:
                                 const int16_t* b_add, const int16_t* b_sub1,
                                 const int16_t* b_sub2) noexcept {
     for (size_t i = 0; i < LAYER1_SIZE; ++i) {
-      dst.white[i] = src.white[i] + w_add[i] - w_sub1[i] - w_sub2[i];
-      dst.black[i] = src.black[i] + b_add[i] - b_sub1[i] - b_sub2[i];
+      dst.white[i] = static_cast<int16_t>(src.white[i] + w_add[i] - w_sub1[i] - w_sub2[i]);
+      dst.black[i] = static_cast<int16_t>(src.black[i] + b_add[i] - b_sub1[i] - b_sub2[i]);
     }
   }
 
@@ -195,8 +227,8 @@ private:
                                     const int16_t* b_add1, const int16_t* b_sub1,
                                     const int16_t* b_add2, const int16_t* b_sub2) noexcept {
     for (size_t i = 0; i < LAYER1_SIZE; ++i) {
-      dst.white[i] = src.white[i] + w_add1[i] - w_sub1[i] + w_add2[i] - w_sub2[i];
-      dst.black[i] = src.black[i] + b_add1[i] - b_sub1[i] + b_add2[i] - b_sub2[i];
+      dst.white[i] = static_cast<int16_t>(src.white[i] + w_add1[i] - w_sub1[i] + w_add2[i] - w_sub2[i]);
+      dst.black[i] = static_cast<int16_t>(src.black[i] + b_add1[i] - b_sub1[i] + b_add2[i] - b_sub2[i]);
     }
   }
 
@@ -205,6 +237,7 @@ private:
 
   [[nodiscard]] static const int16_t*
   feature_ptr(const NNUE_Params& n, size_t idx) noexcept {
+    assert(idx < INPUT_SIZE);
     return n.feature_v.data() + idx * LAYER1_SIZE;
   }
 };
@@ -253,21 +286,26 @@ inline void NNUE_State::add_add_sub_sub(int piece1, int from1, int to1,
 }
 
 inline void NNUE_State::pop() noexcept {
+  assert(m_curr != nullptr);
   assert(m_curr > m_stack.data());
   --m_curr;
 }
 
 inline int NNUE_State::evaluate(int color, int phase) const {
+  assert(m_curr != nullptr);
+
   const NNUE_Params& n = nnue_for_phase(phase);
-  const auto& [us, them] = (color == Colors::White)
-      ? std::tie(m_curr->white, m_curr->black)
-      : std::tie(m_curr->black, m_curr->white);
-  const int32_t output = screlu_flatten(us, them, n.output_v);
-  return (output + n.output_bias) * SCALE / QAB;
+  const auto& us = (color == Colors::White) ? m_curr->white : m_curr->black;
+  const auto& them = (color == Colors::White) ? m_curr->black : m_curr->white;
+
+  const int32_t output = screlu_flatten(us, them, n.output_v) + n.output_bias;
+  return static_cast<int>((static_cast<int64_t>(output) * SCALE) / QB);
 }
 
 template <bool Activate>
 inline void NNUE_State::update_feature(int piece, int square, int phase) noexcept {
+  assert(m_curr != nullptr);
+
   const auto [white_idx, black_idx] = feature_indices(piece, square);
   const NNUE_Params& n = nnue_for_phase(phase);
 
@@ -276,16 +314,18 @@ inline void NNUE_State::update_feature(int piece, int square, int phase) noexcep
 
   for (size_t i = 0; i < LAYER1_SIZE; ++i) {
     if constexpr (Activate) {
-      m_curr->white[i] += wd[i];
-      m_curr->black[i] += bd[i];
+      m_curr->white[i] = static_cast<int16_t>(m_curr->white[i] + wd[i]);
+      m_curr->black[i] = static_cast<int16_t>(m_curr->black[i] + bd[i]);
     } else {
-      m_curr->white[i] -= wd[i];
-      m_curr->black[i] -= bd[i];
+      m_curr->white[i] = static_cast<int16_t>(m_curr->white[i] - wd[i]);
+      m_curr->black[i] = static_cast<int16_t>(m_curr->black[i] - bd[i]);
     }
   }
 }
 
 inline void NNUE_State::refresh_from_position(const Position& position, int phase) {
+  assert(m_curr != nullptr);
+
   m_curr->init(std::span<const int16_t, LAYER1_SIZE>(nnue_for_phase(phase).feature_bias));
   for (int square = a1; square < SqNone; ++square) {
     const int piece = position.board[square];
@@ -301,6 +341,7 @@ inline void NNUE_State::reset_nnue(const Position& position, int phase) {
 }
 
 inline void NNUE_State::change_phases(const Position& position, int phase) {
+  assert(m_curr != nullptr);
   assert(m_curr + 1 < m_stack.data() + m_stack.size());
   ++m_curr;
   refresh_from_position(position, phase);
