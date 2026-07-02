@@ -299,7 +299,7 @@ inline int NNUE_State::evaluate(int color, int phase) const {
   const auto& them = (color == Colors::White) ? m_curr->black : m_curr->white;
 
   const int32_t output = screlu_flatten(us, them, n.output_v) + n.output_bias;
-  return static_cast<int>((static_cast<int64_t>(output) * SCALE) / QB);
+  return static_cast<int>((static_cast<int64_t>(output) * SCALE) / QAB);
 }
 
 template <bool Activate>
