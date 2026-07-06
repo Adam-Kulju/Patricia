@@ -85,6 +85,9 @@ TUNE_PARAM(AspStartWindow, 20, 10, 30);
 TUNE_PARAM(NodeTmFactor1, 149, 100, 200);
 TUNE_PARAM(NodeTmFactor2, 177, 125, 225);
 TUNE_PARAM(BmFactor1, 152, 100, 200);
+TUNE_PARAM(ScoreDropDiv, 140, 80, 300);
+TUNE_PARAM(ScoreDropMin, 90, 70, 100);
+TUNE_PARAM(ScoreDropMax, 118, 100, 140);
 
 #undef TUNE_PARAM
 
