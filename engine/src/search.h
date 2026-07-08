@@ -1178,7 +1178,11 @@ void iterative_deepen(
   Move prev_best = MoveNone;
   int alpha = ScoreNone, beta = -ScoreNone;
   int bm_stability = 0;
-  int prev_score = ScoreNone;
+
+  // Short rolling window of recently completed iteration scores, used to
+  // smooth out single-iteration noise in the score-drop time factor.
+  std::array<int, 3> score_hist{};
+  int score_hist_count = 0;
 
   for (int depth = 1; depth <= thread_info.max_iter_depth; depth++) {
 
@@ -1315,13 +1319,24 @@ void iterative_deepen(
             bm_stability = 0;
           }
 
+          int avg_prev_score = score;
+          if (score_hist_count > 0) {
+            int n = std::min<int>(score_hist_count, score_hist.size());
+            int sum = 0;
+            for (int i = 0; i < n; i++) {
+              sum += score_hist[i];
+            }
+            avg_prev_score = sum / n;
+          }
+
           adjust_soft_limit(
               thread_info,
               find_root_move(thread_info, thread_info.best_moves[0])->nodes,
-              bm_stability, score, prev_score == ScoreNone ? score : prev_score);
+              bm_stability, score, avg_prev_score);
         }
 
-        prev_score = score;
+        score_hist[score_hist_count % score_hist.size()] = score;
+        score_hist_count++;
 
         if (depth >= 6 && total_mat(position) >= PhaseBound){
           if (thread_info.best_scores[0] < -20){
