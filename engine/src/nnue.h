@@ -11,6 +11,13 @@
 #include <span>
 #include <utility>
 
+#if defined(NDEBUG) || defined(__OPTIMIZE__) || \
+    (defined(_MSC_VER) && !defined(_DEBUG))
+#define PATRICIA_NNUE_ASSERT(condition) ((void)0)
+#else
+#define PATRICIA_NNUE_ASSERT(condition) assert(condition)
+#endif
+
 #ifdef _MSC_VER
 #define W_MSVC
 #pragma push_macro("_MSC_VER")
@@ -18,9 +25,9 @@
 #endif
 
 #define INCBIN_PREFIX g_
+#include "incbin.h"
 #undef INCBIN_ALIGNMENT
 #define INCBIN_ALIGNMENT 64
-#include "incbin.h"
 
 #ifdef W_MSVC
 #pragma pop_macro("_MSC_VER")
@@ -42,8 +49,10 @@ inline constexpr int QAB = QA * QB;
 inline constexpr size_t NUM_NETS = 3;
 
 static_assert(SCRELU_MAX == QA, "SCReLU clamp upper bound must equal QA");
-static_assert(LAYER1_SIZE % REGISTER_SIZE == 0,
+#if defined(__AVX512BW__) || defined(__AVX2__)
+static_assert(LAYER1_SIZE % (REGISTER_SIZE * 2) == 0,
               "LAYER1_SIZE must be a multiple of the SIMD register width");
+#endif
 
 inline const auto SCRELU_MIN_VEC = get_int16_vec(SCRELU_MIN);
 inline const auto QA_VEC         = get_int16_vec(QA);
@@ -65,7 +74,7 @@ INCBIN(nnue3, "nets/feanor.nnue");
       reinterpret_cast<const NNUE_Params*>(g_nnue2Data),
       reinterpret_cast<const NNUE_Params*>(g_nnue3Data),
   };
-  assert(index < nets.size());
+  PATRICIA_NNUE_ASSERT(index < nets.size());
   return *std::assume_aligned<64>(nets[index]);
 }
 
@@ -119,20 +128,27 @@ screlu_flatten(const std::array<int16_t, LAYER1_SIZE>     &us,
                const std::array<int16_t, LAYER1_SIZE>     &them,
                const std::array<int16_t, LAYER1_SIZE * 2> &weights) noexcept {
 #if defined(__AVX512BW__) || defined(__AVX2__)
-  auto sum = vec_int32_zero();
+  auto sum0 = vec_int32_zero();
+  auto sum1 = vec_int32_zero();
+  auto sum2 = vec_int32_zero();
+  auto sum3 = vec_int32_zero();
 
-  const auto accumulate = [&](const int16_t* acc, const int16_t* w) {
+  const auto accumulate = [](auto& sum, const int16_t* acc, const int16_t* w) {
     auto v = int16_load(acc);
     v = vec_int16_clamp(v, SCRELU_MIN_VEC, QA_VEC);
     const auto product = vec_int16_multiply(v, int16_load(w));
     sum = vec_int32_add(sum, vec_int16_madd_int32(product, v));
   };
 
-  for (size_t i = 0; i < LAYER1_SIZE; i += REGISTER_SIZE) {
-    accumulate(&us[i],   &weights[i]);
-    accumulate(&them[i], &weights[LAYER1_SIZE + i]);
+  for (size_t i = 0; i < LAYER1_SIZE; i += REGISTER_SIZE * 2) {
+    accumulate(sum0, &us[i], &weights[i]);
+    accumulate(sum1, &them[i], &weights[LAYER1_SIZE + i]);
+    accumulate(sum2, &us[i + REGISTER_SIZE], &weights[i + REGISTER_SIZE]);
+    accumulate(sum3, &them[i + REGISTER_SIZE],
+               &weights[LAYER1_SIZE + i + REGISTER_SIZE]);
   }
-  return vec_int32_hadd(sum) / QA;
+  return vec_int32_hadd(vec_int32_add(vec_int32_add(sum0, sum1),
+                                      vec_int32_add(sum2, sum3))) / QA;
 #else
   int64_t sum = 0;
   for (size_t i = 0; i < LAYER1_SIZE; ++i) {
@@ -185,27 +201,101 @@ private:
   void refresh_from_position(const Position& position, int phase);
 
   [[nodiscard]] size_t current_index() const noexcept {
-    assert(m_curr != nullptr);
+    PATRICIA_NNUE_ASSERT(m_curr != nullptr);
     const auto index = m_curr - m_stack.data();
-    assert(index >= 0);
-    assert(static_cast<size_t>(index) < m_stack.size());
+    PATRICIA_NNUE_ASSERT(index >= 0);
+    PATRICIA_NNUE_ASSERT(static_cast<size_t>(index) < m_stack.size());
     return static_cast<size_t>(index);
   }
 
   [[nodiscard]] Accumulator<LAYER1_SIZE>& next() noexcept {
-    assert(m_curr != nullptr);
-    assert(m_curr + 1 < m_stack.data() + m_stack.size());
+    PATRICIA_NNUE_ASSERT(m_curr != nullptr);
+    PATRICIA_NNUE_ASSERT(m_curr + 1 < m_stack.data() + m_stack.size());
     return *(m_curr + 1);
+  }
+
+  static void apply_add_sub_one(int16_t* dst, const int16_t* src,
+                                const int16_t* add,
+                                const int16_t* sub) noexcept {
+#if defined(__AVX512BW__)
+    for (size_t i = 0; i < LAYER1_SIZE; i += REGISTER_SIZE) {
+      auto value = _mm512_add_epi16(int16_load(src + i), int16_load(add + i));
+      value = _mm512_sub_epi16(value, int16_load(sub + i));
+      _mm512_store_si512(reinterpret_cast<__m512i*>(dst + i), value);
+    }
+#elif defined(__AVX2__)
+    for (size_t i = 0; i < LAYER1_SIZE; i += REGISTER_SIZE) {
+      auto value = _mm256_add_epi16(int16_load(src + i), int16_load(add + i));
+      value = _mm256_sub_epi16(value, int16_load(sub + i));
+      _mm256_store_si256(reinterpret_cast<__m256i*>(dst + i), value);
+    }
+#else
+    for (size_t i = 0; i < LAYER1_SIZE; ++i) {
+      dst[i] = static_cast<int16_t>(src[i] + add[i] - sub[i]);
+    }
+#endif
+  }
+
+  static void apply_add_sub_sub_one(int16_t* dst, const int16_t* src,
+                                    const int16_t* add,
+                                    const int16_t* sub1,
+                                    const int16_t* sub2) noexcept {
+#if defined(__AVX512BW__)
+    for (size_t i = 0; i < LAYER1_SIZE; i += REGISTER_SIZE) {
+      auto value = _mm512_add_epi16(int16_load(src + i), int16_load(add + i));
+      value = _mm512_sub_epi16(value, int16_load(sub1 + i));
+      value = _mm512_sub_epi16(value, int16_load(sub2 + i));
+      _mm512_store_si512(reinterpret_cast<__m512i*>(dst + i), value);
+    }
+#elif defined(__AVX2__)
+    for (size_t i = 0; i < LAYER1_SIZE; i += REGISTER_SIZE) {
+      auto value = _mm256_add_epi16(int16_load(src + i), int16_load(add + i));
+      value = _mm256_sub_epi16(value, int16_load(sub1 + i));
+      value = _mm256_sub_epi16(value, int16_load(sub2 + i));
+      _mm256_store_si256(reinterpret_cast<__m256i*>(dst + i), value);
+    }
+#else
+    for (size_t i = 0; i < LAYER1_SIZE; ++i) {
+      dst[i] = static_cast<int16_t>(src[i] + add[i] - sub1[i] - sub2[i]);
+    }
+#endif
+  }
+
+  static void apply_add_add_sub_sub_one(int16_t* dst, const int16_t* src,
+                                        const int16_t* add1,
+                                        const int16_t* sub1,
+                                        const int16_t* add2,
+                                        const int16_t* sub2) noexcept {
+#if defined(__AVX512BW__)
+    for (size_t i = 0; i < LAYER1_SIZE; i += REGISTER_SIZE) {
+      auto value = _mm512_add_epi16(int16_load(src + i), int16_load(add1 + i));
+      value = _mm512_sub_epi16(value, int16_load(sub1 + i));
+      value = _mm512_add_epi16(value, int16_load(add2 + i));
+      value = _mm512_sub_epi16(value, int16_load(sub2 + i));
+      _mm512_store_si512(reinterpret_cast<__m512i*>(dst + i), value);
+    }
+#elif defined(__AVX2__)
+    for (size_t i = 0; i < LAYER1_SIZE; i += REGISTER_SIZE) {
+      auto value = _mm256_add_epi16(int16_load(src + i), int16_load(add1 + i));
+      value = _mm256_sub_epi16(value, int16_load(sub1 + i));
+      value = _mm256_add_epi16(value, int16_load(add2 + i));
+      value = _mm256_sub_epi16(value, int16_load(sub2 + i));
+      _mm256_store_si256(reinterpret_cast<__m256i*>(dst + i), value);
+    }
+#else
+    for (size_t i = 0; i < LAYER1_SIZE; ++i) {
+      dst[i] = static_cast<int16_t>(
+          src[i] + add1[i] - sub1[i] + add2[i] - sub2[i]);
+    }
+#endif
   }
 
   static void apply_add_sub(Accumulator<LAYER1_SIZE>& dst,
                             const Accumulator<LAYER1_SIZE>& src,
                             const int16_t* w_add, const int16_t* w_sub,
                             const int16_t* b_add, const int16_t* b_sub) noexcept {
-    for (size_t i = 0; i < LAYER1_SIZE; ++i) {
-      dst.white[i] = static_cast<int16_t>(src.white[i] + w_add[i] - w_sub[i]);
-      dst.black[i] = static_cast<int16_t>(src.black[i] + b_add[i] - b_sub[i]);
-    }
+    apply_add_sub_one(dst.white.data(), src.white.data(), w_add, w_sub);
+    apply_add_sub_one(dst.black.data(), src.black.data(), b_add, b_sub);
   }
 
   static void apply_add_sub_sub(Accumulator<LAYER1_SIZE>& dst,
@@ -214,10 +304,10 @@ private:
                                 const int16_t* w_sub2,
                                 const int16_t* b_add, const int16_t* b_sub1,
                                 const int16_t* b_sub2) noexcept {
-    for (size_t i = 0; i < LAYER1_SIZE; ++i) {
-      dst.white[i] = static_cast<int16_t>(src.white[i] + w_add[i] - w_sub1[i] - w_sub2[i]);
-      dst.black[i] = static_cast<int16_t>(src.black[i] + b_add[i] - b_sub1[i] - b_sub2[i]);
-    }
+    apply_add_sub_sub_one(dst.white.data(), src.white.data(),
+                          w_add, w_sub1, w_sub2);
+    apply_add_sub_sub_one(dst.black.data(), src.black.data(),
+                          b_add, b_sub1, b_sub2);
   }
 
   static void apply_add_add_sub_sub(Accumulator<LAYER1_SIZE>& dst,
@@ -226,10 +316,10 @@ private:
                                     const int16_t* w_add2, const int16_t* w_sub2,
                                     const int16_t* b_add1, const int16_t* b_sub1,
                                     const int16_t* b_add2, const int16_t* b_sub2) noexcept {
-    for (size_t i = 0; i < LAYER1_SIZE; ++i) {
-      dst.white[i] = static_cast<int16_t>(src.white[i] + w_add1[i] - w_sub1[i] + w_add2[i] - w_sub2[i]);
-      dst.black[i] = static_cast<int16_t>(src.black[i] + b_add1[i] - b_sub1[i] + b_add2[i] - b_sub2[i]);
-    }
+    apply_add_add_sub_sub_one(dst.white.data(), src.white.data(),
+                              w_add1, w_sub1, w_add2, w_sub2);
+    apply_add_add_sub_sub_one(dst.black.data(), src.black.data(),
+                              b_add1, b_sub1, b_add2, b_sub2);
   }
 
   std::array<Accumulator<LAYER1_SIZE>, MaxSearchDepth> m_stack{};
@@ -237,7 +327,7 @@ private:
 
   [[nodiscard]] static const int16_t*
   feature_ptr(const NNUE_Params& n, size_t idx) noexcept {
-    assert(idx < INPUT_SIZE);
+    PATRICIA_NNUE_ASSERT(idx < INPUT_SIZE);
     return n.feature_v.data() + idx * LAYER1_SIZE;
   }
 };
@@ -286,13 +376,13 @@ inline void NNUE_State::add_add_sub_sub(int piece1, int from1, int to1,
 }
 
 inline void NNUE_State::pop() noexcept {
-  assert(m_curr != nullptr);
-  assert(m_curr > m_stack.data());
+  PATRICIA_NNUE_ASSERT(m_curr != nullptr);
+  PATRICIA_NNUE_ASSERT(m_curr > m_stack.data());
   --m_curr;
 }
 
 inline int NNUE_State::evaluate(int color, int phase) const {
-  assert(m_curr != nullptr);
+  PATRICIA_NNUE_ASSERT(m_curr != nullptr);
 
   const NNUE_Params& n = nnue_for_phase(phase);
   const auto& us = (color == Colors::White) ? m_curr->white : m_curr->black;
@@ -304,7 +394,7 @@ inline int NNUE_State::evaluate(int color, int phase) const {
 
 template <bool Activate>
 inline void NNUE_State::update_feature(int piece, int square, int phase) noexcept {
-  assert(m_curr != nullptr);
+  PATRICIA_NNUE_ASSERT(m_curr != nullptr);
 
   const auto [white_idx, black_idx] = feature_indices(piece, square);
   const NNUE_Params& n = nnue_for_phase(phase);
@@ -324,7 +414,7 @@ inline void NNUE_State::update_feature(int piece, int square, int phase) noexcep
 }
 
 inline void NNUE_State::refresh_from_position(const Position& position, int phase) {
-  assert(m_curr != nullptr);
+  PATRICIA_NNUE_ASSERT(m_curr != nullptr);
 
   m_curr->init(std::span<const int16_t, LAYER1_SIZE>(nnue_for_phase(phase).feature_bias));
   for (int square = a1; square < SqNone; ++square) {
@@ -341,8 +431,10 @@ inline void NNUE_State::reset_nnue(const Position& position, int phase) {
 }
 
 inline void NNUE_State::change_phases(const Position& position, int phase) {
-  assert(m_curr != nullptr);
-  assert(m_curr + 1 < m_stack.data() + m_stack.size());
+  PATRICIA_NNUE_ASSERT(m_curr != nullptr);
+  PATRICIA_NNUE_ASSERT(m_curr + 1 < m_stack.data() + m_stack.size());
   ++m_curr;
   refresh_from_position(position, phase);
 }
+
+#undef PATRICIA_NNUE_ASSERT
