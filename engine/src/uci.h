@@ -211,6 +211,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
              "option name SyzygyPath type string default null\n"
              "option name MultiPV type spin default 1 min 1 max 255\n"
              "option name Skill_Level type spin default 21 min 1 max 21\n"
+             "option name Move_Overhead type spin default 50 min 0 max 5000\n"
              "option name UCI_Chess960 type check default false\n");
 
       /*for (auto &param : params) {
@@ -312,6 +313,10 @@ void uci(ThreadInfo &thread_info, Position &position) {
 
       else if (name == "MultiPV") {
         thread_info.multipv = value;
+      }
+
+      else if (name == "Move_Overhead") {
+        thread_data.move_overhead = value;
       }
 
       else {
@@ -422,7 +427,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
         } else if (token == "movetime") {
           int time;
           input_stream >> time;
-          thread_info.max_time = time;
+          thread_info.max_time = std::max(2, time - thread_data.move_overhead);
           thread_info.opt_time = INT32_MAX / 2;
           goto run;
         }
@@ -430,7 +435,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
 
       // Calculate time allotted to search
 
-      time = std::max(2, time - 50);
+      time = std::max(2, time - thread_data.move_overhead);
       thread_info.max_time = time * 8 / 10;
       thread_info.opt_time = (time / 20 + increment) * 6 / 10;
 
