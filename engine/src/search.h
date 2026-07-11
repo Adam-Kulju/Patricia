@@ -692,8 +692,8 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   int p_beta = beta + ProbcutMargin;
 
   
-  if (cutnode && abs(beta) < ScoreWin && depth > 4 &&
-      (tt_hit ? (tt_score >= p_beta && is_cap(position, tt_move)) : (static_eval >= beta))) {
+  if (cutnode && !in_check && abs(beta) < ScoreWin && depth > 4 &&
+      !(tt_hit && tt_depth >= depth - 4 && tt_score < p_beta)) {
 
     int threshold = p_beta - static_eval;
     MovePicker probcut_p;
