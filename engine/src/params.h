@@ -25,7 +25,7 @@ namespace tune_detail {
 inline std::vector<Parameter>& parameter_registry() {
   static auto registry = [] {
     std::vector<Parameter> items;
-    items.reserve(35);
+    items.reserve(64);
     return items;
   }();
   return registry;
