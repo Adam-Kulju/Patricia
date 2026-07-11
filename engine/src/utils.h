@@ -88,6 +88,7 @@ struct ThreadData {
   std::atomic<bool> stop = true;
   std::atomic<bool> terminate = false;
   bool is_frc = false;
+  int move_overhead = 50;
 };
 
 ThreadData thread_data;
