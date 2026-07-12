@@ -688,12 +688,11 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     // reduce the depth.
     depth--;
   }
-
+/*
   int p_beta = beta + ProbcutMargin;
 
-  
-  if (cutnode && !in_check && abs(beta) < ScoreWin && depth > 4 &&
-      !(tt_hit && tt_depth >= depth - 4 && tt_score < p_beta)) {
+  if (cutnode && !singular_search && abs(beta) < ScoreWin && depth > 4 &&
+      (tt_hit ? (tt_score >= p_beta && is_cap(position, tt_move)) : (static_eval >= beta))) {
 
     int threshold = p_beta - static_eval;
     MovePicker probcut_p;
@@ -737,7 +736,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
         return score;
       }
     }
-  }
+  }*/
     
 
   Move quiets[64];
