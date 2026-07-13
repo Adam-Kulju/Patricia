@@ -719,8 +719,10 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       int score =
           -qsearch(-p_beta, -p_beta + 1, moved_position, thread_info, TT);
 
-      if (score >= p_beta) {
-        score = -search<is_pv>(-p_beta, -p_beta + 1, depth - 4, false,
+      int p_depth = depth - 4;
+
+      if (score >= p_beta && p_depth > 0) {
+        score = -search<is_pv>(-p_beta, -p_beta + 1, p_depth, false,
                                moved_position, thread_info, TT);
       }
 
@@ -729,8 +731,8 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
       if (score >= p_beta) {
         if (!singular_search) {
-          insert_entry(entry, hash, depth - 4, best_move, raw_eval,
-                 score_to_tt(best_score, ply), EntryTypes::LBound,
+          insert_entry(entry, hash, std::max(p_depth, 0), best_move,
+                 raw_eval, score_to_tt(best_score, ply), EntryTypes::LBound,
                  thread_info.searches);
         }
         return score;
