@@ -731,11 +731,11 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
       if (score >= p_beta) {
         if (!singular_search) {
-          insert_entry(entry, hash, std::max(p_depth, 0), best_move,
-                 raw_eval, score_to_tt(best_score, ply), EntryTypes::LBound,
+          insert_entry(entry, hash, std::max(p_depth, 0), move,
+                 raw_eval, score_to_tt(score, ply), EntryTypes::LBound,
                  thread_info.searches);
         }
-        return score;
+        return (score + beta) / 2;
       }
     }
   }
