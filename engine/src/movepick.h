@@ -42,8 +42,10 @@ Move next_move(MovePicker &picker, Position &position, ThreadInfo &thread_info,
 
   if (picker.stage == Stages::GenCaptures) {
 
-    picker.captures.len = movegen(position, picker.captures.moves,
-                                  picker.checkers, Generate::GenCaptures);
+    picker.captures.len =
+        movegen_dispatch<Generate::GenCaptures>(position,
+                                                picker.captures.moves.data(),
+                                                picker.checkers);
 
     for (int i = 0; i < picker.captures.len; i++) {
       Move move = picker.captures.moves[i];
@@ -53,16 +55,15 @@ Move next_move(MovePicker &picker, Position &position, ThreadInfo &thread_info,
       }
 
       else {
-        int from_piece = position.board[extract_from(move)],
-            to_piece = position.board[extract_to(move)];
+        int from = extract_from(move), to = extract_to(move);
+        int from_piece = position.board[from], to_piece = position.board[to];
 
         picker.captures.scores[i] = GoodCaptureBaseScore +
                                     SeeValues[get_piece_type(to_piece)] * 100 -
                                     SeeValues[get_piece_type(from_piece)] / 100;
 
-        int piece = position.board[extract_from(move)], to = extract_to(move);
-
-        picker.captures.scores[i] += thread_info.CapHistScores[piece][to];
+        picker.captures.scores[i] +=
+            thread_info.CapHistScores[from_piece][to];
       }
     }
 
@@ -72,8 +73,9 @@ Move next_move(MovePicker &picker, Position &position, ThreadInfo &thread_info,
   if (picker.stage == Stages::Captures) {
 
     while (picker.idx < picker.captures.len) {
-      Move move = get_next_move(picker.captures.moves, picker.captures.scores,
-                                picker.idx++, picker.captures.len);
+      Move move = get_next_move(picker.captures.moves.data(),
+                                picker.captures.scores.data(), picker.idx++,
+                                picker.captures.len);
       if (move == tt_move) {
         continue;
       }
@@ -88,8 +90,10 @@ Move next_move(MovePicker &picker, Position &position, ThreadInfo &thread_info,
   }
 
   if (picker.stage == Stages::GenQuiets) {
-    picker.quiets.len = movegen(position, picker.quiets.moves, picker.checkers,
-                                Generate::GenQuiets);
+    picker.quiets.len =
+        movegen_dispatch<Generate::GenQuiets>(position,
+                                              picker.quiets.moves.data(),
+                                              picker.checkers);
 
     int their_last = extract_to((picker.ss - 1)->played_move);
     int their_piece = (picker.ss - 1)->piece_moved;
@@ -137,8 +141,9 @@ Move next_move(MovePicker &picker, Position &position, ThreadInfo &thread_info,
       picker.idx = 0;
       picker.stage++;
     } else {
-      Move move = get_next_move(picker.quiets.moves, picker.quiets.scores,
-                           picker.idx++, picker.quiets.len);
+      Move move = get_next_move(picker.quiets.moves.data(),
+                                picker.quiets.scores.data(), picker.idx++,
+                                picker.quiets.len);
       if (move == tt_move) {
         goto pick_again;
       }
