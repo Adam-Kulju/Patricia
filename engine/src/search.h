@@ -386,7 +386,7 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
     if (picker.stage > Stages::Captures && !in_check) {
       break;
     }
-    if (!is_legal(position, move)) {
+    if (!is_legal_fast_unchecked(position, move)) {
       continue;
     }
     moves_played++;
@@ -708,7 +708,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       if (probcut_p.stage > Stages::Captures) {
         break;
       }
-      if (move == excluded_move || !is_legal(position, move)) {
+      if (move == excluded_move || !is_legal_fast_unchecked(position, move)) {
         continue;
       }
 
@@ -771,7 +771,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     if (move == excluded_move) {
       continue;
     }
-    if (!is_legal(position, move)) {
+    if (!is_legal_fast_unchecked(position, move)) {
       continue;
     }
 
