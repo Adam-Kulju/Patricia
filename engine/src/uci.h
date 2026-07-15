@@ -33,10 +33,11 @@ uint64_t perft(int depth, Position &position, bool first,
 
   if (depth <= 1) {
     std::array<Move, ListSize> list;
-    int nmoves = movegen(position, list, checkers, Generate::GenAll);
+    int nmoves =
+        movegen_dispatch<Generate::GenAll>(position, list.data(), checkers);
 
     for (int i = 0; i < nmoves; i++) {
-      total_nodes += is_legal(position, list[i]);
+      total_nodes += is_legal_fast_unchecked(position, list[i]);
     }
 
     return total_nodes;
@@ -50,7 +51,7 @@ uint64_t perft(int depth, Position &position, bool first,
                                false)) // Loop through all of the moves,
                                        // skipping illegal ones.
   {
-    if (!is_legal(position, move)) {
+    if (!is_legal_fast_unchecked(position, move)) {
       continue;
     }
     Position new_position = position;
@@ -145,11 +146,10 @@ void bench(Position &position, ThreadInfo &thread_info) {
 Move uci_to_internal(const Position &position, std::string uci) {
   // Converts a uci move into an internal move.
   std::array<Move, ListSize> list;
-  int nmoves =
-      movegen(position, list,
-              attacks_square(position, get_king_pos(position, position.color),
-                             position.color ^ 1),
-              Generate::GenAll);
+  int nmoves = movegen_dispatch<Generate::GenAll>(
+      position, list.data(),
+      attacks_square(position, get_king_pos(position, position.color),
+                     position.color ^ 1));
 
   for (int i = 0; i < nmoves; i++) {
     if (internal_to_uci(position, list[i]) == uci)
