@@ -75,7 +75,7 @@ bool load_openings(const std::string &filename) {
   std::ifstream input(filename);
 
   if (!input) {
-    std::fprintf(stderr, "No se pudo abrir el archivo de aperturas: %s\n",
+    std::fprintf(stderr, "The openings file could not be opened: %s\n",
                  filename.c_str());
     return false;
   }
@@ -177,7 +177,7 @@ void write_fens(const std::vector<std::string> &fens, double result, int id) {
   std::ofstream output(filename, std::ios::out | std::ios::app);
 
   if (!output) {
-    std::fprintf(stderr, "No se pudo abrir el archivo de salida: %s\n",
+    std::fprintf(stderr, "The output file could not be opened: %s\n",
                  filename.c_str());
     return;
   }
@@ -246,7 +246,7 @@ void play_game(ThreadInfo &thread_info,
       best_move = thread_info.best_moves[1];
     }
 
-    thread_info.multipv = 1;
+    thread_info.multipv = 1; // ????
 
     if (color) {
       score *= -1;
