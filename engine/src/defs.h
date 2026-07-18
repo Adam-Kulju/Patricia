@@ -184,6 +184,22 @@ constexpr std::array<int, 7> MaterialValues = {0,   100, 300,  300,
 
 constexpr int PhaseBound = 3500;
 
+constexpr int OnlyMoveFactor = 30;
+constexpr int NodeTmMinDepth = 10;
+constexpr int NodeTmFactor1  = 125;
+constexpr int NodeTmFactor2  = 100;
+constexpr int NodeTmMin      = 50; 
+constexpr int NodeTmMax      = 150;
+constexpr int BmChangeBase   = 15;  
+constexpr int BmChangeSlope  = 20;
+
+constexpr int ScoreDropDiv   = 100; 
+constexpr int ScoreDropMin   = 100; 
+constexpr int ScoreDropMax   = 200;
+
+constexpr int OptTotalMin    = 25; 
+constexpr int OptTotalMax    = 500; 
+
 std::random_device rd;
 std::uniform_int_distribution<int> dist(0, INT32_MAX);
 
