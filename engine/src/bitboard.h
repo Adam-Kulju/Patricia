@@ -5,6 +5,10 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#if defined(__BMI2__) && (defined(__x86_64__) || defined(__i386__))
+#define PATRICIA_USE_PEXT 1
+#include <immintrin.h>
+#endif
 
 enum Square : int { // a1 = 0. a8 = 7, etc. thus a1 is the LSB and h8 is the
                     // MSB.
@@ -94,11 +98,32 @@ MultiArray<uint64_t, 64, 64> BetweenBBs = {{0}};
 
 std::array<uint64_t, 64> RookMasks;
 std::array<uint64_t, 64> BishopMasks;
+#if defined(PATRICIA_USE_PEXT)
+std::array<uint64_t *, 64> BishopAttackPtrs;
+std::array<uint64_t *, 64> RookAttackPtrs;
+constexpr size_t BishopAttackTableSize = 5248;
+constexpr size_t RookAttackTableSize = 102400;
+std::array<uint64_t, BishopAttackTableSize> BishopAttacks;
+std::array<uint64_t, RookAttackTableSize> RookAttacks;
+#else
 MultiArray<uint64_t, 64, 512> BishopAttacks;
 MultiArray<uint64_t, 64, 4096> RookAttacks;
+#endif
 MultiArray<uint64_t, 2, 64> PawnAttacks;
 std::array<uint64_t, 64> KingAttacks;
 std::array<uint64_t, 64> KnightAttacks;
+
+inline uint64_t attack_index(uint64_t occupancy, uint64_t mask,
+                             uint64_t magic, int shift) {
+#if defined(PATRICIA_USE_PEXT)
+  (void)magic;
+  (void)shift;
+  return _pext_u64(occupancy, mask);
+#else
+  return ((occupancy & mask) * magic) >> shift;
+#endif
+}
+
 
 constexpr std::array<uint64_t, 64> BishopMagics = {
     0x2020420401002200, 0x05210A020A002118, 0x1110040454C00484,
@@ -247,8 +272,13 @@ void fill_bishop_attacks() {
     for (int i = 0; i < occ_var; i++) {
       uint64_t occ = set_occ(i, bits, BishopMasks[square]);
 
-      uint64_t magic_idx = occ * BishopMagics[square] >> 55;
+      uint64_t magic_idx =
+          attack_index(occ, BishopMasks[square], BishopMagics[square], 55);
+#if defined(PATRICIA_USE_PEXT)
+      BishopAttackPtrs[square][magic_idx] = bishop_sliders(square, occ);
+#else
       BishopAttacks[square][magic_idx] = bishop_sliders(square, occ);
+#endif
     }
   }
 }
@@ -260,8 +290,13 @@ void fill_rook_attacks() {
     for (int i = 0; i < occ_var; i++) {
 
       uint64_t occ = set_occ(i, bits, RookMasks[square]);
-      uint64_t magic_idx = occ * RookMagics[square] >> 52;
+      uint64_t magic_idx =
+          attack_index(occ, RookMasks[square], RookMagics[square], 52);
+#if defined(PATRICIA_USE_PEXT)
+      RookAttackPtrs[square][magic_idx] = rook_sliders(square, occ);
+#else
       RookAttacks[square][magic_idx] = rook_sliders(square, occ);
+#endif
     }
   }
 }
@@ -336,12 +371,26 @@ void fill_pawn_attacks() {
   }
 }
 
-uint64_t get_bishop_attacks(int sq, uint64_t occ) {
-  return BishopAttacks[sq][(occ & BishopMasks[sq]) * BishopMagics[sq] >> 55];
+inline uint64_t get_bishop_attacks(int sq, uint64_t occ) {
+#if defined(PATRICIA_USE_PEXT)
+  return BishopAttackPtrs[sq][attack_index(occ,
+                                           BishopMasks[sq], BishopMagics[sq],
+                                           55)];
+#else
+  return BishopAttacks[sq][attack_index(occ,
+                                        BishopMasks[sq], BishopMagics[sq],
+                                        55)];
+#endif
 }
 
-uint64_t get_rook_attacks(int sq, uint64_t occ) {
-  return RookAttacks[sq][(occ & RookMasks[sq]) * RookMagics[sq] >> 52];
+inline uint64_t get_rook_attacks(int sq, uint64_t occ) {
+#if defined(PATRICIA_USE_PEXT)
+  return RookAttackPtrs[sq][attack_index(occ, RookMasks[sq],
+                                         RookMagics[sq], 52)];
+#else
+  return RookAttacks[sq][attack_index(occ, RookMasks[sq],
+                                      RookMagics[sq], 52)];
+#endif
 }
 
 void init_bbs() {
@@ -353,6 +402,16 @@ void init_bbs() {
     BishopMasks[square] = bishop_sliders(square, 0) & ~edges;
     RookMasks[square] = rook_sliders(square, 0) & ~edges;
   }
+
+#if defined(PATRICIA_USE_PEXT)
+  uint32_t bishop_offset = 0, rook_offset = 0;
+  for (int square = a1; square < SqNone; square++) {
+    BishopAttackPtrs[square] = BishopAttacks.data() + bishop_offset;
+    RookAttackPtrs[square] = RookAttacks.data() + rook_offset;
+    bishop_offset += 1u << pop_count(BishopMasks[square]);
+    rook_offset += 1u << pop_count(RookMasks[square]);
+  }
+#endif
 
   fill_bishop_attacks();
   fill_rook_attacks();
