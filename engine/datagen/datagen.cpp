@@ -1,17 +1,21 @@
 #include "../src/search.h"
 
 #include <algorithm>
+#include <atomic>
+#include <cerrno>
 #include <chrono>
 #include <cmath>
 #include <cinttypes>
 #include <cstdio>
 #include <cstdlib>
 #include <cstdint>
+#include <exception>
 #include <fstream>
+#include <functional>
 #include <iomanip>
+#include <limits>
 #include <memory>
 #include <random>
-#include <sstream>
 #include <string>
 #include <thread>
 #include <vector>
@@ -29,12 +33,32 @@ std::vector<std::string> openings;
 bool use_openings = false;
 int num_threads = 1;
 std::chrono::steady_clock::time_point start_time;
+std::atomic<bool> stop_requested{false};
+std::atomic<bool> generation_failed{false};
+std::atomic<uint64_t> reserved_fens{0};
+std::atomic<uint64_t> written_fens{0};
+std::atomic<uint64_t> next_progress{1000};
 
 std::mt19937_64 create_random_engine() {
+  static std::atomic<uint64_t> seed_counter{0};
+
   std::random_device device;
+  const uint64_t counter = seed_counter.fetch_add(1);
+  const uint64_t timestamp = static_cast<uint64_t>(
+      std::chrono::steady_clock::now().time_since_epoch().count());
+  const uint64_t thread_hash = static_cast<uint64_t>(
+      std::hash<std::thread::id>{}(std::this_thread::get_id()));
   std::seed_seq seed{
-      device(), device(), device(), device(),
-      device(), device(), device(), device()
+      device(),
+      device(),
+      device(),
+      device(),
+      static_cast<uint32_t>(counter),
+      static_cast<uint32_t>(counter >> 32),
+      static_cast<uint32_t>(timestamp),
+      static_cast<uint32_t>(timestamp >> 32),
+      static_cast<uint32_t>(thread_hash),
+      static_cast<uint32_t>(thread_hash >> 32)
   };
   return std::mt19937_64(seed);
 }
@@ -62,10 +86,24 @@ int random_int(int limit) {
   return distribution(rng());
 }
 
-void remove_carriage_return(std::string &line) {
+void normalize_opening_line(std::string &line, bool first_line) {
   if (!line.empty() && line.back() == '\r') {
     line.pop_back();
   }
+
+  if (first_line && line.compare(0, 3, "\xEF\xBB\xBF") == 0) {
+    line.erase(0, 3);
+  }
+
+  const std::size_t first = line.find_first_not_of(" \t\r");
+
+  if (first == std::string::npos) {
+    line.clear();
+    return;
+  }
+
+  const std::size_t last = line.find_last_not_of(" \t\r");
+  line = line.substr(first, last - first + 1);
 }
 
 bool load_openings(const std::string &filename) {
@@ -81,19 +119,34 @@ bool load_openings(const std::string &filename) {
   }
 
   std::string line;
+  bool first_line = true;
 
   while (std::getline(input, line)) {
-    remove_carriage_return(line);
+    normalize_opening_line(line, first_line);
+    first_line = false;
 
     if (!line.empty()) {
       openings.push_back(line);
     }
   }
 
+  if (input.bad()) {
+    std::fprintf(stderr, "The openings file could not be read: %s\n",
+                 filename.c_str());
+    openings.clear();
+    return false;
+  }
+
+  if (openings.empty()) {
+    std::fprintf(stderr, "The openings file contains no usable positions: %s\n",
+                 filename.c_str());
+    return false;
+  }
+
   std::printf("%zu openings found.\n", openings.size());
 
-  use_openings = !openings.empty();
-  return use_openings;
+  use_openings = true;
+  return true;
 }
 
 Move random_legal_move(Position &position) {
@@ -139,38 +192,69 @@ bool setup_position(Position &position, ThreadInfo &thread_info) {
   return play_random_moves(position, thread_info, 8 + random_int(2));
 }
 
-int get_multipv_threshold(int game_ply) {
+int get_multipv_threshold(uint64_t game_ply) {
   if (game_ply >= 30) {
     return 0;
   }
 
-  return static_cast<int>(80.0 * std::pow(0.9, game_ply - 5));
+  return static_cast<int>(
+      80.0 * std::pow(0.9, static_cast<double>(game_ply) - 5.0));
 }
 
-void print_progress(uint64_t num_fens, int id) {
-  if (id != 0 || num_fens % 1000 != 0) {
+void print_progress(uint64_t total_fens) {
+  uint64_t expected = next_progress.load();
+
+  while (total_fens >= expected) {
+    const uint64_t desired = (total_fens / 1000 + 1) * 1000;
+
+    if (next_progress.compare_exchange_weak(expected, desired)) {
+      break;
+    }
+  }
+
+  if (total_fens < expected) {
     return;
   }
 
-  const uint64_t total_fens = num_fens * static_cast<uint64_t>(num_threads);
-  int64_t elapsed_ms = static_cast<int64_t>(time_elapsed(start_time));
+  int64_t elapsed_ms = static_cast<int64_t>(
+      std::chrono::duration_cast<std::chrono::milliseconds>(
+          std::chrono::steady_clock::now() - start_time)
+          .count());
 
   if (elapsed_ms <= 0) {
     elapsed_ms = 1;
   }
 
-  std::printf("~%" PRIu64 " positions written\n", total_fens);
-  std::printf("Approximate speed: %" PRIi64 " pos/s\n\n",
-              static_cast<int64_t>(total_fens * 1000 / elapsed_ms));
+  const uint64_t positions_per_second =
+      total_fens * 1000 / static_cast<uint64_t>(elapsed_ms);
 
-  if (total_fens > kFenLimit) {
-    std::exit(EXIT_SUCCESS);
-  }
+  std::printf("~%" PRIu64 " positions written\n", total_fens);
+  std::printf("Approximate speed: %" PRIu64 " pos/s\n\n",
+              positions_per_second);
 }
 
-void write_fens(const std::vector<std::string> &fens, double result, int id) {
+std::size_t reserve_fen_slots(std::size_t requested) {
+  if (requested == 0) {
+    return 0;
+  }
+
+  uint64_t current = reserved_fens.load();
+
+  while (current < kFenLimit) {
+    const uint64_t available = kFenLimit - current;
+    const uint64_t accepted = std::min<uint64_t>(requested, available);
+
+    if (reserved_fens.compare_exchange_weak(current, current + accepted)) {
+      return static_cast<std::size_t>(accepted);
+    }
+  }
+
+  return 0;
+}
+
+bool write_fens(const std::vector<std::string> &fens, double result, int id) {
   if (fens.empty()) {
-    return;
+    return true;
   }
 
   const std::string filename = "data" + std::to_string(id) + ".txt";
@@ -179,7 +263,7 @@ void write_fens(const std::vector<std::string> &fens, double result, int id) {
   if (!output) {
     std::fprintf(stderr, "The output file could not be opened: %s\n",
                  filename.c_str());
-    return;
+    return false;
   }
 
   output << std::fixed << std::setprecision(1);
@@ -187,10 +271,19 @@ void write_fens(const std::vector<std::string> &fens, double result, int id) {
   for (const std::string &fen : fens) {
     output << fen << result << '\n';
   }
+
+  output.close();
+
+  if (!output) {
+    std::fprintf(stderr, "The output file could not be written: %s\n",
+                 filename.c_str());
+    return false;
+  }
+
+  return true;
 }
 
 void play_game(ThreadInfo &thread_info,
-               uint64_t &num_fens,
                int id,
                std::vector<TTBucket> &tt) {
   new_game(thread_info, tt);
@@ -201,11 +294,28 @@ void play_game(ThreadInfo &thread_info,
     return;
   }
 
+  if (!has_legal_move(position) || is_draw(position, thread_info)) {
+    return;
+  }
+
   thread_info.multipv = 1;
   thread_info.start_time = std::chrono::steady_clock::now();
   search_position(position, thread_info, tt);
 
-  if (std::abs(thread_info.best_scores[0]) > 400) {
+  if (thread_info.best_moves[0] == MoveNone) {
+    std::fprintf(stderr,
+                 "Search returned no move in a non-terminal position on worker %d.\n",
+                 id);
+    std::fprintf(stderr, "Nodes searched: %" PRIu64 "\n",
+                 static_cast<uint64_t>(thread_info.nodes));
+    print_board(position);
+    generation_failed.store(true);
+    stop_requested.store(true);
+    return;
+  }
+
+  if (thread_info.best_scores[0] < -400 ||
+      thread_info.best_scores[0] > 400) {
     return;
   }
 
@@ -214,9 +324,12 @@ void play_game(ThreadInfo &thread_info,
 
   double result = 0.5;
 
-  while (result == 0.5 && !is_draw(position, thread_info)) {
+  while (result == 0.5) {
+    if (stop_requested.load()) {
+      return;
+    }
+
     const bool color = position.color;
-    const std::string fen = export_fen(position, thread_info);
     const bool in_check =
         attacks_square(position, get_king_pos(position, color), color ^ 1);
 
@@ -228,7 +341,12 @@ void play_game(ThreadInfo &thread_info,
       break;
     }
 
-    const int game_ply = static_cast<int>(thread_info.game_ply);
+    if (is_draw(position, thread_info)) {
+      break;
+    }
+
+    const std::string fen = export_fen(position, thread_info);
+    const uint64_t game_ply = static_cast<uint64_t>(thread_info.game_ply);
     const int threshold = get_multipv_threshold(game_ply);
     const int roll = random_int(100);
 
@@ -238,7 +356,7 @@ void play_game(ThreadInfo &thread_info,
     thread_info.start_time = std::chrono::steady_clock::now();
     search_position(position, thread_info, tt);
 
-    int score = thread_info.best_scores[0];
+    int64_t score = thread_info.best_scores[0];
     Move best_move = thread_info.best_moves[0];
 
     if (thread_info.multipv > 1 && thread_info.best_moves[1] != MoveNone) {
@@ -246,13 +364,25 @@ void play_game(ThreadInfo &thread_info,
       best_move = thread_info.best_moves[1];
     }
 
-    thread_info.multipv = 1; // ????
+    thread_info.multipv = 1;
 
-    if (color) {
-      score *= -1;
+    if (best_move == MoveNone) {
+      std::fprintf(stderr,
+                   "Search returned no move in a non-terminal position on worker %d.\n",
+                   id);
+      std::fprintf(stderr, "Nodes searched: %" PRIu64 "\n",
+                   static_cast<uint64_t>(thread_info.nodes));
+      print_board(position);
+      generation_failed.store(true);
+      stop_requested.store(true);
+      return;
     }
 
-    if (std::abs(score) > 1000) {
+    if (color) {
+      score = -score;
+    }
+
+    if (score < -1000 || score > 1000) {
       result = score > 0 ? 1.0 : 0.0;
       break;
     }
@@ -267,95 +397,168 @@ void play_game(ThreadInfo &thread_info,
       break;
     }
 
-    if (best_move == MoveNone) {
-      std::printf("%" PRIu64 "\n", static_cast<uint64_t>(thread_info.nodes));
-      print_board(position);
-
-      thread_info.doing_datagen = false;
-      search_position(position, thread_info, tt);
-
-      std::exit(EXIT_FAILURE);
-    }
-
     const bool is_noisy = is_cap(position, best_move);
 
     ss_push(position, thread_info, best_move);
     make_move(position, best_move);
 
-    if (!is_noisy && !in_check && threshold < kQuietThresholdLimit) {
+    if (!is_noisy && !in_check && threshold <= kQuietThresholdLimit) {
       if (fens.size() >= kMaxFenBuffer) {
-        std::fprintf(stderr, "%zu %i\n", fens.size(),
-                     static_cast<int>(thread_info.game_ply));
-        std::exit(EXIT_FAILURE);
+        std::fprintf(stderr,
+                     "The position buffer limit was exceeded on worker %d at ply %" PRIu64 ".\n",
+                     id,
+                     static_cast<uint64_t>(thread_info.game_ply));
+        generation_failed.store(true);
+        stop_requested.store(true);
+        return;
       }
 
       fens.push_back(fen + " | " + std::to_string(score) + " | ");
-      ++num_fens;
-
-      print_progress(num_fens, id);
     }
   }
 
-  write_fens(fens, result, id);
+  const std::size_t slots = reserve_fen_slots(fens.size());
+
+  if (slots == 0) {
+    if (reserved_fens.load() >= kFenLimit) {
+      stop_requested.store(true);
+    }
+    return;
+  }
+
+  fens.resize(slots);
+
+  if (!write_fens(fens, result, id)) {
+    generation_failed.store(true);
+    stop_requested.store(true);
+    return;
+  }
+
+  const uint64_t total_fens =
+      written_fens.fetch_add(static_cast<uint64_t>(slots)) +
+      static_cast<uint64_t>(slots);
+  print_progress(total_fens);
+
+  if (reserved_fens.load() >= kFenLimit) {
+    stop_requested.store(true);
+  }
 }
 
 void run(int id) {
-  std::vector<TTBucket> tt(TT_size);
-  std::unique_ptr<ThreadInfo> thread_info = std::make_unique<ThreadInfo>();
+  try {
+    std::vector<TTBucket> tt(TT_size);
+    std::unique_ptr<ThreadInfo> thread_info = std::make_unique<ThreadInfo>();
 
-  uint64_t num_fens = 0;
+    thread_info->doing_datagen = true;
+    thread_info->multipv = 1;
+    thread_info->opt_time = std::numeric_limits<uint32_t>::max() / 2;
+    thread_info->max_time = std::numeric_limits<uint32_t>::max() / 2;
+    thread_info->opt_nodes_searched = 5000;
+    thread_info->max_nodes_searched = 50000;
 
-  thread_info->doing_datagen = true;
-  thread_info->multipv = 1;
-  thread_info->opt_time = UINT32_MAX / 2;
-  thread_info->max_time = UINT32_MAX / 2;
-  thread_info->opt_nodes_searched = 5000;
-  thread_info->max_nodes_searched = 50000;
-
-  while (true) {
-    play_game(*thread_info, num_fens, id, tt);
+    while (!stop_requested.load()) {
+      play_game(*thread_info, id, tt);
+    }
+  } catch (const std::exception &error) {
+    std::fprintf(stderr, "Worker %d failed: %s\n", id, error.what());
+    generation_failed.store(true);
+    stop_requested.store(true);
+  } catch (...) {
+    std::fprintf(stderr, "Worker %d failed with an unknown error.\n", id);
+    generation_failed.store(true);
+    stop_requested.store(true);
   }
 }
 
-int parse_num_threads(const char *value) {
+bool parse_num_threads(const char *value, int &parsed_threads) {
+  if (value == nullptr) {
+    return false;
+  }
+
+  errno = 0;
   char *end = nullptr;
   const long parsed = std::strtol(value, &end, 10);
 
-  if (end == value || parsed <= 0) {
-    return 1;
+  if (errno == ERANGE || end == value || *end != '\0' || parsed <= 0 ||
+      parsed > std::numeric_limits<int>::max()) {
+    return false;
   }
 
-  return static_cast<int>(parsed);
+  parsed_threads = static_cast<int>(parsed);
+  return true;
 }
 
-} 
+}
 
 int main(int argc, char *argv[]) {
+  if (argc > 3) {
+    std::fprintf(stderr, "Usage: %s [threads] [openings_file]\n", argv[0]);
+    return EXIT_FAILURE;
+  }
+
+  if (argc > 1 && !parse_num_threads(argv[1], num_threads)) {
+    std::fprintf(stderr, "Invalid thread count: %s\n", argv[1]);
+    return EXIT_FAILURE;
+  }
+
+  try {
+    if (argc > 2 && !load_openings(argv[2])) {
+      return EXIT_FAILURE;
+    }
+  } catch (const std::exception &error) {
+    std::fprintf(stderr, "The openings file could not be loaded: %s\n",
+                 error.what());
+    return EXIT_FAILURE;
+  } catch (...) {
+    std::fprintf(stderr,
+                 "The openings file could not be loaded due to an unknown error.\n");
+    return EXIT_FAILURE;
+  }
+
+  stop_requested.store(false);
+  generation_failed.store(false);
+  reserved_fens.store(0);
+  written_fens.store(0);
+  next_progress.store(1000);
+
   init_LMR();
   init_bbs();
 
   thread_data.is_frc = true;
 
-  if (argc > 1) {
-    num_threads = parse_num_threads(argv[1]);
-  }
-
-  if (argc > 2) {
-    load_openings(argv[2]);
-  }
-
   start_time = std::chrono::steady_clock::now();
 
   std::vector<std::thread> threads;
-  threads.reserve(static_cast<std::size_t>(num_threads));
 
-  for (int i = 0; i < num_threads; ++i) {
-    threads.emplace_back(run, i);
+  try {
+    threads.reserve(static_cast<std::size_t>(num_threads));
+
+    for (int i = 0; i < num_threads; ++i) {
+      threads.emplace_back(run, i);
+    }
+  } catch (const std::exception &error) {
+    std::fprintf(stderr, "The worker threads could not be started: %s\n",
+                 error.what());
+    generation_failed.store(true);
+    stop_requested.store(true);
+  } catch (...) {
+    std::fprintf(stderr,
+                 "The worker threads could not be started due to an unknown error.\n");
+    generation_failed.store(true);
+    stop_requested.store(true);
   }
 
   for (std::thread &thread : threads) {
-    thread.join();
+    if (thread.joinable()) {
+      thread.join();
+    }
   }
 
-  return 0;
+  if (generation_failed.load()) {
+    return EXIT_FAILURE;
+  }
+
+  std::printf("Generation complete: %" PRIu64 " positions written.\n",
+              written_fens.load());
+  return EXIT_SUCCESS;
 }
