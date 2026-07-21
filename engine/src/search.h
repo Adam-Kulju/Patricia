@@ -389,6 +389,28 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
     if (!is_legal_fast_unchecked(position, move)) {
       continue;
     }
+
+    if (!in_check && best_score > ScoreLost) {
+      // Delta/futility pruning: if our static eval plus the best-case gain
+      // from this capture still can't reach alpha, the move is hopeless.
+
+      int captured_value =
+          extract_type(move) == MoveTypes::EnPassant
+              ? SeeValues[PieceTypes::Pawn]
+              : SeeValues[get_piece_type(position.board[extract_to(move)])];
+
+      if (is_queen_promo(move)) {
+        captured_value += SeeValues[PieceTypes::Queen] - SeeValues[PieceTypes::Pawn];
+      }
+
+      int futility_value = static_eval + captured_value + QSFutilityMargin;
+
+      if (futility_value <= alpha) {
+        best_score = std::max(best_score, futility_value);
+        continue;
+      }
+    }
+
     moves_played++;
     if (moves_played > 2) {
       break;
