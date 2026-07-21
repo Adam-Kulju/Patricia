@@ -82,12 +82,11 @@ TUNE_PARAM(AgeDiffDiv, 5, 2, 6);
 TUNE_PARAM(CorrWeight, 25, 10, 40);
 TUNE_PARAM(LMRMinDepth, 3, 2, 6);
 TUNE_PARAM(AspStartWindow, 20, 10, 30);
-TUNE_PARAM(NodeTmFactor1, 149, 100, 200);
-TUNE_PARAM(NodeTmFactor2, 177, 125, 225);
-TUNE_PARAM(BmFactor1, 152, 100, 200);
-TUNE_PARAM(ScoreDropDiv, 540, 250, 850);
-TUNE_PARAM(ScoreDropMin, 90, 70, 100);
-TUNE_PARAM(ScoreDropMax, 118, 100, 140);
+TUNE_PARAM(NodeTmFactor1, 125, 100, 200);
+TUNE_PARAM(NodeTmFactor2, 100, 50, 200);
+TUNE_PARAM(ScoreDropDiv, 100, 50, 300);
+TUNE_PARAM(ScoreDropMin, 100, 70, 100);
+TUNE_PARAM(ScoreDropMax, 200, 100, 300);
 
 #undef TUNE_PARAM
 
