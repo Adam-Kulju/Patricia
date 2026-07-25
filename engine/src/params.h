@@ -87,6 +87,14 @@ TUNE_PARAM(NodeTmFactor2, 92, 50, 200);
 TUNE_PARAM(ScoreDropDiv, 90, 40, 300);
 TUNE_PARAM(ScoreDropMin, 88, 60, 100);
 TUNE_PARAM(ScoreDropMax, 220, 100, 320);
+TUNE_PARAM(OnlyMoveFactor, 30, 10, 80);
+TUNE_PARAM(NodeTmMinDepth, 10, 6, 16);
+TUNE_PARAM(NodeTmMin, 50, 25, 85);
+TUNE_PARAM(NodeTmMax, 150, 110, 200);
+TUNE_PARAM(BmChangeBase, 15, 0, 40);
+TUNE_PARAM(BmChangeSlope, 20, 5, 50);
+TUNE_PARAM(OptTotalMin, 25, 10, 60);
+TUNE_PARAM(OptTotalMax, 500, 250, 750);
 
 #undef TUNE_PARAM
 
