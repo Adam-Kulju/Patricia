@@ -7,7 +7,6 @@
 #include "tm.h"
 #include "utils.h"
 
-
 constexpr int NormalizationFactor = 195;
 
 void update_history(int16_t &entry, int score) { // Update history score
@@ -1146,7 +1145,7 @@ void print_pv(Position &position, ThreadInfo &thread_info) {
 
 void iterative_deepen(
     Position &position, ThreadInfo &thread_info,
-    std::vector<TTBucket> &TT) { // Performs an iterative deepening search.
+    std::vector<TTBucket> &TT) {
 
   thread_info.original_opt = thread_info.opt_time;
   thread_info.datagen_stop = false;
@@ -1156,7 +1155,7 @@ void iterative_deepen(
   thread_info.nodes = 0;
   thread_info.tb_hits = 0;
   thread_info.time_checks = 0;
-  thread_info.search_ply = 0; // reset all relevant thread_info
+  thread_info.search_ply = 0;
   thread_info.excluded_move = MoveNone;
   thread_info.best_moves = {0};
   thread_info.best_scores = {ScoreNone, ScoreNone, ScoreNone, ScoreNone,
@@ -1164,7 +1163,6 @@ void iterative_deepen(
   std::memset(&thread_info.KillerMoves, 0, sizeof(thread_info.KillerMoves));
   std::memset(&thread_info.FailHighCount, 0, sizeof(thread_info.FailHighCount));
 
-  // Prepare root moves
   thread_info.root_moves.reserve(ListSize);
   thread_info.root_moves.clear();
   {
@@ -1178,9 +1176,8 @@ void iterative_deepen(
   Move prev_best = MoveNone;
   int alpha = ScoreNone, beta = -ScoreNone;
   int bm_stability = 0;
+  int bm_changes = 0;
 
-  // Short rolling window of recently completed iteration scores, used to
-  // smooth out single-iteration noise in the score-drop time factor.
   std::array<int, 3> score_hist{};
   int score_hist_count = 0;
 
@@ -1198,10 +1195,6 @@ void iterative_deepen(
 
       score =
           search<true>(alpha, beta, depth, false, position, thread_info, TT);
-
-      // Aspiration Windows: We search the position with a narrow window around
-      // the last search score in order to get cutoffs faster. If our search
-      // lands outside the bounds, expand them and try again.
 
       while (score <= alpha || score >= beta || thread_data.stop ||
              thread_info.datagen_stop) {
@@ -1289,8 +1282,7 @@ void iterative_deepen(
           nps = wezly;
         }
 
-        if (!thread_info.doing_datagen /*&&
-            !(thread_info.is_human && thread_info.multipv_index)*/) {
+        if (!thread_info.doing_datagen) {
           printf("info multipv %i depth %i seldepth %i score %s nodes %" PRIu64
                  " nps %" PRIi64 " tbhits %" PRIu64 " time %" PRIi64 " pv ",
                  thread_info.multipv_index + 1, depth, thread_info.seldepth,
@@ -1317,6 +1309,9 @@ void iterative_deepen(
             bm_stability = std::min(bm_stability + 1, 8);
           } else {
             bm_stability = 0;
+            if (prev_best != MoveNone) {
+              bm_changes++;
+            }
           }
 
           int avg_prev_score = score;
@@ -1332,7 +1327,12 @@ void iterative_deepen(
           adjust_soft_limit(
               thread_info,
               find_root_move(thread_info, thread_info.best_moves[0])->nodes,
-              bm_stability, score, avg_prev_score);
+              depth,
+              bm_stability,
+              bm_changes,
+              score,
+              avg_prev_score,
+              static_cast<int>(thread_info.root_moves.size()));
         }
 
         score_hist[score_hist_count % score_hist.size()] = score;
@@ -1370,8 +1370,6 @@ void iterative_deepen(
   }
 
 finish:
-  // wait for all threads to finish searching
-  // printf("%i\n", thread_info.thread_id);
   if (thread_info.thread_id == 0 && !thread_info.doing_datagen) {
     thread_data.stop = true;
   }
