@@ -5,6 +5,12 @@
 
 void adjust_soft_limit(ThreadInfo &thread_info, uint64_t best_move_nodes,
                         int bm_stability, int score, int prev_score) {
+    
+    // don't adjust time if we're in a 
+  if (thread_info.original_opt >= INT32_MAX / 2){
+      return;
+  }
+
   double fract = (double)best_move_nodes / thread_info.nodes;
   double factor = (NodeTmFactor1 / 100.0f - fract) * NodeTmFactor2 / 100.0f;
   double bm_factor = BmFactor1 / 100.0f - (bm_stability * 0.06);
