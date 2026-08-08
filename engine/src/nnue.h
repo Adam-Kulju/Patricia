@@ -61,6 +61,16 @@ static_assert(LAYER1_SIZE % (REGISTER_SIZE * 2) == 0,
 inline const auto SCRELU_MIN_VEC = get_int16_vec(SCRELU_MIN);
 inline const auto QA_VEC         = get_int16_vec(QA);
 
+inline void nnue_prefetch(const void* ptr) noexcept {
+#if defined(__GNUC__) || defined(__clang__)
+  __builtin_prefetch(ptr, 0, 3);
+#elif defined(_MSC_VER)
+  _mm_prefetch(reinterpret_cast<const char*>(ptr), _MM_HINT_T0);
+#else
+  (void)ptr;
+#endif
+}
+
 #if defined(__AVX512BW__)
 #define PATRICIA_NNUE_SIMD 1
 using NnueVec16 = __m512i;
@@ -263,11 +273,6 @@ screlu_flatten(const std::array<int16_t, LAYER1_SIZE>     &us,
                const std::array<int16_t, LAYER1_SIZE>     &them,
                const std::array<int16_t, LAYER1_SIZE * 2> &weights) noexcept {
 #if defined(__AVX512BW__) || defined(__AVX2__)
-  auto sum0 = vec_int32_zero();
-  auto sum1 = vec_int32_zero();
-  auto sum2 = vec_int32_zero();
-  auto sum3 = vec_int32_zero();
-
   const auto accumulate = [](auto& sum, const int16_t* acc, const int16_t* w) {
     auto v = int16_load(acc);
     v = vec_int16_clamp(v, SCRELU_MIN_VEC, QA_VEC);
@@ -275,15 +280,46 @@ screlu_flatten(const std::array<int16_t, LAYER1_SIZE>     &us,
     sum = vec_int32_add(sum, vec_int16_madd_int32(product, v));
   };
 
-  for (size_t i = 0; i < LAYER1_SIZE; i += REGISTER_SIZE * 2) {
-    accumulate(sum0, &us[i], &weights[i]);
-    accumulate(sum1, &them[i], &weights[LAYER1_SIZE + i]);
-    accumulate(sum2, &us[i + REGISTER_SIZE], &weights[i + REGISTER_SIZE]);
-    accumulate(sum3, &them[i + REGISTER_SIZE],
-               &weights[LAYER1_SIZE + i + REGISTER_SIZE]);
+  auto sum0 = vec_int32_zero();
+  auto sum1 = vec_int32_zero();
+  auto sum2 = vec_int32_zero();
+  auto sum3 = vec_int32_zero();
+  auto sum4 = vec_int32_zero();
+  auto sum5 = vec_int32_zero();
+  auto sum6 = vec_int32_zero();
+  auto sum7 = vec_int32_zero();
+
+  constexpr size_t stride = REGISTER_SIZE * 4;
+  if constexpr (LAYER1_SIZE % stride == 0) {
+    for (size_t i = 0; i < LAYER1_SIZE; i += stride) {
+      accumulate(sum0, &us[i], &weights[i]);
+      accumulate(sum1, &them[i], &weights[LAYER1_SIZE + i]);
+      accumulate(sum2, &us[i + REGISTER_SIZE], &weights[i + REGISTER_SIZE]);
+      accumulate(sum3, &them[i + REGISTER_SIZE],
+                 &weights[LAYER1_SIZE + i + REGISTER_SIZE]);
+      accumulate(sum4, &us[i + REGISTER_SIZE * 2],
+                 &weights[i + REGISTER_SIZE * 2]);
+      accumulate(sum5, &them[i + REGISTER_SIZE * 2],
+                 &weights[LAYER1_SIZE + i + REGISTER_SIZE * 2]);
+      accumulate(sum6, &us[i + REGISTER_SIZE * 3],
+                 &weights[i + REGISTER_SIZE * 3]);
+      accumulate(sum7, &them[i + REGISTER_SIZE * 3],
+                 &weights[LAYER1_SIZE + i + REGISTER_SIZE * 3]);
+    }
+  } else {
+    for (size_t i = 0; i < LAYER1_SIZE; i += REGISTER_SIZE * 2) {
+      accumulate(sum0, &us[i], &weights[i]);
+      accumulate(sum1, &them[i], &weights[LAYER1_SIZE + i]);
+      accumulate(sum2, &us[i + REGISTER_SIZE], &weights[i + REGISTER_SIZE]);
+      accumulate(sum3, &them[i + REGISTER_SIZE],
+                 &weights[LAYER1_SIZE + i + REGISTER_SIZE]);
+    }
   }
-  return static_cast<int64_t>(vec_int32_hadd(
-      vec_int32_add(vec_int32_add(sum0, sum1), vec_int32_add(sum2, sum3))));
+
+  const auto total = vec_int32_add(
+      vec_int32_add(vec_int32_add(sum0, sum1), vec_int32_add(sum2, sum3)),
+      vec_int32_add(vec_int32_add(sum4, sum5), vec_int32_add(sum6, sum7)));
+  return static_cast<int64_t>(vec_int32_hadd(total));
 #else
   int64_t sum = 0;
   for (size_t i = 0; i < LAYER1_SIZE; ++i) {
@@ -415,6 +451,14 @@ inline void NNUE_State::materialize(Acc* target) const noexcept {
   base->computed = true;
 
   for (Acc* cur = base + 1; cur <= target; ++cur) {
+    if (cur + 1 <= target) {
+      const NNUE_Update& nu = (cur + 1)->pending;
+      const NNUE_Params& nn = get_nnue(nu.net);
+      nnue_prefetch(feature_ptr(nn, nu.white_add[0]));
+      nnue_prefetch(feature_ptr(nn, nu.black_add[0]));
+      nnue_prefetch(feature_ptr(nn, nu.white_sub[0]));
+      nnue_prefetch(feature_ptr(nn, nu.black_sub[0]));
+    }
     apply_pending(*cur, *(cur - 1));
     cur->computed = true;
   }
