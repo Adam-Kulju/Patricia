@@ -1179,6 +1179,11 @@ void iterative_deepen(
   int alpha = ScoreNone, beta = -ScoreNone;
   int bm_stability = 0;
 
+  // Cumulative count of best-move changes over the whole search, unlike
+  // bm_stability this never resets, so it captures overall search jumpiness
+  // rather than just the run since the last flip.
+  int total_bm_changes = 0;
+
   // Short rolling window of recently completed iteration scores, used to
   // smooth out single-iteration noise in the score-drop time factor.
   std::array<int, 3> score_hist{};
@@ -1317,6 +1322,7 @@ void iterative_deepen(
             bm_stability = std::min(bm_stability + 1, 8);
           } else {
             bm_stability = 0;
+            total_bm_changes = std::min(total_bm_changes + 1, 20);
           }
 
           int avg_prev_score = score;
@@ -1332,7 +1338,7 @@ void iterative_deepen(
           adjust_soft_limit(
               thread_info,
               find_root_move(thread_info, thread_info.best_moves[0])->nodes,
-              bm_stability, score, avg_prev_score);
+              bm_stability, total_bm_changes, score, avg_prev_score);
         }
 
         score_hist[score_hist_count % score_hist.size()] = score;
