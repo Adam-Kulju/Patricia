@@ -214,11 +214,11 @@ void uci(ThreadInfo &thread_info, Position &position) {
              "option name Move_Overhead type spin default 50 min 0 max 5000\n"
              "option name UCI_Chess960 type check default false\n");
 
-      /*for (auto &param : params) {
+      for (auto &param : params) {
         std::cout << "option name " << param.name << " type spin default "
                   << param.value << " min " << param.min << " max " << param.max
                   << "\n";
-      }*/
+      }
 
       printf("uciok\n");
     }

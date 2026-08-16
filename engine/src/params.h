@@ -88,6 +88,7 @@ TUNE_PARAM(BmFactor1, 152, 100, 200);
 TUNE_PARAM(ScoreDropDiv, 540, 250, 850);
 TUNE_PARAM(ScoreDropMin, 90, 70, 100);
 TUNE_PARAM(ScoreDropMax, 118, 100, 140);
+TUNE_PARAM(NodeFracLmrMult, 0, 0, 300);
 
 #undef TUNE_PARAM
 

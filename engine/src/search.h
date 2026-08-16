@@ -896,6 +896,9 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
       R += (thread_info.FailHighCount[ply + 1] > 4);
 
+      // fun idea
+      R += (int)(thread_info.best_node_frac * NodeFracLmrMult / 100.0);
+
       // Clamp reduction so we don't immediately go into qsearch
       R = std::clamp(R, 0, newdepth - 1);
 
@@ -1178,6 +1181,7 @@ void iterative_deepen(
   Move prev_best = MoveNone;
   int alpha = ScoreNone, beta = -ScoreNone;
   int bm_stability = 0;
+  thread_info.best_node_frac = 0.0;
 
   // Short rolling window of recently completed iteration scores, used to
   // smooth out single-iteration noise in the score-drop time factor.
@@ -1329,10 +1333,14 @@ void iterative_deepen(
             avg_prev_score = sum / n;
           }
 
-          adjust_soft_limit(
-              thread_info,
-              find_root_move(thread_info, thread_info.best_moves[0])->nodes,
-              bm_stability, score, avg_prev_score);
+          uint64_t best_move_nodes =
+              find_root_move(thread_info, thread_info.best_moves[0])->nodes;
+
+          adjust_soft_limit(thread_info, best_move_nodes, bm_stability, score,
+                             avg_prev_score);
+
+          thread_info.best_node_frac =
+              (double)best_move_nodes / thread_info.nodes;
         }
 
         score_hist[score_hist_count % score_hist.size()] = score;

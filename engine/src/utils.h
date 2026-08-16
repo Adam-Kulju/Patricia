@@ -45,6 +45,13 @@ struct ThreadInfo {
   std::array<int16_t, MaxSearchDepth + 2> FailHighCount;
 
   uint8_t current_iter;
+
+  // Fraction of this thread's nodes spent on the current best move, as of
+  // the last completed depth-6+ single-PV iteration. Used to bias LMR
+  // reductions toward positions where the search is heavily converged on
+  // one move.
+  double best_node_frac = 0.0;
+
   uint16_t multipv = 1;
   uint16_t multipv_index;
 
