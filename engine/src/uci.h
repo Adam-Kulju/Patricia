@@ -216,7 +216,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
 
       /*for (auto &param : params) {
         std::cout << "option name " << param.name << " type spin default "
-                  << param.value << " min " << param.min << " max " << param.max
+                  << *param.value << " min " << param.min << " max " << param.max
                   << "\n";
       }*/
 
