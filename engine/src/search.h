@@ -897,7 +897,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       R += (thread_info.FailHighCount[ply + 1] > 4);
 
       // fun idea
-      R += (int)(thread_info.best_node_frac * NodeFracLmrMult / 100.0);
+      R += !is_pv && (int)(thread_info.best_node_frac * NodeFracLmrMult / 100.0);
 
       // Clamp reduction so we don't immediately go into qsearch
       R = std::clamp(R, 0, newdepth - 1);
