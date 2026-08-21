@@ -80,6 +80,12 @@ using NnueVec16 = __m512i;
 [[nodiscard]] inline NnueVec16 nnue_vec_sub16(NnueVec16 a, NnueVec16 b) noexcept {
   return _mm512_sub_epi16(a, b);
 }
+[[nodiscard]] inline NnueVec16 nnue_vec_sadd16(NnueVec16 a, NnueVec16 b) noexcept {
+  return _mm512_adds_epi16(a, b);
+}
+[[nodiscard]] inline NnueVec16 nnue_vec_ssub16(NnueVec16 a, NnueVec16 b) noexcept {
+  return _mm512_subs_epi16(a, b);
+}
 inline void nnue_vec_store16(int16_t* dst, NnueVec16 value) noexcept {
   _mm512_store_si512(reinterpret_cast<__m512i*>(dst), value);
 }
@@ -91,6 +97,12 @@ using NnueVec16 = __m256i;
 }
 [[nodiscard]] inline NnueVec16 nnue_vec_sub16(NnueVec16 a, NnueVec16 b) noexcept {
   return _mm256_sub_epi16(a, b);
+}
+[[nodiscard]] inline NnueVec16 nnue_vec_sadd16(NnueVec16 a, NnueVec16 b) noexcept {
+  return _mm256_adds_epi16(a, b);
+}
+[[nodiscard]] inline NnueVec16 nnue_vec_ssub16(NnueVec16 a, NnueVec16 b) noexcept {
+  return _mm256_subs_epi16(a, b);
 }
 inline void nnue_vec_store16(int16_t* dst, NnueVec16 value) noexcept {
   _mm256_store_si256(reinterpret_cast<__m256i*>(dst), value);
@@ -147,8 +159,14 @@ nnue_feature_row(const NNUE_Params& net, size_t index) noexcept {
   return net.feature_v.data() + index * LAYER1_SIZE;
 }
 
+#if defined(__GNUC__) || defined(__clang__)
+#define NNUE_HOT __attribute__((hot))
+#else
+#define NNUE_HOT
+#endif
+
 template <size_t NumAdd, size_t NumSub>
-inline void nnue_apply_update(int16_t* __restrict dst,
+NNUE_HOT inline void nnue_apply_update(int16_t* __restrict dst,
                               const int16_t* __restrict src,
                               const int16_t* const* adds,
                               const int16_t* const* subs) noexcept {
@@ -162,13 +180,13 @@ inline void nnue_apply_update(int16_t* __restrict dst,
     for (size_t a = 0; a < NumAdd; ++a) {
       const int16_t* row = adds[a] + i;
       for (size_t u = 0; u < unroll; ++u) {
-        regs[u] = nnue_vec_add16(regs[u], int16_load(row + u * REGISTER_SIZE));
+        regs[u] = nnue_vec_sadd16(regs[u], int16_load(row + u * REGISTER_SIZE));
       }
     }
     for (size_t s = 0; s < NumSub; ++s) {
       const int16_t* row = subs[s] + i;
       for (size_t u = 0; u < unroll; ++u) {
-        regs[u] = nnue_vec_sub16(regs[u], int16_load(row + u * REGISTER_SIZE));
+        regs[u] = nnue_vec_ssub16(regs[u], int16_load(row + u * REGISTER_SIZE));
       }
     }
     for (size_t u = 0; u < unroll; ++u) {
@@ -180,12 +198,13 @@ inline void nnue_apply_update(int16_t* __restrict dst,
     int32_t value = src[i];
     for (size_t a = 0; a < NumAdd; ++a) value += adds[a][i];
     for (size_t s = 0; s < NumSub; ++s) value -= subs[s][i];
+    value = std::clamp(value, static_cast<int32_t>(INT16_MIN), static_cast<int32_t>(INT16_MAX));
     dst[i] = static_cast<int16_t>(value);
   }
 #endif
 }
 
-inline void nnue_refresh_side(int16_t* __restrict dst, const NNUE_Params& net,
+NNUE_HOT inline void nnue_refresh_side(int16_t* __restrict dst, const NNUE_Params& net,
                               const uint16_t* indices, size_t count) noexcept {
 #if PATRICIA_NNUE_SIMD
   constexpr size_t unroll = NNUE_REFRESH_UNROLL;
@@ -198,7 +217,7 @@ inline void nnue_refresh_side(int16_t* __restrict dst, const NNUE_Params& net,
     for (size_t p = 0; p < count; ++p) {
       const int16_t* row = nnue_feature_row(net, indices[p]) + i;
       for (size_t u = 0; u < unroll; ++u) {
-        regs[u] = nnue_vec_add16(regs[u], int16_load(row + u * REGISTER_SIZE));
+        regs[u] = nnue_vec_sadd16(regs[u], int16_load(row + u * REGISTER_SIZE));
       }
     }
     for (size_t u = 0; u < unroll; ++u) {
@@ -210,7 +229,9 @@ inline void nnue_refresh_side(int16_t* __restrict dst, const NNUE_Params& net,
   for (size_t p = 0; p < count; ++p) {
     const int16_t* row = nnue_feature_row(net, indices[p]);
     for (size_t i = 0; i < LAYER1_SIZE; ++i) {
-      dst[i] = static_cast<int16_t>(dst[i] + row[i]);
+      int32_t value = static_cast<int32_t>(dst[i]) + row[i];
+      value = std::clamp(value, static_cast<int32_t>(INT16_MIN), static_cast<int32_t>(INT16_MAX));
+      dst[i] = static_cast<int16_t>(value);
     }
   }
 #endif
@@ -268,7 +289,7 @@ feature_indices(int piece, int sq) noexcept {
   return clipped * clipped;
 }
 
-[[nodiscard]] inline int64_t
+NNUE_HOT [[nodiscard]] inline int64_t
 screlu_flatten(const std::array<int16_t, LAYER1_SIZE>     &us,
                const std::array<int16_t, LAYER1_SIZE>     &them,
                const std::array<int16_t, LAYER1_SIZE * 2> &weights) noexcept {
@@ -438,7 +459,7 @@ inline void NNUE_State::apply_pending(Acc& dst, const Acc& src) noexcept {
   }
 }
 
-inline void NNUE_State::materialize(Acc* target) const noexcept {
+NNUE_HOT inline void NNUE_State::materialize(Acc* target) const noexcept {
   if (target->computed) {
     return;
   }
@@ -541,7 +562,7 @@ inline void NNUE_State::pop() noexcept {
   --m_curr;
 }
 
-inline int NNUE_State::evaluate(int color, int phase) const {
+NNUE_HOT inline int NNUE_State::evaluate(int color, int phase) const {
   PATRICIA_NNUE_ASSERT(m_curr != nullptr);
 
   const size_t net_index = phase_to_index(phase);
@@ -611,3 +632,4 @@ inline void NNUE_State::change_phases(const Position& position, int phase) {
 
 #undef PATRICIA_NNUE_SIMD
 #undef PATRICIA_NNUE_ASSERT
+#undef NNUE_HOT
