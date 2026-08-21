@@ -289,7 +289,7 @@ feature_indices(int piece, int sq) noexcept {
   return clipped * clipped;
 }
 
-NNUE_HOT [[nodiscard]] inline int64_t
+[[nodiscard]] NNUE_HOT inline int64_t
 screlu_flatten(const std::array<int16_t, LAYER1_SIZE>     &us,
                const std::array<int16_t, LAYER1_SIZE>     &them,
                const std::array<int16_t, LAYER1_SIZE * 2> &weights) noexcept {
