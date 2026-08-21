@@ -390,7 +390,7 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
       continue;
     }
     moves_played++;
-    if (moves_played > 2) {
+    if (moves_played > 6) {
       break;
     }
 
