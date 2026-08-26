@@ -63,15 +63,11 @@ Patricia supports a few options for users:
 
 `Threads`: Number of threads to search with.
 
-`UCI_LimitStrength`: Enables Patricia to be weakened using `UCI_Elo`.
-
-`UCI_Elo`: Sets Patricia to play at a given strength range, anywhere from 500 to 3000. These ratings were calibrated by playing many matches against engines of all strengths.
-
 `UCI_Chess960`: Enabling this option allows Patricia to play FRC.
 
 `MultiPV`: Patricia searches the best X moves instead of only looking for the best line.
 
-`Skill_Level`: Sets Patricia to play at one of 20 possible strength levels. They are:
+`Skill_Level`: Sets Patricia to play at one of 20 possible strength levels. Note that setting it to 21 unlocks Patricia's full strength. They are:
 | Skill Level | ELO |
 |:---:|---|
 | 1 | 500 |
