@@ -10,7 +10,7 @@
 
 struct Parameter {
   std::string_view name;
-  int* value;
+  int *value;
   int min;
   int max;
 
@@ -22,7 +22,7 @@ struct Parameter {
 };
 
 namespace tune_detail {
-inline std::vector<Parameter>& parameter_registry() {
+inline std::vector<Parameter> &parameter_registry() {
   static auto registry = [] {
     std::vector<Parameter> items;
     items.reserve(32);
@@ -30,28 +30,30 @@ inline std::vector<Parameter>& parameter_registry() {
   }();
   return registry;
 }
-}
+} // namespace tune_detail
 
-inline std::vector<Parameter>& get_params() {
+inline std::vector<Parameter> &get_params() {
   return tune_detail::parameter_registry();
 }
 
 struct CreateParam {
   int _value;
 
-  CreateParam(std::string_view name, int value, int min, int max) : _value(value) {
+  CreateParam(std::string_view name, int value, int min, int max)
+      : _value(value) {
     tune_detail::parameter_registry().push_back({name, &_value, min, max});
   }
 
-  CreateParam(const CreateParam&) = delete;
-  CreateParam& operator=(const CreateParam&) = delete;
-  CreateParam(CreateParam&&) = delete;
-  CreateParam& operator=(CreateParam&&) = delete;
+  CreateParam(const CreateParam &) = delete;
+  CreateParam &operator=(const CreateParam &) = delete;
+  CreateParam(CreateParam &&) = delete;
+  CreateParam &operator=(CreateParam &&) = delete;
 
   [[nodiscard]] operator int() const noexcept { return _value; }
 };
 
-#define TUNE_PARAM(name, value, min, max) inline CreateParam name{#name, value, min, max}
+#define TUNE_PARAM(name, value, min, max)                                      \
+  inline CreateParam name { #name, value, min, max }
 
 TUNE_PARAM(NMPMinDepth, 3, 1, 5);
 TUNE_PARAM(NMPBase, 4, 1, 5);
@@ -91,12 +93,12 @@ TUNE_PARAM(ScoreDropMax, 118, 100, 140);
 
 #undef TUNE_PARAM
 
-inline std::vector<Parameter>& params = get_params();
+inline std::vector<Parameter> &params = get_params();
 
 inline MultiArray<int, MaxSearchDepth + 1, ListSize> LMRTable{};
 
-inline void print_params_for_ob(std::ostream& out = std::cout) {
-  for (const auto& param : get_params()) {
+inline void print_params_for_ob(std::ostream &out = std::cout) {
+  for (const auto &param : get_params()) {
     out << param.name << ", int, " << param.current() << ", " << param.min
         << ", " << param.max << ", " << param.step() << ", 0.002\n";
   }

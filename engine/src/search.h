@@ -7,7 +7,6 @@
 #include "tm.h"
 #include "utils.h"
 
-
 constexpr int NormalizationFactor = 195;
 
 void update_history(int16_t &entry, int score) { // Update history score
@@ -158,9 +157,23 @@ int eval(Position &position, ThreadInfo &thread_info) {
   if (s && total_mat(position) > 4500) {
 
     if (thread_info.search_ply % 2) {
-      bonus2 = -50 * (eval < -500 ? 2 : eval < 0 ? 1 : 0) * 10 / (s < -300 ? 5 : s < -100 ? 10 : 20);
+      bonus2 = -50 *
+               (eval < -500 ? 2
+                : eval < 0  ? 1
+                            : 0) *
+               10 /
+               (s < -300   ? 5
+                : s < -100 ? 10
+                           : 20);
     } else {
-      bonus2 = 50 * (eval > 500 ? 2 : eval > 0 ? 1 : 0) * 10 / (s < -300 ? 5 : s < -100 ? 10 : 20);
+      bonus2 = 50 *
+               (eval > 500 ? 2
+                : eval > 0 ? 1
+                           : 0) *
+               10 /
+               (s < -300   ? 5
+                : s < -100 ? 10
+                           : 20);
     }
   }
 
@@ -169,7 +182,9 @@ int eval(Position &position, ThreadInfo &thread_info) {
 
   float multiplier = ((float)750 + total_mat(position) / 25) / 1024;
 
-  if (!position.material_count[root_color + 8] || total_mat(position) < 4000 && ((eval > 0 && our_side) || (eval < 0 && !our_side))){
+  if (!position.material_count[root_color + 8] ||
+      total_mat(position) < 4000 &&
+          ((eval > 0 && our_side) || (eval < 0 && !our_side))) {
     multiplier -= 0.1;
   }
 
@@ -638,6 +653,8 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     }
   }
 
+  // Razoring: if our position is really bad compared to alpha and we're at low depths, we can probably return if qsearch fails as well.
+
   if (!is_pv && !in_check && !singular_search) {
 
     if (alpha < 2000 && depth < 5 && static_eval + 400 * depth < alpha) {
@@ -690,10 +707,11 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   }
 
   int p_beta = beta + ProbcutMargin;
+  // Probcut: if a low depth search of only captures beats beta by a significant margin, we're good to return early.
 
-  
   if (cutnode && abs(beta) < ScoreWin && depth > 4 &&
-      (tt_hit ? (tt_score >= p_beta && is_cap(position, tt_move)) : (static_eval >= beta))) {
+      (tt_hit ? (tt_score >= p_beta && is_cap(position, tt_move))
+              : (static_eval >= beta))) {
 
     int threshold = p_beta - static_eval;
     MovePicker probcut_p;
@@ -731,14 +749,13 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       if (score >= p_beta) {
         if (!singular_search) {
           insert_entry(entry, hash, depth - 4, best_move, raw_eval,
-                 score_to_tt(best_score, ply), EntryTypes::LBound,
-                 thread_info.searches);
+                       score_to_tt(best_score, ply), EntryTypes::LBound,
+                       thread_info.searches);
         }
         return score;
       }
     }
   }
-    
 
   Move quiets[64];
   int num_quiets = 0;
@@ -754,7 +771,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   bool is_capture = false, skip = false;
 
   while (Move move = next_move(picker, position, thread_info, tt_move, skip)) {
-
+    // skip various excluded moves
     if (root) {
       bool pv_skip = false;
       for (int i = 0; i < thread_info.multipv_index; i++) {
@@ -802,6 +819,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
         skip = true;
       }
 
+      // History Pruning: at low depths, we can prune quiets with very bad history (failed low many times)
       if (!is_pv && !is_capture && lmr_depth < HistPruningDepth &&
           hist_score < -4096 * lmr_depth) {
         skip = true;
@@ -881,19 +899,23 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
         R -= hist_score / HistDiv;
       }
 
-      // Increase reduction if not in pv
+      // Decrease reduction if in pv
       R -= is_pv;
 
+      // Decrease reduction if we have searched this position at a higher depth before
       R -= (tt_hit && tt_depth >= depth);
 
       // Increase reduction if not improving
       R += !improving;
 
+      // Increase reduction in an expected cutnode
       R += cutnode;
 
+      // Decrease reduction for checks
       R -= (attacks_square(moved_position, get_king_pos(position, color ^ 1),
                            color) != 0);
 
+      // Increase reduction if opponent has had many refutations so far
       R += (thread_info.FailHighCount[ply + 1] > 4);
 
       // Clamp reduction so we don't immediately go into qsearch
@@ -1065,6 +1087,8 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
   bool best_capture = is_cap(position, best_move);
 
+  // update various correction histories
+  
   if (!in_check && (!best_move || !best_capture) &&
       !(best_score >= beta && best_score <= ss->static_eval) &&
       !(!best_move && best_score >= ss->static_eval)) {
@@ -1084,11 +1108,12 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
             position.non_pawn_key[Colors::Black])],
         bonus);
 
-    if ((ss-1)->played_move && (ss-2)->played_move){
-      update_corrhist(thread_info.ContCorrHist[(ss - 2)->piece_moved][extract_to(
-        (ss - 2)->played_move)][(ss - 1)->piece_moved]
-                                    [extract_to((ss - 1)->played_move)],
-        bonus);
+    if ((ss - 1)->played_move && (ss - 2)->played_move) {
+      update_corrhist(
+          thread_info.ContCorrHist[(ss - 2)->piece_moved][extract_to(
+              (ss - 2)->played_move)][(ss - 1)->piece_moved]
+                                  [extract_to((ss - 1)->played_move)],
+          bonus);
     }
   }
 
@@ -1150,7 +1175,8 @@ void iterative_deepen(
 
   thread_info.original_opt = thread_info.opt_time;
   thread_info.datagen_stop = false;
-  thread_info.phase = total_mat(position) < PhaseBound ? PhaseTypes::Endgame : PhaseTypes::Sacrifice;
+  thread_info.phase = total_mat(position) < PhaseBound ? PhaseTypes::Endgame
+                                                       : PhaseTypes::Sacrifice;
   thread_info.nnue_state.reset_nnue(position, thread_info.phase);
   calculate(position);
   thread_info.nodes = 0;
@@ -1338,21 +1364,18 @@ void iterative_deepen(
         score_hist[score_hist_count % score_hist.size()] = score;
         score_hist_count++;
 
-        if (depth >= 6 && total_mat(position) >= PhaseBound){
-          if (thread_info.best_scores[0] < -20){
+        if (depth >= 6 && total_mat(position) >= PhaseBound) {
+          if (thread_info.best_scores[0] < -20) {
             thread_info.phase = PhaseTypes::Endgame;
             thread_info.nnue_state.reset_nnue(position, thread_info.phase);
-          }
-          else if (thread_info.best_scores[0] > 400){
+          } else if (thread_info.best_scores[0] > 400) {
             thread_info.phase = PhaseTypes::Sacrifice;
             thread_info.nnue_state.reset_nnue(position, thread_info.phase);
-          }
-          else{
+          } else {
             thread_info.phase = PhaseTypes::Middlegame;
             thread_info.nnue_state.reset_nnue(position, thread_info.phase);
           }
         }
-
       }
 
       if (thread_data.stop || thread_info.datagen_stop) {

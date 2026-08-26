@@ -18,15 +18,15 @@ constexpr int KillerMoveScore = 100000;
 
 template <uint8_t GenType, uint8_t Color>
 inline void pawn_moves_color_impl(const Position &position,
-                                  uint64_t check_filter,
-                                  uint64_t empty_squares, Move *move_list,
-                                  int &key) {
+                                  uint64_t check_filter, uint64_t empty_squares,
+                                  Move *move_list, int &key) {
 
   constexpr uint64_t third_rank = Color ? Ranks[5] : Ranks[2];
   constexpr uint64_t seventh_rank = Color ? Ranks[1] : Ranks[6];
   constexpr int8_t dir = Color ? Directions::South : Directions::North;
   constexpr int8_t left = Color ? Directions::Southwest : Directions::Northwest;
-  constexpr int8_t right = Color ? Directions::Southeast : Directions::Northeast;
+  constexpr int8_t right =
+      Color ? Directions::Southeast : Directions::Northeast;
 
   uint64_t our_promos = position.pieces_bb[PieceTypes::Pawn] &
                         position.colors_bb[Color] & seventh_rank;
@@ -112,8 +112,7 @@ inline void pawn_moves_color_impl(const Position &position,
 
 template <uint8_t GenType>
 inline void pawn_moves_impl(const Position &position, uint64_t check_filter,
-                            uint64_t empty_squares, Move *move_list,
-                            int &key) {
+                            uint64_t empty_squares, Move *move_list, int &key) {
   if (position.color == Colors::Black) {
     pawn_moves_color_impl<GenType, Colors::Black>(
         position, check_filter, empty_squares, move_list, key);
@@ -155,10 +154,10 @@ inline int movegen_color_impl(const Position &position, Move *move_list,
            opp_pieces = position.colors_bb[opp_color];
   uint64_t occ = stm_pieces | opp_pieces;
 
-  uint64_t targets = GenType == Generate::GenCaptures
-                         ? opp_pieces
-                         : (GenType == Generate::GenQuiets ? ~occ
-                                                           : ~stm_pieces);
+  uint64_t targets =
+      GenType == Generate::GenCaptures
+          ? opp_pieces
+          : (GenType == Generate::GenQuiets ? ~occ : ~stm_pieces);
   uint64_t check_filter = ~0;
 
   uint64_t king = king_pos;
@@ -176,8 +175,8 @@ inline int movegen_color_impl(const Position &position, Move *move_list,
     check_filter = BetweenBBs[king][get_lsb(checkers)];
   }
 
-  pawn_moves_color_impl<GenType, Color>(position, check_filter, ~occ,
-                                        move_list, idx);
+  pawn_moves_color_impl<GenType, Color>(position, check_filter, ~occ, move_list,
+                                        idx);
 
   uint64_t knights = position.pieces_bb[PieceTypes::Knight] & stm_pieces;
   while (knights) {
@@ -274,8 +273,8 @@ inline int movegen_impl(const Position &position, Move *move_list,
 }
 
 template <uint8_t GenType>
-inline int movegen_dispatch(const Position &position,
-                            Move *move_list, uint64_t checkers) {
+inline int movegen_dispatch(const Position &position, Move *move_list,
+                            uint64_t checkers) {
   return movegen_impl<GenType>(position, move_list, checkers);
 }
 
@@ -327,8 +326,7 @@ inline bool is_legal_fast_color(const Position &position, Move move) {
   const uint64_t to_bb = 1ull << to;
 
   if (extract_type(move) == MoveTypes::EnPassant) {
-    const int cap_square =
-        to + (Color ? Directions::North : Directions::South);
+    const int cap_square = to + (Color ? Directions::North : Directions::South);
     occ ^= to_bb;
     occ ^= 1ull << cap_square;
   } else if (!position.board[to]) {
@@ -365,9 +363,8 @@ int legal_movegen(const Position &position, std::span<Move> move_list) {
   uint64_t checkers = attacks_square(
       position, get_king_pos(position, position.color), position.color ^ 1);
   std::array<Move, ListSize> pseudo_list;
-  int pseudo_nmoves =
-      movegen_dispatch<Generate::GenAll>(position, pseudo_list.data(),
-                                         checkers);
+  int pseudo_nmoves = movegen_dispatch<Generate::GenAll>(
+      position, pseudo_list.data(), checkers);
 
   int legal_nmoves = 0;
   for (int i = 0; i < pseudo_nmoves; i++) {
@@ -502,8 +499,7 @@ void score_moves(Position &position, ThreadInfo &thread_info,
                                  SeeValues[get_piece_type(from_piece)] / 100 -
                                  TTMoveScore * !SEE(position, move, -107);
 
-      scored_moves.scores[idx] +=
-          thread_info.CapHistScores[from_piece][to];
+      scored_moves.scores[idx] += thread_info.CapHistScores[from_piece][to];
 
     }
 

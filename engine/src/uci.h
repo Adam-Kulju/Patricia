@@ -204,7 +204,7 @@ void uci(ThreadInfo &thread_info, Position &position) {
     }
 
     else if (command == "uci") {
-      printf("id name Patricia 5.0\n"
+      printf("id name Patricia 5.1\n"
              "id author Adam Kulju\n"
              "option name Hash type spin default 32 min 1 max 131072\n"
              "option name Threads type spin default 1 min 1 max 1024\n"
@@ -302,8 +302,8 @@ void uci(ThreadInfo &thread_info, Position &position) {
       else if (name == "Skill_Level") {
         if (value == 21) {
           thread_info.is_human = false;
-        } 
-        
+        }
+
         else {
           thread_info.is_human = true;
           int to_elo = skill_levels[value - 1];

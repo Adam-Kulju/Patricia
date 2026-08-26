@@ -20,7 +20,6 @@ void multipv_search(Position &position, ThreadInfo &thread_info) {
 // cp loss 50 - 1600
 // cp loss 80 - 1200
 
-
 void search_human(Position &position, ThreadInfo &thread_info) {
 
   int starting_mat = material_eval(position);
@@ -51,12 +50,14 @@ void search_human(Position &position, ThreadInfo &thread_info) {
       best_move = thread_info.best_moves[i];
       mistake = eval_diff;
     }
-  
 
-  if (thread_info.best_scores[i] > 0 && m_diff < sacrifice && ((m_diff < 0 && eval_diff < 50) || (m_diff <= -200 && eval_diff < 100) || (m_diff <= -400 && eval_diff < 200))) {
-        best_move = thread_info.best_moves[i];
-        mistake = eval_diff;
-        sacrifice = m_diff;
+    if (thread_info.best_scores[i] > 0 && m_diff < sacrifice &&
+        ((m_diff < 0 && eval_diff < 50) ||
+         (m_diff <= -200 && eval_diff < 100) ||
+         (m_diff <= -400 && eval_diff < 200))) {
+      best_move = thread_info.best_moves[i];
+      mistake = eval_diff;
+      sacrifice = m_diff;
     }
   }
 

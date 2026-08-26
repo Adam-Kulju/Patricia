@@ -10,6 +10,9 @@
 #include <immintrin.h>
 #endif
 
+// I'm gonna be completely honest a lot of this code has been completely rewritten by other users so
+// I don't feel comfortable commenting it without a deeper look. It passed the tests and that's what I care about.
+
 enum Square : int { // a1 = 0. a8 = 7, etc. thus a1 is the LSB and h8 is the
                     // MSB.
   a1,
@@ -113,8 +116,8 @@ MultiArray<uint64_t, 2, 64> PawnAttacks;
 std::array<uint64_t, 64> KingAttacks;
 std::array<uint64_t, 64> KnightAttacks;
 
-inline uint64_t attack_index(uint64_t occupancy, uint64_t mask,
-                             uint64_t magic, int shift) {
+inline uint64_t attack_index(uint64_t occupancy, uint64_t mask, uint64_t magic,
+                             int shift) {
 #if defined(PATRICIA_USE_PEXT)
   (void)magic;
   (void)shift;
@@ -123,7 +126,6 @@ inline uint64_t attack_index(uint64_t occupancy, uint64_t mask,
   return ((occupancy & mask) * magic) >> shift;
 #endif
 }
-
 
 constexpr std::array<uint64_t, 64> BishopMagics = {
     0x2020420401002200, 0x05210A020A002118, 0x1110040454C00484,
@@ -373,23 +375,20 @@ void fill_pawn_attacks() {
 
 inline uint64_t get_bishop_attacks(int sq, uint64_t occ) {
 #if defined(PATRICIA_USE_PEXT)
-  return BishopAttackPtrs[sq][attack_index(occ,
-                                           BishopMasks[sq], BishopMagics[sq],
-                                           55)];
+  return BishopAttackPtrs[sq][attack_index(occ, BishopMasks[sq],
+                                           BishopMagics[sq], 55)];
 #else
-  return BishopAttacks[sq][attack_index(occ,
-                                        BishopMasks[sq], BishopMagics[sq],
+  return BishopAttacks[sq][attack_index(occ, BishopMasks[sq], BishopMagics[sq],
                                         55)];
 #endif
 }
 
 inline uint64_t get_rook_attacks(int sq, uint64_t occ) {
 #if defined(PATRICIA_USE_PEXT)
-  return RookAttackPtrs[sq][attack_index(occ, RookMasks[sq],
-                                         RookMagics[sq], 52)];
+  return RookAttackPtrs[sq]
+                       [attack_index(occ, RookMasks[sq], RookMagics[sq], 52)];
 #else
-  return RookAttacks[sq][attack_index(occ, RookMasks[sq],
-                                      RookMagics[sq], 52)];
+  return RookAttacks[sq][attack_index(occ, RookMasks[sq], RookMagics[sq], 52)];
 #endif
 }
 

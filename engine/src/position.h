@@ -6,7 +6,7 @@
 #include <sstream>
 
 int movegen(const Position &position, std::span<Move> move_list,
-  uint64_t checkers, int gen_type);
+            uint64_t checkers, int gen_type);
 
 int16_t total_mat(const Position &position) {
   int m = (position.material_count[0] + position.material_count[1]) * 100 +
@@ -215,9 +215,9 @@ void set_board(Position &position, ThreadInfo &thread_info,
 
     if (right == 'k') {
       square = base + 7;
-      if (thread_data.is_frc && castling_rights == "KQkq"){
-        for (int i = base; i < SquareNone; i++){
-          if (position.board[i] == Pieces::WRook + color){
+      if (thread_data.is_frc && castling_rights == "KQkq") {
+        for (int i = base; i < SquareNone; i++) {
+          if (position.board[i] == Pieces::WRook + color) {
             square = i;
             break;
           }
@@ -225,9 +225,9 @@ void set_board(Position &position, ThreadInfo &thread_info,
       }
     } else if (right == 'q') {
       square = base;
-      if (thread_data.is_frc && castling_rights == "KQkq"){
-        for (int i = base + 7; i >= 0; i--){
-          if (position.board[i] == Pieces::WRook + color){
+      if (thread_data.is_frc && castling_rights == "KQkq") {
+        for (int i = base + 7; i >= 0; i--) {
+          if (position.board[i] == Pieces::WRook + color) {
             square = i;
             break;
           }
@@ -476,8 +476,9 @@ bool is_cap(const Position &position, Move &move) {
           is_queen_promo((move)));
 }
 
-void update_nnue_state(ThreadInfo &thread_info, Move move,
-                       const Position &position, const Position &moved_position) { // Updates the nnue state
+void update_nnue_state(
+    ThreadInfo &thread_info, Move move, const Position &position,
+    const Position &moved_position) { // Updates the nnue state
 
   int from = extract_from(move), to = extract_to(move);
   int from_piece = position.board[from];
@@ -520,7 +521,7 @@ void update_nnue_state(ThreadInfo &thread_info, Move move,
     }
   }
 
-  else if (captured_piece) {
+  else if (captured_piece) { // if we have taken enough material to tip over the threshold, we have to swap nets.
 
     if (thread_info.phase == PhaseTypes::Middlegame &&
         total_mat(position) - MaterialValues[get_piece_type(captured_piece)] <
@@ -777,8 +778,7 @@ bool is_pseudo_legal(const Position &position, Move move, uint64_t checkers) {
 
   if (type == MoveTypes::Castling) {
     std::array<Move, ListSize> pseudo_list;
-    int pseudo_nmoves =
-        movegen(position, pseudo_list, checkers, 0);
+    int pseudo_nmoves = movegen(position, pseudo_list, checkers, 0);
 
     int legal_nmoves = 0;
     for (int i = 0; i < pseudo_nmoves; i++) {

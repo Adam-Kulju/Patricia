@@ -106,7 +106,8 @@ void new_game(ThreadInfo &thread_info, std::vector<TTBucket> &TT) {
               sizeof(thread_info.ContHistScores));
   std::memset(&thread_info.CapHistScores, 0, sizeof(thread_info.CapHistScores));
   std::memset(&thread_info.PawnCorrHist, 0, sizeof(thread_info.PawnCorrHist));
-  std::memset(&thread_info.NonPawnCorrHist, 0, sizeof(thread_info.NonPawnCorrHist));
+  std::memset(&thread_info.NonPawnCorrHist, 0,
+              sizeof(thread_info.NonPawnCorrHist));
   std::memset(&thread_info.ContCorrHist, 0, sizeof(thread_info.ContCorrHist));
   std::memset(&thread_info.game_hist, 0, sizeof(thread_info.game_hist));
   std::memset(&TT[0], 0, TT_size * sizeof(TT[0]));
@@ -207,22 +208,23 @@ void insert_entry(
 }
 
 void calculate(Position &position) { // Calculates the zobrist key of
-                                               // a given position.
+                                     // a given position.
   // Useful when initializing positions, in search though
   // incremental updates are faster.
   uint64_t hash = 0;
   uint64_t pawn_hash = 0;
-  position.non_pawn_key[Colors::White] = 0, position.non_pawn_key[Colors::Black] = 0;
+  position.non_pawn_key[Colors::White] = 0,
+  position.non_pawn_key[Colors::Black] = 0;
 
   for (int indx = 0; indx < 64; indx++) {
     int piece = position.board[indx];
     if (piece) {
       hash ^= zobrist_keys[get_zobrist_key(piece, indx)];
-      if (get_piece_type(piece) == PieceTypes::Pawn){
+      if (get_piece_type(piece) == PieceTypes::Pawn) {
         pawn_hash ^= zobrist_keys[get_zobrist_key(piece, indx)];
-      }
-      else{
-        position.non_pawn_key[get_color(piece)] ^= zobrist_keys[get_zobrist_key(piece, indx)];
+      } else {
+        position.non_pawn_key[get_color(piece)] ^=
+            zobrist_keys[get_zobrist_key(piece, indx)];
       }
     }
   }
@@ -241,9 +243,7 @@ void calculate(Position &position) { // Calculates the zobrist key of
   position.pawn_key = pawn_hash;
 }
 
-int get_corrhist_index(uint64_t key){
-  return key % 16384;
-}
+int get_corrhist_index(uint64_t key) { return key % 16384; }
 
 int64_t time_elapsed(std::chrono::steady_clock::time_point start_time) {
   // get the time that has elapsed since the start of search

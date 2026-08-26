@@ -4,11 +4,11 @@
 #include <algorithm>
 
 void adjust_soft_limit(ThreadInfo &thread_info, uint64_t best_move_nodes,
-                        int bm_stability, int score, int prev_score) {
-    
-    // don't adjust time if we're in a 
-  if (thread_info.original_opt >= INT32_MAX / 2){
-      return;
+                       int bm_stability, int score, int prev_score) {
+
+  // don't adjust time if we're in a
+  if (thread_info.original_opt >= INT32_MAX / 2) {
+    return;
   }
 
   double fract = (double)best_move_nodes / thread_info.nodes;
@@ -21,7 +21,7 @@ void adjust_soft_limit(ThreadInfo &thread_info, uint64_t best_move_nodes,
       std::clamp(1.0 + (prev_score - score) / (double)ScoreDropDiv,
                  ScoreDropMin / 100.0, ScoreDropMax / 100.0);
 
-  thread_info.opt_time = std::min<uint32_t>(
-      thread_info.original_opt * factor * bm_factor * score_factor,
-      thread_info.max_time);
+  thread_info.opt_time = std::min<uint32_t>(thread_info.original_opt * factor *
+                                                bm_factor * score_factor,
+                                            thread_info.max_time);
 }

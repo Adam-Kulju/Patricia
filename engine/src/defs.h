@@ -75,7 +75,7 @@ namespace PhaseTypes {
 constexpr uint8_t Middlegame = 0;
 constexpr uint8_t Endgame = 1;
 constexpr uint8_t Sacrifice = 2;
-} // namespace NetTypes
+} // namespace PhaseTypes
 
 constexpr int get_piece_type(int x) { return x / 2; }
 
@@ -134,10 +134,10 @@ constexpr int MaxSearchDepth = 127;
 
 struct GameHistory { // keeps the state of the board at a particular point in
                      // the game
-  uint64_t position_key = 0; // Hash key of the position at the time
-  Move played_move = MoveNone;      // The move that was played
-  uint8_t piece_moved = Pieces::Blank; // The piece that was moved (will be useful for histories
-                       // later)
+  uint64_t position_key = 0;           // Hash key of the position at the time
+  Move played_move = MoveNone;         // The move that was played
+  uint8_t piece_moved = Pieces::Blank; // The piece that was moved (will be
+                                       // useful for histories later)
   // int16_t sacrifice_scale;
   bool is_cap;
   int16_t m_diff;
@@ -151,7 +151,7 @@ constexpr int MaxAge = 1 << 6;
 
 struct TTEntry {
   uint16_t position_key; // The lower 16 bits of the hash key are stored
-  int16_t static_eval;
+  int16_t static_eval; // static eval saved of the position
   int16_t score;     // Score of the position
   Move best_move;    // Best move in the position
   uint8_t depth;     // Depth that the entry was searched to
