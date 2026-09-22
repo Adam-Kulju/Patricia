@@ -9,7 +9,12 @@
 #include <cstring>
 #include <memory>
 #include <span>
+#include <type_traits>
 #include <utility>
+
+#if defined(__AVX512BW__) || defined(__AVX2__)
+#include <immintrin.h>
+#endif
 
 #if defined(NDEBUG) || defined(__OPTIMIZE__) ||                                \
     (defined(_MSC_VER) && !defined(_DEBUG))
@@ -34,6 +39,17 @@
 #undef W_MSVC
 #endif
 
+#if defined(__GNUC__) || defined(__clang__)
+#define NNUE_HOT __attribute__((hot))
+#define NNUE_INLINE inline __attribute__((always_inline))
+#elif defined(_MSC_VER)
+#define NNUE_HOT
+#define NNUE_INLINE __forceinline
+#else
+#define NNUE_HOT
+#define NNUE_INLINE inline
+#endif
+
 inline constexpr size_t INPUT_SIZE = 768;
 inline constexpr size_t LAYER1_SIZE = 1024;
 
@@ -53,13 +69,6 @@ inline constexpr size_t MAX_ACCUMULATOR_SUBS = 2;
 inline constexpr size_t MAX_BOARD_PIECES = 64;
 
 static_assert(SCRELU_MAX == QA, "SCReLU clamp upper bound must equal QA");
-#if defined(__AVX512BW__) || defined(__AVX2__)
-static_assert(LAYER1_SIZE % (REGISTER_SIZE * 2) == 0,
-              "LAYER1_SIZE must be a multiple of the SIMD register width");
-#endif
-
-inline const auto SCRELU_MIN_VEC = get_int16_vec(SCRELU_MIN);
-inline const auto QA_VEC = get_int16_vec(QA);
 
 inline void nnue_prefetch(const void *ptr) noexcept {
 #if defined(__GNUC__) || defined(__clang__)
@@ -73,59 +82,112 @@ inline void nnue_prefetch(const void *ptr) noexcept {
 
 #if defined(__AVX512BW__)
 #define PATRICIA_NNUE_SIMD 1
-using NnueVec16 = __m512i;
-[[nodiscard]] inline NnueVec16 nnue_vec_add16(NnueVec16 a,
-                                              NnueVec16 b) noexcept {
-  return _mm512_add_epi16(a, b);
+using NnueVec = __m512i;
+inline constexpr size_t NNUE_VEC_WIDTH = 32;
+[[nodiscard]] NNUE_INLINE NnueVec nnue_load(const int16_t *p) noexcept {
+  return _mm512_load_si512(reinterpret_cast<const __m512i *>(p));
 }
-[[nodiscard]] inline NnueVec16 nnue_vec_sub16(NnueVec16 a,
-                                              NnueVec16 b) noexcept {
-  return _mm512_sub_epi16(a, b);
+NNUE_INLINE void nnue_store(int16_t *p, NnueVec v) noexcept {
+  _mm512_store_si512(reinterpret_cast<__m512i *>(p), v);
 }
-[[nodiscard]] inline NnueVec16 nnue_vec_sadd16(NnueVec16 a,
-                                               NnueVec16 b) noexcept {
+[[nodiscard]] NNUE_INLINE NnueVec nnue_sadd16(NnueVec a, NnueVec b) noexcept {
   return _mm512_adds_epi16(a, b);
 }
-[[nodiscard]] inline NnueVec16 nnue_vec_ssub16(NnueVec16 a,
-                                               NnueVec16 b) noexcept {
+[[nodiscard]] NNUE_INLINE NnueVec nnue_ssub16(NnueVec a, NnueVec b) noexcept {
   return _mm512_subs_epi16(a, b);
 }
-inline void nnue_vec_store16(int16_t *dst, NnueVec16 value) noexcept {
-  _mm512_store_si512(reinterpret_cast<__m512i *>(dst), value);
+[[nodiscard]] NNUE_INLINE NnueVec nnue_clamp16(NnueVec v, NnueVec lo,
+                                               NnueVec hi) noexcept {
+  return _mm512_min_epi16(_mm512_max_epi16(v, lo), hi);
+}
+[[nodiscard]] NNUE_INLINE NnueVec nnue_mullo16(NnueVec a, NnueVec b) noexcept {
+  return _mm512_mullo_epi16(a, b);
+}
+[[nodiscard]] NNUE_INLINE NnueVec nnue_set1_16(int16_t x) noexcept {
+  return _mm512_set1_epi16(x);
+}
+[[nodiscard]] NNUE_INLINE NnueVec nnue_zero() noexcept {
+  return _mm512_setzero_si512();
+}
+[[nodiscard]] NNUE_INLINE NnueVec nnue_add32(NnueVec a, NnueVec b) noexcept {
+  return _mm512_add_epi32(a, b);
+}
+[[nodiscard]] NNUE_INLINE NnueVec nnue_dpwssd(NnueVec sum, NnueVec a,
+                                              NnueVec b) noexcept {
+#if defined(__AVX512VNNI__)
+  return _mm512_dpwssd_epi32(sum, a, b);
+#else
+  return _mm512_add_epi32(sum, _mm512_madd_epi16(a, b));
+#endif
+}
+[[nodiscard]] NNUE_INLINE int32_t nnue_hadd32(NnueVec v) noexcept {
+  return _mm512_reduce_add_epi32(v);
 }
 #elif defined(__AVX2__)
 #define PATRICIA_NNUE_SIMD 1
-using NnueVec16 = __m256i;
-[[nodiscard]] inline NnueVec16 nnue_vec_add16(NnueVec16 a,
-                                              NnueVec16 b) noexcept {
-  return _mm256_add_epi16(a, b);
+using NnueVec = __m256i;
+inline constexpr size_t NNUE_VEC_WIDTH = 16;
+[[nodiscard]] NNUE_INLINE NnueVec nnue_load(const int16_t *p) noexcept {
+  return _mm256_load_si256(reinterpret_cast<const __m256i *>(p));
 }
-[[nodiscard]] inline NnueVec16 nnue_vec_sub16(NnueVec16 a,
-                                              NnueVec16 b) noexcept {
-  return _mm256_sub_epi16(a, b);
+NNUE_INLINE void nnue_store(int16_t *p, NnueVec v) noexcept {
+  _mm256_store_si256(reinterpret_cast<__m256i *>(p), v);
 }
-[[nodiscard]] inline NnueVec16 nnue_vec_sadd16(NnueVec16 a,
-                                               NnueVec16 b) noexcept {
+[[nodiscard]] NNUE_INLINE NnueVec nnue_sadd16(NnueVec a, NnueVec b) noexcept {
   return _mm256_adds_epi16(a, b);
 }
-[[nodiscard]] inline NnueVec16 nnue_vec_ssub16(NnueVec16 a,
-                                               NnueVec16 b) noexcept {
+[[nodiscard]] NNUE_INLINE NnueVec nnue_ssub16(NnueVec a, NnueVec b) noexcept {
   return _mm256_subs_epi16(a, b);
 }
-inline void nnue_vec_store16(int16_t *dst, NnueVec16 value) noexcept {
-  _mm256_store_si256(reinterpret_cast<__m256i *>(dst), value);
+[[nodiscard]] NNUE_INLINE NnueVec nnue_clamp16(NnueVec v, NnueVec lo,
+                                               NnueVec hi) noexcept {
+  return _mm256_min_epi16(_mm256_max_epi16(v, lo), hi);
+}
+[[nodiscard]] NNUE_INLINE NnueVec nnue_mullo16(NnueVec a, NnueVec b) noexcept {
+  return _mm256_mullo_epi16(a, b);
+}
+[[nodiscard]] NNUE_INLINE NnueVec nnue_set1_16(int16_t x) noexcept {
+  return _mm256_set1_epi16(x);
+}
+[[nodiscard]] NNUE_INLINE NnueVec nnue_zero() noexcept {
+  return _mm256_setzero_si256();
+}
+[[nodiscard]] NNUE_INLINE NnueVec nnue_add32(NnueVec a, NnueVec b) noexcept {
+  return _mm256_add_epi32(a, b);
+}
+[[nodiscard]] NNUE_INLINE NnueVec nnue_dpwssd(NnueVec sum, NnueVec a,
+                                              NnueVec b) noexcept {
+#if defined(__AVX512VNNI__) && defined(__AVX512VL__)
+  return _mm256_dpwssd_epi32(sum, a, b);
+#elif defined(__AVXVNNI__)
+  return _mm256_dpwssd_avx_epi32(sum, a, b);
+#else
+  return _mm256_add_epi32(sum, _mm256_madd_epi16(a, b));
+#endif
+}
+[[nodiscard]] NNUE_INLINE int32_t nnue_hadd32(NnueVec v) noexcept {
+  __m128i s = _mm_add_epi32(_mm256_castsi256_si128(v),
+                            _mm256_extracti128_si256(v, 1));
+  s = _mm_add_epi32(s, _mm_unpackhi_epi64(s, s));
+  s = _mm_add_epi32(s, _mm_shuffle_epi32(s, 0xB1));
+  return _mm_cvtsi128_si32(s);
 }
 #else
 #define PATRICIA_NNUE_SIMD 0
 #endif
 
 #if PATRICIA_NNUE_SIMD
-inline constexpr size_t NNUE_UPDATE_UNROLL =
-    (LAYER1_SIZE % (REGISTER_SIZE * 4) == 0)   ? 4
-    : (LAYER1_SIZE % (REGISTER_SIZE * 2) == 0) ? 2
-                                               : 1;
-inline constexpr size_t NNUE_REFRESH_UNROLL =
-    (LAYER1_SIZE % (REGISTER_SIZE * 8) == 0) ? 8 : NNUE_UPDATE_UNROLL;
+static_assert(LAYER1_SIZE % NNUE_VEC_WIDTH == 0,
+              "LAYER1_SIZE must be a multiple of the SIMD register width");
+[[nodiscard]] inline constexpr size_t nnue_pick_unroll(size_t want) noexcept {
+  while (want > 1 && LAYER1_SIZE % (NNUE_VEC_WIDTH * want) != 0)
+    want /= 2;
+  return want;
+}
+inline constexpr size_t NNUE_UPDATE_UNROLL = nnue_pick_unroll(8);
+inline constexpr size_t NNUE_REFRESH_UNROLL = nnue_pick_unroll(8);
+inline constexpr size_t NNUE_DOT_UNROLL =
+    nnue_pick_unroll(NNUE_VEC_WIDTH >= 32 ? 8 : 4);
 #endif
 
 struct alignas(64) NNUE_Params {
@@ -139,14 +201,21 @@ INCBIN(nnue, "nets/fingolfin.nnue");
 INCBIN(nnue2, "nets/finarfin.nnue");
 INCBIN(nnue3, "nets/feanor.nnue");
 
-[[nodiscard]] inline const NNUE_Params &get_nnue(size_t index) noexcept {
-  static const std::array<const NNUE_Params *, NUM_NETS> nets = {
-      reinterpret_cast<const NNUE_Params *>(g_nnueData),
-      reinterpret_cast<const NNUE_Params *>(g_nnue2Data),
-      reinterpret_cast<const NNUE_Params *>(g_nnue3Data),
-  };
-  PATRICIA_NNUE_ASSERT(index < nets.size());
-  return *std::assume_aligned<64>(nets[index]);
+[[nodiscard]] NNUE_INLINE const NNUE_Params &get_nnue(size_t index) noexcept {
+  PATRICIA_NNUE_ASSERT(index < NUM_NETS);
+  const unsigned char *data;
+  switch (index) {
+  case 0:
+    data = g_nnueData;
+    break;
+  case 1:
+    data = g_nnue2Data;
+    break;
+  default:
+    data = g_nnue3Data;
+    break;
+  }
+  return *std::assume_aligned<64>(reinterpret_cast<const NNUE_Params *>(data));
 }
 
 [[nodiscard]] inline constexpr size_t phase_to_index(int phase) noexcept {
@@ -164,17 +233,17 @@ INCBIN(nnue3, "nets/feanor.nnue");
   return get_nnue(phase_to_index(phase));
 }
 
-[[nodiscard]] inline const int16_t *nnue_feature_row(const NNUE_Params &net,
-                                                     size_t index) noexcept {
+[[nodiscard]] NNUE_INLINE const int16_t *
+nnue_feature_row(const NNUE_Params &net, size_t index) noexcept {
   PATRICIA_NNUE_ASSERT(index < INPUT_SIZE);
-  return net.feature_v.data() + index * LAYER1_SIZE;
+  return std::assume_aligned<64>(net.feature_v.data() + index * LAYER1_SIZE);
 }
 
-#if defined(__GNUC__) || defined(__clang__)
-#define NNUE_HOT __attribute__((hot))
-#else
-#define NNUE_HOT
-#endif
+[[nodiscard]] constexpr int32_t screlu(int16_t x) noexcept {
+  const int32_t clipped =
+      std::clamp(static_cast<int32_t>(x), SCRELU_MIN, SCRELU_MAX);
+  return clipped * clipped;
+}
 
 template <size_t NumAdd, size_t NumSub>
 NNUE_HOT inline void nnue_apply_update(int16_t *__restrict dst,
@@ -183,26 +252,23 @@ NNUE_HOT inline void nnue_apply_update(int16_t *__restrict dst,
                                        const int16_t *const *subs) noexcept {
 #if PATRICIA_NNUE_SIMD
   constexpr size_t unroll = NNUE_UPDATE_UNROLL;
-  for (size_t i = 0; i < LAYER1_SIZE; i += REGISTER_SIZE * unroll) {
-    NnueVec16 regs[unroll];
-    for (size_t u = 0; u < unroll; ++u) {
-      regs[u] = int16_load(src + i + u * REGISTER_SIZE);
-    }
+  constexpr size_t W = NNUE_VEC_WIDTH;
+  for (size_t i = 0; i < LAYER1_SIZE; i += W * unroll) {
+    NnueVec regs[unroll];
+    for (size_t u = 0; u < unroll; ++u)
+      regs[u] = nnue_load(src + i + u * W);
     for (size_t a = 0; a < NumAdd; ++a) {
       const int16_t *row = adds[a] + i;
-      for (size_t u = 0; u < unroll; ++u) {
-        regs[u] = nnue_vec_sadd16(regs[u], int16_load(row + u * REGISTER_SIZE));
-      }
+      for (size_t u = 0; u < unroll; ++u)
+        regs[u] = nnue_sadd16(regs[u], nnue_load(row + u * W));
     }
     for (size_t s = 0; s < NumSub; ++s) {
       const int16_t *row = subs[s] + i;
-      for (size_t u = 0; u < unroll; ++u) {
-        regs[u] = nnue_vec_ssub16(regs[u], int16_load(row + u * REGISTER_SIZE));
-      }
+      for (size_t u = 0; u < unroll; ++u)
+        regs[u] = nnue_ssub16(regs[u], nnue_load(row + u * W));
     }
-    for (size_t u = 0; u < unroll; ++u) {
-      nnue_vec_store16(dst + i + u * REGISTER_SIZE, regs[u]);
-    }
+    for (size_t u = 0; u < unroll; ++u)
+      nnue_store(dst + i + u * W, regs[u]);
   }
 #else
   for (size_t i = 0; i < LAYER1_SIZE; ++i) {
@@ -218,27 +284,98 @@ NNUE_HOT inline void nnue_apply_update(int16_t *__restrict dst,
 #endif
 }
 
+[[nodiscard]] NNUE_HOT inline int64_t
+nnue_dot(const int16_t *__restrict acc, const int16_t *__restrict w) noexcept {
+#if PATRICIA_NNUE_SIMD
+  constexpr size_t unroll = NNUE_DOT_UNROLL;
+  constexpr size_t W = NNUE_VEC_WIDTH;
+  const NnueVec lo = nnue_set1_16(static_cast<int16_t>(SCRELU_MIN));
+  const NnueVec hi = nnue_set1_16(static_cast<int16_t>(QA));
+  NnueVec sums[unroll];
+  for (size_t u = 0; u < unroll; ++u)
+    sums[u] = nnue_zero();
+  for (size_t i = 0; i < LAYER1_SIZE; i += W * unroll) {
+    for (size_t u = 0; u < unroll; ++u) {
+      const NnueVec v = nnue_clamp16(nnue_load(acc + i + u * W), lo, hi);
+      const NnueVec p = nnue_mullo16(v, nnue_load(w + i + u * W));
+      sums[u] = nnue_dpwssd(sums[u], p, v);
+    }
+  }
+  NnueVec total = sums[0];
+  for (size_t u = 1; u < unroll; ++u)
+    total = nnue_add32(total, sums[u]);
+  return static_cast<int64_t>(nnue_hadd32(total));
+#else
+  int64_t sum = 0;
+  for (size_t i = 0; i < LAYER1_SIZE; ++i)
+    sum += static_cast<int64_t>(screlu(acc[i])) * w[i];
+  return sum;
+#endif
+}
+
+template <size_t NumAdd, size_t NumSub>
+[[nodiscard]] NNUE_HOT inline int64_t
+nnue_update_dot(int16_t *__restrict dst, const int16_t *__restrict src,
+                const int16_t *const *adds, const int16_t *const *subs,
+                const int16_t *__restrict w) noexcept {
+#if PATRICIA_NNUE_SIMD
+  constexpr size_t unroll = NNUE_DOT_UNROLL;
+  constexpr size_t W = NNUE_VEC_WIDTH;
+  const NnueVec lo = nnue_set1_16(static_cast<int16_t>(SCRELU_MIN));
+  const NnueVec hi = nnue_set1_16(static_cast<int16_t>(QA));
+  NnueVec sums[unroll];
+  for (size_t u = 0; u < unroll; ++u)
+    sums[u] = nnue_zero();
+  for (size_t i = 0; i < LAYER1_SIZE; i += W * unroll) {
+    NnueVec regs[unroll];
+    for (size_t u = 0; u < unroll; ++u)
+      regs[u] = nnue_load(src + i + u * W);
+    for (size_t a = 0; a < NumAdd; ++a) {
+      const int16_t *row = adds[a] + i;
+      for (size_t u = 0; u < unroll; ++u)
+        regs[u] = nnue_sadd16(regs[u], nnue_load(row + u * W));
+    }
+    for (size_t s = 0; s < NumSub; ++s) {
+      const int16_t *row = subs[s] + i;
+      for (size_t u = 0; u < unroll; ++u)
+        regs[u] = nnue_ssub16(regs[u], nnue_load(row + u * W));
+    }
+    for (size_t u = 0; u < unroll; ++u) {
+      nnue_store(dst + i + u * W, regs[u]);
+      const NnueVec v = nnue_clamp16(regs[u], lo, hi);
+      const NnueVec p = nnue_mullo16(v, nnue_load(w + i + u * W));
+      sums[u] = nnue_dpwssd(sums[u], p, v);
+    }
+  }
+  NnueVec total = sums[0];
+  for (size_t u = 1; u < unroll; ++u)
+    total = nnue_add32(total, sums[u]);
+  return static_cast<int64_t>(nnue_hadd32(total));
+#else
+  nnue_apply_update<NumAdd, NumSub>(dst, src, adds, subs);
+  return nnue_dot(dst, w);
+#endif
+}
+
 NNUE_HOT inline void nnue_refresh_side(int16_t *__restrict dst,
                                        const NNUE_Params &net,
                                        const uint16_t *indices,
                                        size_t count) noexcept {
 #if PATRICIA_NNUE_SIMD
   constexpr size_t unroll = NNUE_REFRESH_UNROLL;
+  constexpr size_t W = NNUE_VEC_WIDTH;
   const int16_t *bias = net.feature_bias.data();
-  for (size_t i = 0; i < LAYER1_SIZE; i += REGISTER_SIZE * unroll) {
-    NnueVec16 regs[unroll];
-    for (size_t u = 0; u < unroll; ++u) {
-      regs[u] = int16_load(bias + i + u * REGISTER_SIZE);
-    }
+  for (size_t i = 0; i < LAYER1_SIZE; i += W * unroll) {
+    NnueVec regs[unroll];
+    for (size_t u = 0; u < unroll; ++u)
+      regs[u] = nnue_load(bias + i + u * W);
     for (size_t p = 0; p < count; ++p) {
       const int16_t *row = nnue_feature_row(net, indices[p]) + i;
-      for (size_t u = 0; u < unroll; ++u) {
-        regs[u] = nnue_vec_sadd16(regs[u], int16_load(row + u * REGISTER_SIZE));
-      }
+      for (size_t u = 0; u < unroll; ++u)
+        regs[u] = nnue_sadd16(regs[u], nnue_load(row + u * W));
     }
-    for (size_t u = 0; u < unroll; ++u) {
-      nnue_vec_store16(dst + i + u * REGISTER_SIZE, regs[u]);
-    }
+    for (size_t u = 0; u < unroll; ++u)
+      nnue_store(dst + i + u * W, regs[u]);
   }
 #else
   std::memcpy(dst, net.feature_bias.data(), LAYER1_SIZE * sizeof(int16_t));
@@ -263,6 +400,53 @@ struct NNUE_Update {
   uint8_t subs;
   uint8_t net;
 };
+
+template <size_t NumAdd, size_t NumSub, typename Kernel>
+NNUE_INLINE void nnue_run_update(const NNUE_Update &u, const NNUE_Params &n,
+                                 Kernel &&kernel) {
+  const int16_t *wa[NumAdd];
+  const int16_t *ba[NumAdd];
+  const int16_t *ws[NumSub];
+  const int16_t *bs[NumSub];
+  for (size_t a = 0; a < NumAdd; ++a) {
+    wa[a] = nnue_feature_row(n, u.white_add[a]);
+    ba[a] = nnue_feature_row(n, u.black_add[a]);
+  }
+  for (size_t s = 0; s < NumSub; ++s) {
+    ws[s] = nnue_feature_row(n, u.white_sub[s]);
+    bs[s] = nnue_feature_row(n, u.black_sub[s]);
+  }
+  kernel(std::integral_constant<size_t, NumAdd>{},
+         std::integral_constant<size_t, NumSub>{}, wa, ws, ba, bs);
+}
+
+template <typename Kernel>
+NNUE_INLINE void nnue_dispatch_update(const NNUE_Update &u,
+                                      const NNUE_Params &n, Kernel &&kernel) {
+  switch (static_cast<int>(u.adds) * 4 + static_cast<int>(u.subs)) {
+  case 4 + 1:
+    nnue_run_update<1, 1>(u, n, kernel);
+    break;
+  case 4 + 2:
+    nnue_run_update<1, 2>(u, n, kernel);
+    break;
+  default:
+    nnue_run_update<2, 2>(u, n, kernel);
+    break;
+  }
+}
+
+inline void nnue_prefetch_update(const NNUE_Update &u) noexcept {
+  const NNUE_Params &n = get_nnue(u.net);
+  for (size_t a = 0; a < u.adds; ++a) {
+    nnue_prefetch(nnue_feature_row(n, u.white_add[a]));
+    nnue_prefetch(nnue_feature_row(n, u.black_add[a]));
+  }
+  for (size_t s = 0; s < u.subs; ++s) {
+    nnue_prefetch(nnue_feature_row(n, u.white_sub[s]));
+    nnue_prefetch(nnue_feature_row(n, u.black_sub[s]));
+  }
+}
 
 template <size_t HiddenSize> struct alignas(64) Accumulator {
   std::array<int16_t, HiddenSize> white;
@@ -297,74 +481,6 @@ feature_indices(int piece, int sq) noexcept {
                            static_cast<size_t>(sq ^ 56);
 
   return {white_idx, black_idx};
-}
-
-[[nodiscard]] constexpr int32_t screlu(int16_t x) noexcept {
-  const int32_t clipped =
-      std::clamp(static_cast<int32_t>(x), SCRELU_MIN, SCRELU_MAX);
-  return clipped * clipped;
-}
-
-[[nodiscard]] NNUE_HOT inline int64_t
-screlu_flatten(const std::array<int16_t, LAYER1_SIZE> &us,
-               const std::array<int16_t, LAYER1_SIZE> &them,
-               const std::array<int16_t, LAYER1_SIZE * 2> &weights) noexcept {
-#if defined(__AVX512BW__) || defined(__AVX2__)
-  const auto accumulate = [](auto &sum, const int16_t *acc, const int16_t *w) {
-    auto v = int16_load(acc);
-    v = vec_int16_clamp(v, SCRELU_MIN_VEC, QA_VEC);
-    const auto product = vec_int16_multiply(v, int16_load(w));
-    sum = vec_int32_add(sum, vec_int16_madd_int32(product, v));
-  };
-
-  auto sum0 = vec_int32_zero();
-  auto sum1 = vec_int32_zero();
-  auto sum2 = vec_int32_zero();
-  auto sum3 = vec_int32_zero();
-  auto sum4 = vec_int32_zero();
-  auto sum5 = vec_int32_zero();
-  auto sum6 = vec_int32_zero();
-  auto sum7 = vec_int32_zero();
-
-  constexpr size_t stride = REGISTER_SIZE * 4;
-  if constexpr (LAYER1_SIZE % stride == 0) {
-    for (size_t i = 0; i < LAYER1_SIZE; i += stride) {
-      accumulate(sum0, &us[i], &weights[i]);
-      accumulate(sum1, &them[i], &weights[LAYER1_SIZE + i]);
-      accumulate(sum2, &us[i + REGISTER_SIZE], &weights[i + REGISTER_SIZE]);
-      accumulate(sum3, &them[i + REGISTER_SIZE],
-                 &weights[LAYER1_SIZE + i + REGISTER_SIZE]);
-      accumulate(sum4, &us[i + REGISTER_SIZE * 2],
-                 &weights[i + REGISTER_SIZE * 2]);
-      accumulate(sum5, &them[i + REGISTER_SIZE * 2],
-                 &weights[LAYER1_SIZE + i + REGISTER_SIZE * 2]);
-      accumulate(sum6, &us[i + REGISTER_SIZE * 3],
-                 &weights[i + REGISTER_SIZE * 3]);
-      accumulate(sum7, &them[i + REGISTER_SIZE * 3],
-                 &weights[LAYER1_SIZE + i + REGISTER_SIZE * 3]);
-    }
-  } else {
-    for (size_t i = 0; i < LAYER1_SIZE; i += REGISTER_SIZE * 2) {
-      accumulate(sum0, &us[i], &weights[i]);
-      accumulate(sum1, &them[i], &weights[LAYER1_SIZE + i]);
-      accumulate(sum2, &us[i + REGISTER_SIZE], &weights[i + REGISTER_SIZE]);
-      accumulate(sum3, &them[i + REGISTER_SIZE],
-                 &weights[LAYER1_SIZE + i + REGISTER_SIZE]);
-    }
-  }
-
-  const auto total = vec_int32_add(
-      vec_int32_add(vec_int32_add(sum0, sum1), vec_int32_add(sum2, sum3)),
-      vec_int32_add(vec_int32_add(sum4, sum5), vec_int32_add(sum6, sum7)));
-  return static_cast<int64_t>(vec_int32_hadd(total));
-#else
-  int64_t sum = 0;
-  for (size_t i = 0; i < LAYER1_SIZE; ++i) {
-    sum += static_cast<int64_t>(screlu(us[i])) * weights[i];
-    sum += static_cast<int64_t>(screlu(them[i])) * weights[LAYER1_SIZE + i];
-  }
-  return sum;
-#endif
 }
 
 class NNUE_State {
@@ -427,52 +543,20 @@ private:
 
   std::array<Acc, MaxSearchDepth> m_stack{};
   Acc *m_curr = nullptr;
-
-  [[nodiscard]] static const int16_t *feature_ptr(const NNUE_Params &n,
-                                                  size_t idx) noexcept {
-    return nnue_feature_row(n, idx);
-  }
 };
 
 inline void NNUE_State::apply_pending(Acc &dst, const Acc &src) noexcept {
   const NNUE_Update &u = dst.pending;
   const NNUE_Params &n = get_nnue(u.net);
-
-  switch (static_cast<int>(u.adds) * 4 + static_cast<int>(u.subs)) {
-  case 4 + 1: {
-    const int16_t *wa[1] = {feature_ptr(n, u.white_add[0])};
-    const int16_t *ws[1] = {feature_ptr(n, u.white_sub[0])};
-    const int16_t *ba[1] = {feature_ptr(n, u.black_add[0])};
-    const int16_t *bs[1] = {feature_ptr(n, u.black_sub[0])};
-    nnue_apply_update<1, 1>(dst.white.data(), src.white.data(), wa, ws);
-    nnue_apply_update<1, 1>(dst.black.data(), src.black.data(), ba, bs);
-    break;
-  }
-  case 4 + 2: {
-    const int16_t *wa[1] = {feature_ptr(n, u.white_add[0])};
-    const int16_t *ws[2] = {feature_ptr(n, u.white_sub[0]),
-                            feature_ptr(n, u.white_sub[1])};
-    const int16_t *ba[1] = {feature_ptr(n, u.black_add[0])};
-    const int16_t *bs[2] = {feature_ptr(n, u.black_sub[0]),
-                            feature_ptr(n, u.black_sub[1])};
-    nnue_apply_update<1, 2>(dst.white.data(), src.white.data(), wa, ws);
-    nnue_apply_update<1, 2>(dst.black.data(), src.black.data(), ba, bs);
-    break;
-  }
-  default: {
-    const int16_t *wa[2] = {feature_ptr(n, u.white_add[0]),
-                            feature_ptr(n, u.white_add[1])};
-    const int16_t *ws[2] = {feature_ptr(n, u.white_sub[0]),
-                            feature_ptr(n, u.white_sub[1])};
-    const int16_t *ba[2] = {feature_ptr(n, u.black_add[0]),
-                            feature_ptr(n, u.black_add[1])};
-    const int16_t *bs[2] = {feature_ptr(n, u.black_sub[0]),
-                            feature_ptr(n, u.black_sub[1])};
-    nnue_apply_update<2, 2>(dst.white.data(), src.white.data(), wa, ws);
-    nnue_apply_update<2, 2>(dst.black.data(), src.black.data(), ba, bs);
-    break;
-  }
-  }
+  nnue_dispatch_update(
+      u, n,
+      [&](auto na, auto ns, const int16_t *const *wa, const int16_t *const *ws,
+          const int16_t *const *ba, const int16_t *const *bs) {
+        constexpr size_t A = decltype(na)::value;
+        constexpr size_t S = decltype(ns)::value;
+        nnue_apply_update<A, S>(dst.white.data(), src.white.data(), wa, ws);
+        nnue_apply_update<A, S>(dst.black.data(), src.black.data(), ba, bs);
+      });
 }
 
 NNUE_HOT inline void NNUE_State::materialize(Acc *target) const noexcept {
@@ -489,12 +573,7 @@ NNUE_HOT inline void NNUE_State::materialize(Acc *target) const noexcept {
 
   for (Acc *cur = base + 1; cur <= target; ++cur) {
     if (cur + 1 <= target) {
-      const NNUE_Update &nu = (cur + 1)->pending;
-      const NNUE_Params &nn = get_nnue(nu.net);
-      nnue_prefetch(feature_ptr(nn, nu.white_add[0]));
-      nnue_prefetch(feature_ptr(nn, nu.black_add[0]));
-      nnue_prefetch(feature_ptr(nn, nu.white_sub[0]));
-      nnue_prefetch(feature_ptr(nn, nu.black_sub[0]));
+      nnue_prefetch_update((cur + 1)->pending);
     }
     apply_pending(*cur, *(cur - 1));
     cur->computed = true;
@@ -518,6 +597,7 @@ inline void NNUE_State::add_sub(int from_piece, int from, int to_piece, int to,
   target.computed = false;
   target.cached = false;
 
+  nnue_prefetch_update(u);
   ++m_curr;
 }
 
@@ -542,6 +622,7 @@ inline void NNUE_State::add_sub_sub(int from_piece, int from, int to_piece,
   target.computed = false;
   target.cached = false;
 
+  nnue_prefetch_update(u);
   ++m_curr;
 }
 
@@ -569,6 +650,7 @@ inline void NNUE_State::add_add_sub_sub(int piece1, int from1, int to1,
   target.computed = false;
   target.cached = false;
 
+  nnue_prefetch_update(u);
   ++m_curr;
 }
 
@@ -589,13 +671,40 @@ NNUE_HOT inline int NNUE_State::evaluate(int color, int phase) const {
     return acc.cached_eval;
   }
 
-  materialize(m_curr);
-
   const NNUE_Params &n = get_nnue(net_index);
-  const auto &us = (color == Colors::White) ? acc.white : acc.black;
-  const auto &them = (color == Colors::White) ? acc.black : acc.white;
+  const int16_t *out = n.output_v.data();
+  const bool white_us = (color == Colors::White);
+  const int16_t *w_white = white_us ? out : out + LAYER1_SIZE;
+  const int16_t *w_black = white_us ? out + LAYER1_SIZE : out;
 
-  const int64_t raw = screlu_flatten(us, them, n.output_v);
+  int64_t raw;
+  if (!acc.computed && m_curr != m_stack.data()) {
+    Acc &parent = *(m_curr - 1);
+    materialize(&parent);
+
+    const NNUE_Update &u = acc.pending;
+    const NNUE_Params &fn = get_nnue(u.net);
+    int64_t sum = 0;
+    nnue_dispatch_update(
+        u, fn,
+        [&](auto na, auto ns, const int16_t *const *wa,
+            const int16_t *const *ws, const int16_t *const *ba,
+            const int16_t *const *bs) {
+          constexpr size_t A = decltype(na)::value;
+          constexpr size_t S = decltype(ns)::value;
+          sum += nnue_update_dot<A, S>(acc.white.data(), parent.white.data(),
+                                       wa, ws, w_white);
+          sum += nnue_update_dot<A, S>(acc.black.data(), parent.black.data(),
+                                       ba, bs, w_black);
+        });
+    acc.computed = true;
+    raw = sum;
+  } else {
+    materialize(m_curr);
+    raw = nnue_dot(acc.white.data(), w_white) +
+          nnue_dot(acc.black.data(), w_black);
+  }
+
   const int64_t biased = raw + static_cast<int64_t>(n.output_bias) * QA;
   const int result =
       static_cast<int>((biased * SCALE) /
@@ -651,3 +760,4 @@ inline void NNUE_State::change_phases(const Position &position, int phase) {
 #undef PATRICIA_NNUE_SIMD
 #undef PATRICIA_NNUE_ASSERT
 #undef NNUE_HOT
+#undef NNUE_INLINE
