@@ -303,10 +303,11 @@ inline bool is_legal_fast_color(const Position &position, Move move) {
   const uint64_t from_bb = 1ull << from;
 
   if (position.board[from] >= Pieces::WKing) {
+    uint64_t king_occ = occupied ^ from_bb;
     if (extract_type(move) == MoveTypes::Castling) {
+      king_occ ^= 1ull << to;
       to = 56 * Color + 2 + (to > from) * 4;
     }
-    const uint64_t king_occ = occupied ^ from_bb;
     const uint64_t enemy = position.colors_bb[opp_color];
     const uint64_t bishops = position.pieces_bb[PieceTypes::Bishop] |
                              position.pieces_bb[PieceTypes::Queen];
