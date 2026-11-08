@@ -334,14 +334,10 @@ inline bool is_legal_fast_color(const Position &position, Move move) {
 
   if (position.board[from] >= Pieces::WKing) {
     uint64_t king_occ = occupied ^ from_bb;
-
     if (extract_type(move) == MoveTypes::Castling) {
-      const int side = (to > from);
       king_occ ^= 1ull << to;
-      king_occ |= 1ull << (back_rank + 3 + 2 * side);
-      to = back_rank + 2 + 4 * side;
+      to = 56 * Color + 2 + (to > from) * 4;
     }
-
     const uint64_t enemy = position.colors_bb[opp_color];
 
     if (PawnAttacks[Color][to] & position.pieces_bb[PieceTypes::Pawn] & enemy) {

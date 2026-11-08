@@ -9,10 +9,10 @@
 
 constexpr int NormalizationFactor = 195;
 
-void update_history(int16_t &entry, int score) { // Update history score
+void update_history(int16_t &entry, int score) {
   entry += score - entry * abs(score) / 16384;
 }
-void update_corrhist(int16_t &entry, int score) { // Update history score
+void update_corrhist(int16_t &entry, int score) {
   entry += score - entry * abs(score) / 1024;
 }
 
@@ -53,8 +53,6 @@ bool out_of_time(ThreadInfo &thread_info) {
 
       std::this_thread::sleep_for(std::chrono::milliseconds(
           thread_info.opt_time - time_elapsed(thread_info.start_time)));
-      // If there's a max time limit and a node limit, it means we're using a
-      // skill level. In that case, we don't want the engine to move instantly.
     }
 
     if (thread_info.doing_datagen) {
@@ -94,8 +92,6 @@ bool has_non_pawn_material(const Position &position, int color) {
 }
 
 int16_t total_mat_color(const Position &position, int color) {
-  // total material for one color
-
   int m = 0;
   for (int i = 0; i < 5; i++) {
     m += position.material_count[i * 2 + color] * SeeValues[i + 1];
@@ -108,21 +104,7 @@ int eval(Position &position, ThreadInfo &thread_info) {
   int root_color = thread_info.search_ply % 2 ? color ^ 1 : color;
   int eval = thread_info.nnue_state.evaluate(color, thread_info.phase);
 
-  // Patricia is much less dependent on explicit eval twiddling than before, but
-  // there are still a few things I do.
-
   int bonus1 = 0, bonus2 = 0;
-
-  /*
-    // Give a small bonus if the position is much better than what material
-    would
-    // suggest
-    if (eval > 0 && eval > m_eval + m_threshold) {
-      bonus1 += 25 + (eval - m_eval - m_threshold) / 10;
-    } else if (eval < 0 && eval < m_eval - m_threshold) {
-      bonus1 -= 25 + (m_eval - eval - m_threshold) / 10;
-    }
-  */
 
   bool our_side = (thread_info.search_ply % 2 == 0);
 
@@ -130,10 +112,6 @@ int eval(Position &position, ThreadInfo &thread_info) {
 
   int s_m = thread_info.game_hist[start_index].m_diff;
   int s = 0;
-
-  // Give a small bonus if we have sacrificed material at some point in the
-  // search tree If we are completely winning, give a bigger bonus to
-  // incentivize finding the most stylish move when everything wins
 
   for (int idx = start_index + 2; idx < thread_info.game_ply - 4; idx += 2) {
 
@@ -154,37 +132,34 @@ int eval(Position &position, ThreadInfo &thread_info) {
       break;
     }
   }
-  if (s && total_mat(position) > 4500) {
 
-    if (thread_info.search_ply % 2) {
-      bonus2 = -50 *
-               (eval < -500 ? 2
-                : eval < 0  ? 1
-                            : 0) *
-               10 /
-               (s < -300   ? 5
-                : s < -100 ? 10
-                           : 20);
+  int cur_m = our_side ? material_eval(position) : -material_eval(position);
+  int deficit = s_m - cur_m;
+  int tm = total_mat(position);
+   // Bonus 1
+  if (tm > 3000 && deficit > 80) {
+    if (our_side && eval > 100) {
+      bonus1 = std::min(130, 25 + deficit / 9 + (eval - 100) / 25);
+    } else if (!our_side && eval < -100) {
+      bonus1 = -std::min(130, 25 + deficit / 9 + (-eval - 100) / 25);
+    }
+  }
+// Bonus 2
+  if (s && tm > 3200) {
+    int div = s < -400 ? 4 : s < -250 ? 7 : s < -90 ? 11 : 18;
+    if (our_side) {
+      int tier = eval > 700 ? 3 : eval > 350 ? 2 : eval > 0 ? 1 : 0;
+      bonus2 = std::min(260, 55 * tier * 10 / div);
     } else {
-      bonus2 = 50 *
-               (eval > 500 ? 2
-                : eval > 0 ? 1
-                           : 0) *
-               10 /
-               (s < -300   ? 5
-                : s < -100 ? 10
-                           : 20);
+      int tier = eval < -700 ? 3 : eval < -350 ? 2 : eval < 0 ? 1 : 0;
+      bonus2 = -std::min(260, 55 * tier * 10 / div);
     }
   }
 
-  // If we're winning, scale eval by material; we don't want to trade off to an
-  // easily won endgame, but instead should continue the attack.
-
-  float multiplier = ((float)750 + total_mat(position) / 25) / 1024;
+  float multiplier = ((float)740 + tm / 22) / 1024;
 
   if (!position.material_count[root_color + 8] ||
-      total_mat(position) < 4000 &&
-          ((eval > 0 && our_side) || (eval < 0 && !our_side))) {
+      tm < 4000 && ((eval > 0 && our_side) || (eval < 0 && !our_side))) {
     multiplier -= 0.1;
   }
 
@@ -223,7 +198,6 @@ int correct_eval(const Position &position, ThreadInfo &thread_info, int eval) {
 }
 
 void ss_push(Position &position, ThreadInfo &thread_info, Move move) {
-  // update search stack after makemove
   thread_info.search_ply++;
 
   thread_info.game_hist[thread_info.game_ply].position_key =
@@ -238,38 +212,29 @@ void ss_push(Position &position, ThreadInfo &thread_info, Move move) {
 }
 
 void ss_pop(ThreadInfo &thread_info) {
-  // associated with unmake
   thread_info.search_ply--, thread_info.game_ply--;
 
   thread_info.nnue_state.pop();
 }
 
-bool material_draw(
-    const Position &position) { // Is there not enough material on the
-                                // position for one side to win?
-  for (int i : {0, 1, 6, 7, 8,
-                9}) { // Do we have pawns, rooks, or queens on the position?
+bool material_draw(const Position &position) {
+  for (int i : {0, 1, 6, 7, 8, 9}) {
     if (position.material_count[i]) {
       return false;
     }
   }
   if (position.material_count[4] > 1 || position.material_count[2] > 2 ||
-      (position.material_count[2] &&
-       position.material_count[4])) { // Do we have three knights, two bishops,
-                                      // or a bishop and knight for either side?
+      (position.material_count[2] && position.material_count[4])) {
     return false;
   }
   if (position.material_count[5] > 1 || position.material_count[3] > 2 ||
-      (position.material_count[3] &&
-       position.material_count[5])) { // Do we have three knights, two bishops,
-                                      // or a bishop and knight for either side?
+      (position.material_count[3] && position.material_count[5])) {
     return false;
   }
   return true;
 }
 
-bool is_draw(const Position &position,
-             ThreadInfo &thread_info) { // Detects if the position is a draw.
+bool is_draw(const Position &position, ThreadInfo &thread_info) {
 
   uint64_t hash = position.zobrist_key;
 
@@ -289,10 +254,7 @@ bool is_draw(const Position &position,
   if (material_draw(position)) {
     return true;
   }
-  int start_index =
-      game_ply -
-      4; // game_ply - 1: last played move, game_ply - 2: your last played move,
-         // game_ply - 4 is the first opportunity a repetition is possible
+  int start_index = game_ply - 4;
   int end_indx = std::max(game_ply - halfmoves, 0);
   for (int i = start_index; i >= end_indx; i -= 2) {
     if (hash == thread_info.game_hist[i].position_key) {
@@ -303,10 +265,8 @@ bool is_draw(const Position &position,
 }
 
 int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
-            std::vector<TTBucket> &TT) { // Performs a quiescence search on the
-                                         // given position.
+            std::vector<TTBucket> &TT) {
   if (out_of_time(thread_info)) {
-    // return if out of time
     return correct_eval(position, thread_info, eval(position, thread_info));
   }
   int color = position.color;
@@ -321,10 +281,8 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
     thread_info.seldepth = ply;
   }
   if (ply >= MaxSearchDepth - 1) {
-    return correct_eval(
-        position, thread_info,
-        eval(position,
-             thread_info)); // if we're about to overflow stack return
+    return correct_eval(position, thread_info,
+                        eval(position, thread_info));
   }
 
   uint64_t hash = position.zobrist_key;
@@ -334,7 +292,7 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
 
   int entry_type = EntryTypes::None, tt_static_eval = ScoreNone,
       tt_score = ScoreNone;
-  Move tt_move = MoveNone; // Initialize TT variables and check for a hash hit
+  Move tt_move = MoveNone;
 
   if (tt_hit) {
     entry_type = entry.get_type();
@@ -347,7 +305,6 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
     if ((entry_type == EntryTypes::Exact) ||
         (entry_type == EntryTypes::LBound && tt_score >= beta) ||
         (entry_type == EntryTypes::UBound && tt_score <= alpha)) {
-      // if we get an "accurate" tt score then return
       return tt_score;
     }
   }
@@ -360,8 +317,7 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
   int static_eval = ScoreNone;
   int raw_eval = ScoreNone;
 
-  if (!in_check) { // If we're not in check and static eval beats beta, we can
-                   // immediately return
+  if (!in_check) {
     if (tt_static_eval == ScoreNone) {
       raw_eval = eval(position, thread_info);
       best_score = static_eval = correct_eval(position, thread_info, raw_eval);
@@ -421,7 +377,6 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
     thread_info.phase = phase;
 
     if (thread_data.stop || thread_info.datagen_stop) {
-      // return if we ran out of time for search
       return best_score;
     }
 
@@ -432,17 +387,15 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
         raised_alpha = true;
         alpha = score;
       }
-      if (score >= beta) { // failing high
+      if (score >= beta) {
         break;
       }
     }
   }
 
-  if (best_score == ScoreNone) { // handle no legal moves (stalemate/checkmate)
+  if (best_score == ScoreNone) {
     return ply - ScoreMate;
   }
-
-  // insert entries and return
 
   entry_type = best_score >= beta ? EntryTypes::LBound : EntryTypes::UBound;
 
@@ -453,8 +406,7 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
 
 template <bool is_pv>
 int search(int alpha, int beta, int depth, bool cutnode, Position &position,
-           ThreadInfo &thread_info,
-           std::vector<TTBucket> &TT) { // Performs an alpha-beta search.
+           ThreadInfo &thread_info, std::vector<TTBucket> &TT) {
 
   GameHistory *ss = &(thread_info.game_hist[thread_info.game_ply]);
 
@@ -471,35 +423,25 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   }
 
   if (out_of_time(thread_info) || ply >= MaxSearchDepth - 1) {
-    // check for timeout
     return correct_eval(position, thread_info, eval(position, thread_info));
   }
 
-  if (ply && is_draw(position, thread_info)) { // Draw detection
+  if (ply && is_draw(position, thread_info)) {
     int draw_score = 1 - (thread_info.nodes & 3);
 
     int material = material_eval(position);
 
     if (material < -100) {
-      draw_score += 50;
+      draw_score += 60;
     } else if (material > 100) {
-      draw_score -= 50;
+      draw_score -= 60;
     }
 
     return draw_score;
-    // We want to discourage draws at the root.
-    // ply 0 - make a move that makes the position a draw
-    // ply 1 - bonus to side, which is penalty to us
-
-    // alternatively
-    // ply 0 - we make forced move
-    // ply 1 - opponent makes draw move
-    // ply 2 - penalty to us*/
   }
 
   if (depth <= 0) {
-    return qsearch(alpha, beta, position, thread_info,
-                   TT); // drop into qsearch if depth is too low.
+    return qsearch(alpha, beta, position, thread_info, TT);
   }
   thread_info.nodes++;
 
@@ -514,9 +456,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     thread_info.pv[pv_index] = MoveNone;
   }
 
-  thread_info.excluded_move =
-      MoveNone; // If we currently are in singular search, this sets it so moves
-                // *after* it are not in singular search
+  thread_info.excluded_move = MoveNone;
   int score = ScoreNone;
   int best_score = ScoreNone;
   int max_score = -ScoreNone;
@@ -525,10 +465,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   uint8_t phase = thread_info.phase;
 
   int mate_distance = ScoreMate - ply;
-  if (mate_distance <
-      beta) // Mate distance pruning; if we're at depth 10 but we've already
-            // found a mate in 3, there's no point searching this.
-  {
+  if (mate_distance < beta) {
     beta = mate_distance;
     if (alpha >= beta) {
       return beta;
@@ -546,7 +483,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       tt_score = ScoreNone, tt_depth = 0;
   Move tt_move = MoveNone;
 
-  if (tt_hit) { // TT probe
+  if (tt_hit) {
     entry_type = entry.get_type();
     tt_static_eval = entry.static_eval;
     tt_score = score_from_tt(entry.score, ply);
@@ -555,9 +492,6 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   }
 
   if (tt_score != ScoreNone && !is_pv && tt_depth >= depth) {
-    // If we get a useful score from the TT and it's
-    // searched to at least the same depth we would
-    // have searched, then we can return
     if ((entry_type == EntryTypes::Exact) ||
         (entry_type == EntryTypes::LBound && tt_score >= beta) ||
         (entry_type == EntryTypes::UBound && tt_score <= alpha)) {
@@ -605,8 +539,6 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   uint64_t in_check =
       attacks_square(position, get_king_pos(position, color), color ^ 1);
 
-  // We can't do any eval-based pruning if in check.
-
   int32_t static_eval;
   int32_t raw_eval;
 
@@ -634,9 +566,6 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
   bool improving = false;
 
-  // Improving: Is our eval better than it was last turn? If so we can prune
-  // less in certain circumstances (or prune more if it's not)
-
   if (ply > 1 && !in_check &&
       static_eval > ((ss - 2)->static_eval != ScoreNone
                          ? (ss - 2)->static_eval
@@ -653,8 +582,6 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     }
   }
 
-  // Razoring: if our position is really bad compared to alpha and we're at low depths, we can probably return if qsearch fails as well.
-
   if (!is_pv && !in_check && !singular_search) {
 
     if (alpha < 2000 && depth < 5 && static_eval + 400 * depth < alpha) {
@@ -664,9 +591,6 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       }
     }
 
-    // Reverse Futility Pruning (RFP): If our position is way better than beta,
-    // we're likely good to stop searching the node.
-
     if (depth <= RFPMaxDepth &&
         static_eval - RFPMargin * (depth - improving) >= beta) {
       return (static_eval + beta) / 2;
@@ -674,9 +598,6 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     if (static_eval >= beta && depth >= NMPMinDepth &&
         has_non_pawn_material(position, color) &&
         (ss - 1)->played_move != MoveNone) {
-
-      // Null Move Pruning (NMP): If we can give our opponent a free move and
-      // still beat beta on a reduced search, we can prune the node.
 
       Position temp_pos = position;
       make_move(temp_pos, MoveNone);
@@ -689,7 +610,6 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
                              thread_info, TT);
 
       thread_info.search_ply--, thread_info.game_ply--;
-      // we don't call ss_pop because the nnue state was never pushed
 
       if (score >= beta) {
         if (score >= ScoreWin) {
@@ -701,13 +621,10 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   }
 
   if ((is_pv || cutnode) && tt_move == MoveNone && depth > IIRMinDepth) {
-    // Internal Iterative Reduction: If we are in a PV node and have no TT move,
-    // reduce the depth.
     depth--;
   }
 
   int p_beta = beta + ProbcutMargin;
-  // Probcut: if a low depth search of only captures beats beta by a significant margin, we're good to return early.
 
   if (cutnode && abs(beta) < ScoreWin && depth > 4 &&
       (tt_hit ? (tt_score >= p_beta && is_cap(position, tt_move))
@@ -765,13 +682,12 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
   thread_info.FailHighCount[ply + 2] = 0;
 
   MovePicker picker;
-  init_picker(picker, position, -107, in_check, ss);
+  init_picker(picker, position, -175, in_check, ss);
 
-  int moves_played = 0; // Generate and score moves
+  int moves_played = 0;
   bool is_capture = false, skip = false;
 
   while (Move move = next_move(picker, position, thread_info, tt_move, skip)) {
-    // skip various excluded moves
     if (root) {
       bool pv_skip = false;
       for (int i = 0; i < thread_info.multipv_index; i++) {
@@ -803,23 +719,16 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
       int lmr_depth = std::max(1, depth - LMRTable[depth][moves_played]);
 
-      // Late Move Pruning (LMP): If we've searched enough moves, we can skip
-      // the rest.
-
       if (depth < LMPDepth &&
           moves_played >= LMPBase + depth * depth / (2 - improving)) {
         skip = true;
       }
-
-      // Futility Pruning (FP): If we're far worse than alpha and our move isn't
-      // a good capture, we can skip the rest.
 
       if (!in_check && depth < FPDepth && picker.stage > Stages::Captures &&
           static_eval + FPMargin1 + FPMargin2 * lmr_depth < alpha) {
         skip = true;
       }
 
-      // History Pruning: at low depths, we can prune quiets with very bad history (failed low many times)
       if (!is_pv && !is_capture && lmr_depth < HistPruningDepth &&
           hist_score < -4096 * lmr_depth) {
         skip = true;
@@ -831,16 +740,11 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       int margin = is_capture ? SeePruningNoisyMargin : SeePruningQuietMargin;
 
       if (!SEE(position, move, depth * margin)) {
-        // SEE pruning: if we are hanging material, prune under certain
-        // conditions.
         continue;
       }
     }
 
     int extension = 0;
-
-    // Singular Extensions (SE): If a search finds that the TT move is way
-    // better than all other moves, extend it under certain conditions.
 
     if (!root && ply < thread_info.current_iter * 2) {
       if (!singular_search && depth >= SEDepth && move == tt_move &&
@@ -856,15 +760,11 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
           if (!is_pv && sScore + SEDoubleExtMargin < sBeta &&
               ply < thread_info.current_iter) {
 
-            // In some cases we can even double extend
             extension = 2 + (!is_capture && sScore < sBeta - SETripleExtMargin);
           } else {
             extension = 1;
           }
         } else if (sBeta >= beta) {
-          // Multicut: If there was another move that beat beta, it's a sign
-          // that we'll probably beat beta with a full search too.
-
           return sBeta;
         } else if (cutnode) {
           extension = -1;
@@ -879,49 +779,41 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
     ss_push(position, thread_info, move);
 
+    bool gives_check =
+        attacks_square(moved_position, get_king_pos(moved_position, color ^ 1),
+                       color) != 0;
+
+    if (!extension && gives_check && depth < 8 &&
+        ply < thread_info.current_iter * 2) {
+      extension = 1;
+    }
+
     bool full_search = false;
     int newdepth = std::min(depth - 1 + extension, 126);
-
-    // Late Move Reductions (LMR): Moves ordered later in search and at high
-    // depths can be searched to a lesser depth than normal. If the reduced
-    // search beats alpha, we'll have to search again, but most moves don't,
-    // making this technique more than worth it.
-    // If that beats alpha, we search at normal depth with null window
-    // If that also beats alpha, we search at normal depth with full window.
 
     if (depth >= LMRMinDepth && moves_played > is_pv) {
       int R = LMRTable[depth][moves_played];
       if (is_capture) {
-        // Captures get LMRd less because they're the most likely moves to beat
-        // alpha/beta
         R /= 2;
+        R -= !SEE(position, move, -90);
       } else {
         R -= hist_score / HistDiv;
       }
 
-      // Decrease reduction if in pv
       R -= is_pv;
 
-      // Decrease reduction if we have searched this position at a higher depth before
       R -= (tt_hit && tt_depth >= depth);
 
-      // Increase reduction if not improving
       R += !improving;
 
-      // Increase reduction in an expected cutnode
       R += cutnode;
 
-      // Decrease reduction for checks
-      R -= (attacks_square(moved_position, get_king_pos(position, color ^ 1),
-                           color) != 0);
+      R -= gives_check;
 
-      // Increase reduction if opponent has had many refutations so far
       R += (thread_info.FailHighCount[ply + 1] > 4);
 
-      // Clamp reduction so we don't immediately go into qsearch
       R = std::clamp(R, 0, newdepth - 1);
 
-      // Reduced search, reduced window
       score = -search<false>(-alpha - 1, -alpha, newdepth - R, true,
                              moved_position, thread_info, TT);
       if (score > alpha) {
@@ -933,12 +825,10 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       full_search = moves_played || !is_pv;
     }
     if (full_search) {
-      // Full search, null window
       score = -search<false>(-alpha - 1, -alpha, newdepth, !cutnode,
                              moved_position, thread_info, TT);
     }
     if ((score > alpha || !moves_played) && is_pv) {
-      // Full search, full window
       score = -search<true>(-beta, -alpha, newdepth, false, moved_position,
                             thread_info, TT);
     }
@@ -947,7 +837,6 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     thread_info.phase = phase;
 
     if (thread_data.stop || thread_info.datagen_stop) {
-      // return if we ran out of time for search
       return best_score;
     }
 
@@ -997,7 +886,7 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     thread_info.best_scores[thread_info.multipv_index] = best_score;
   }
 
-  if (best_score == ScoreNone) { // handle no legal moves (stalemate/checkmate)
+  if (best_score == ScoreNone) {
     return singular_search ? alpha : in_check ? (ply - ScoreMate) : 0;
   }
 
@@ -1011,11 +900,10 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     int bonus = std::min(
         (int)HistBonus * (depth - 1 + (best_score > beta + 125)), (int)HistMax);
 
-    // Update history scores and the killer move.
-
     if (is_capture) {
 
-      update_history(thread_info.CapHistScores[piece][sq], bonus);
+      int sac_bonus = SEE(position, best_move, 0) ? 0 : bonus / 2;
+      update_history(thread_info.CapHistScores[piece][sq], bonus + sac_bonus);
 
     } else {
 
@@ -1027,9 +915,6 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       int our_piece = (ss - 2)->piece_moved;
 
       for (int i = 0; i < num_quiets; i++) {
-
-        // Every quiet move that *didn't* raise beta gets its history score
-        // reduced
 
         Move move = quiets[i];
 
@@ -1087,8 +972,6 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
   bool best_capture = is_cap(position, best_move);
 
-  // update various correction histories
-  
   if (!in_check && (!best_move || !best_capture) &&
       !(best_score >= beta && best_score <= ss->static_eval) &&
       !(!best_move && best_score >= ss->static_eval)) {
@@ -1117,7 +1000,6 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
     }
   }
 
-  // Add the search results to the TT, accounting for mate scores
   if (!singular_search) {
     insert_entry(entry, hash, depth, best_move, raw_eval,
                  score_to_tt(best_score, ply), entry_type,
@@ -1140,8 +1022,6 @@ void print_pv(Position &position, ThreadInfo &thread_info) {
     }
 
     Move best_move = thread_info.pv[indx];
-
-    // Verify that the pv move is possible and legal by generating moves
 
     MoveInfo moves;
     int movelen = legal_movegen(temp_pos, moves.moves);
@@ -1169,9 +1049,8 @@ void print_pv(Position &position, ThreadInfo &thread_info) {
   printf("\n");
 }
 
-void iterative_deepen(
-    Position &position, ThreadInfo &thread_info,
-    std::vector<TTBucket> &TT) { // Performs an iterative deepening search.
+void iterative_deepen(Position &position, ThreadInfo &thread_info,
+                      std::vector<TTBucket> &TT) {
 
   thread_info.original_opt = thread_info.opt_time;
   thread_info.datagen_stop = false;
@@ -1182,7 +1061,7 @@ void iterative_deepen(
   thread_info.nodes = 0;
   thread_info.tb_hits = 0;
   thread_info.time_checks = 0;
-  thread_info.search_ply = 0; // reset all relevant thread_info
+  thread_info.search_ply = 0;
   thread_info.excluded_move = MoveNone;
   thread_info.best_moves = {0};
   thread_info.best_scores = {ScoreNone, ScoreNone, ScoreNone, ScoreNone,
@@ -1190,7 +1069,6 @@ void iterative_deepen(
   std::memset(&thread_info.KillerMoves, 0, sizeof(thread_info.KillerMoves));
   std::memset(&thread_info.FailHighCount, 0, sizeof(thread_info.FailHighCount));
 
-  // Prepare root moves
   thread_info.root_moves.reserve(ListSize);
   thread_info.root_moves.clear();
   {
@@ -1205,8 +1083,6 @@ void iterative_deepen(
   int alpha = ScoreNone, beta = -ScoreNone;
   int bm_stability = 0;
 
-  // Short rolling window of recently completed iteration scores, used to
-  // smooth out single-iteration noise in the score-drop time factor.
   std::array<int, 3> score_hist{};
   int score_hist_count = 0;
 
@@ -1224,10 +1100,6 @@ void iterative_deepen(
 
       score =
           search<true>(alpha, beta, depth, false, position, thread_info, TT);
-
-      // Aspiration Windows: We search the position with a narrow window around
-      // the last search score in order to get cutoffs faster. If our search
-      // lands outside the bounds, expand them and try again.
 
       while (score <= alpha || score >= beta || thread_data.stop ||
              thread_info.datagen_stop) {
@@ -1315,8 +1187,7 @@ void iterative_deepen(
           nps = wezly;
         }
 
-        if (!thread_info.doing_datagen /*&&
-            !(thread_info.is_human && thread_info.multipv_index)*/) {
+        if (!thread_info.doing_datagen) {
           printf("info multipv %i depth %i seldepth %i score %s nodes %" PRIu64
                  " nps %" PRIi64 " tbhits %" PRIu64 " time %" PRIi64 " pv ",
                  thread_info.multipv_index + 1, depth, thread_info.seldepth,
@@ -1365,10 +1236,10 @@ void iterative_deepen(
         score_hist_count++;
 
         if (depth >= 6 && total_mat(position) >= PhaseBound) {
-          if (thread_info.best_scores[0] < -20) {
+          if (thread_info.best_scores[0] < -60) {
             thread_info.phase = PhaseTypes::Endgame;
             thread_info.nnue_state.reset_nnue(position, thread_info.phase);
-          } else if (thread_info.best_scores[0] > 400) {
+          } else if (thread_info.best_scores[0] > 250) {
             thread_info.phase = PhaseTypes::Sacrifice;
             thread_info.nnue_state.reset_nnue(position, thread_info.phase);
           } else {
@@ -1393,8 +1264,6 @@ void iterative_deepen(
   }
 
 finish:
-  // wait for all threads to finish searching
-  // printf("%i\n", thread_info.thread_id);
   if (thread_info.thread_id == 0 && !thread_info.doing_datagen) {
     thread_data.stop = true;
   }
@@ -1416,7 +1285,6 @@ void search_position(Position &position, ThreadInfo &thread_info,
 
   int num_threads = thread_data.num_threads;
 
-  // Wait for threads to be ready
   reset_barrier.arrive_and_wait();
 
   for (int i = 0; i < thread_data.thread_infos.size(); i++) {
@@ -1424,7 +1292,6 @@ void search_position(Position &position, ThreadInfo &thread_info,
     thread_data.thread_infos[i].thread_id = i + 1;
   }
 
-  // Tell threads to start
   idle_barrier.arrive_and_wait();
 
   thread_data.stop = false;
