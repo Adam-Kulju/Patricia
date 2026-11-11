@@ -1,3 +1,4 @@
+#pragma once
 #include "movegen.h"
 
 namespace Stages {
@@ -16,7 +17,7 @@ constexpr int CaptureHistorySeeDivisor = 128;
 constexpr int MaxCaptureHistorySeeAdjustment = 128;
 constexpr int ImmediateContinuationWeight = 2;
 // Quiets scoring below this are deferred until after the bad captures.
-// This value should be tuned (SPRT) against the engine's history scale.
+// Compatible with update_history gravity limit of 16384.
 constexpr int BadQuietThreshold = -12000;
 } // namespace MovePickerTuning
 
@@ -34,8 +35,8 @@ struct MovePicker {
   GameHistory *ss;
 };
 
-void init_picker(MovePicker &picker, Position &, int threshold,
-                 uint64_t checkers, GameHistory *ss) {
+inline void init_picker(MovePicker &picker, Position &, int threshold,
+                        uint64_t checkers, GameHistory *ss) {
   picker.see_threshold = threshold;
   picker.stage = Stages::TT;
   picker.checkers = checkers;
@@ -63,8 +64,8 @@ static inline int capture_see_adjustment(const ThreadInfo &thread_info,
   return see_adjustment;
 }
 
-Move next_move(MovePicker &picker, Position &position, ThreadInfo &thread_info,
-               Move tt_move, bool skip_quiets) {
+inline Move next_move(MovePicker &picker, Position &position,
+                      ThreadInfo &thread_info, Move tt_move, bool skip_quiets) {
   if (picker.stage == Stages::TT) {
     picker.stage++;
 
@@ -139,6 +140,20 @@ Move next_move(MovePicker &picker, Position &position, ThreadInfo &thread_info,
       picker.quiets.len = movegen_dispatch<Generate::GenQuiets>(
           position, picker.quiets.moves.data(), picker.checkers);
 
+      const int opp_color = position.color ^ 1;
+      const uint64_t occ =
+          position.colors_bb[Colors::White] | position.colors_bb[Colors::Black];
+      const int their_king = get_king_pos(position, opp_color);
+      const uint64_t king_zone = KingAttacks[their_king] | (1ull << their_king);
+
+      uint64_t check_squares[PieceTypes::King + 1] = {};
+      check_squares[PieceTypes::Pawn] = PawnAttacks[opp_color][their_king];
+      check_squares[PieceTypes::Knight] = KnightAttacks[their_king];
+      check_squares[PieceTypes::Bishop] = get_bishop_attacks(their_king, occ);
+      check_squares[PieceTypes::Rook] = get_rook_attacks(their_king, occ);
+      check_squares[PieceTypes::Queen] =
+          check_squares[PieceTypes::Bishop] | check_squares[PieceTypes::Rook];
+
       Move opponent_previous_move = (picker.ss - 1)->played_move;
       Move own_previous_move = (picker.ss - 2)->played_move;
       Move own_earlier_move = (picker.ss - 4)->played_move;
@@ -169,7 +184,9 @@ Move next_move(MovePicker &picker, Position &position, ThreadInfo &thread_info,
         }
 
         int piece = position.board[extract_from(move)];
+        int piece_type = get_piece_type(piece);
         int to = extract_to(move);
+        uint64_t to_bb = 1ull << to;
         int score = thread_info.HistoryScores[piece][to];
 
         if (has_opponent_previous_move) {
@@ -186,6 +203,13 @@ Move next_move(MovePicker &picker, Position &position, ThreadInfo &thread_info,
         if (has_own_earlier_move) {
           score += thread_info.ContHistScores[own_earlier_piece]
                                              [own_earlier_to][piece][to];
+        }
+
+        if (check_squares[piece_type] & to_bb) {
+          score += QuietCheckBonus;
+        }
+        if (to_bb & king_zone) {
+          score += QuietKingZoneBonus;
         }
 
         picker.quiets.scores[i] = score;
