@@ -37,7 +37,7 @@ inline void pawn_moves_color_impl(const Position &position,
       Color ? Directions::Southeast : Directions::Northeast;
 
   // if captures, only generate the queen promo
-  // if notm generate all EXCEPT the queen promo
+  // if not, generate all EXCEPT the queen promo
   constexpr int promo_start =
       (GenType == Generate::GenCaptures) ? Promos::Queen : Promos::Knight;
   constexpr int promo_end =
@@ -236,14 +236,9 @@ inline int movegen_color_impl(const Position &position, Move *move_list,
     return idx;
   }
 
-  if (checkers) { // If we're in check there's no point in
-                  // seeing if we can castle (can be optimized)
+  if (checkers) {
     return idx;
   }
-  // Requirements: the king and rook cannot have moved, all squares between them
-  // must be empty, and the king can not go through check.
-  // (It can't end up in check either, but that gets filtered just like any
-  // illegal move.)
 
   const uint64_t king_bb = 1ull << king_pos;
 
@@ -323,7 +318,6 @@ inline bool is_legal_fast_color(const Position &position, Move move) {
   const int from = extract_from(move);
   int to = extract_to(move);
   constexpr int opp_color = Color ^ 1;
-  constexpr int back_rank = 56 * Color;
   const uint64_t occupied =
       position.colors_bb[Colors::White] | position.colors_bb[Colors::Black];
   const uint64_t from_bb = 1ull << from;
@@ -426,7 +420,6 @@ inline bool SEE_color(const Position &position, Move move, int threshold) {
   }
 
   if (gain < 0) {
-    // If taking the piece isn't good enough return
     return false;
   }
 
@@ -435,8 +428,6 @@ inline bool SEE_color(const Position &position, Move move, int threshold) {
     return true;
   }
 
-  // Store bishops and rooks here to more quickly determine later new revealed
-  // attackers
   const uint64_t bishops = position.pieces_bb[PieceTypes::Bishop] |
                            position.pieces_bb[PieceTypes::Queen];
   const uint64_t rooks = position.pieces_bb[PieceTypes::Rook] |
@@ -454,7 +445,6 @@ inline bool SEE_color(const Position &position, Move move, int threshold) {
       return stm != Color;
     }
 
-    // find cheapest attacker
     uint64_t match;
     int attackerType;
 
@@ -481,7 +471,6 @@ inline bool SEE_color(const Position &position, Move move, int threshold) {
 
     occ ^= get_lsb_bb(match);
 
-    // A new slider behind might be revealed
     if (attackerType == PieceTypes::Pawn ||
         attackerType == PieceTypes::Bishop ||
         attackerType == PieceTypes::Queen) {
@@ -505,141 +494,6 @@ inline bool SEE(const Position &position, Move move, int threshold) {
     return SEE_color<Colors::Black>(position, move, threshold);
   }
   return SEE_color<Colors::White>(position, move, threshold);
-}
-
-inline void score_moves(Position &position, ThreadInfo &thread_info,
-                        MoveInfo &scored_moves, Move tt_move, int len) {
-
-  // score the moves
-
-  const int ply = thread_info.search_ply;
-  const int opp_color = position.color ^ 1;
-
-  const uint64_t occ =
-      position.colors_bb[Colors::White] | position.colors_bb[Colors::Black];
-  const int their_king = get_king_pos(position, opp_color);
-  const uint64_t their_king_bb = 1ull << their_king;
-  const uint64_t king_zone = KingAttacks[their_king] | their_king_bb;
-
-  uint64_t check_squares[PieceTypes::King + 1] = {};
-  check_squares[PieceTypes::Pawn] = PawnAttacks[opp_color][their_king];
-  check_squares[PieceTypes::Knight] = KnightAttacks[their_king];
-  check_squares[PieceTypes::Bishop] = get_bishop_attacks(their_king, occ);
-  check_squares[PieceTypes::Rook] = get_rook_attacks(their_king, occ);
-  check_squares[PieceTypes::Queen] =
-      check_squares[PieceTypes::Bishop] | check_squares[PieceTypes::Rook];
-
-  const Move killer = thread_info.KillerMoves[ply];
-
-  const bool use_their = ply > 0;
-  const bool use_our = ply > 1;
-
-  const int their_last =
-      use_their
-          ? extract_to(
-                thread_info.game_hist[thread_info.game_ply - 1].played_move)
-          : 0;
-  const int their_piece =
-      use_their ? thread_info.game_hist[thread_info.game_ply - 1].piece_moved
-                : Pieces::Blank;
-
-  const int our_last =
-      use_our
-          ? extract_to(
-                thread_info.game_hist[thread_info.game_ply - 2].played_move)
-          : 0;
-  const int our_piece =
-      use_our ? thread_info.game_hist[thread_info.game_ply - 2].piece_moved
-              : Pieces::Blank;
-
-  const auto &their_cont = thread_info.ContHistScores[their_piece][their_last];
-  const auto &our_cont = thread_info.ContHistScores[our_piece][our_last];
-
-  for (int idx = 0; idx < len; idx++) {
-    const Move move = scored_moves.moves[idx];
-
-    if (move == tt_move) {
-      scored_moves.scores[idx] = TTMoveScore;
-      // TT move score;
-      continue;
-    }
-
-    const int from = extract_from(move), to = extract_to(move);
-    const int from_piece = position.board[from];
-    const int piece_type = get_piece_type(from_piece);
-    const uint64_t to_bb = 1ull << to;
-    const int victim = get_piece_type(position.board[to]);
-
-    if (piece_type == PieceTypes::Pawn && (to < 8 || to >= 56)) {
-      const int promo = extract_promo(move);
-      if (promo == Promos::Queen) {
-        // Queen promo score
-        scored_moves.scores[idx] =
-            QueenPromoScore + SeeValues[victim] * 8 +
-            ((check_squares[PieceTypes::Queen] & to_bb) ? CaptureCheckBonus : 0);
-      } else if (promo == Promos::Knight &&
-                 (KnightAttacks[to] & their_king_bb)) {
-        scored_moves.scores[idx] = KnightPromoCheckScore + SeeValues[victim] * 8;
-      } else {
-        scored_moves.scores[idx] = UnderPromoScore + SeeValues[victim];
-      }
-      continue;
-    }
-
-    if (is_cap(position, move)) {
-      // Capture score
-      const int victim_val =
-          victim ? SeeValues[victim] : SeeValues[PieceTypes::Pawn];
-      const int attacker_val = SeeValues[piece_type];
-      const int cap_hist = thread_info.CapHistScores[from_piece][to];
-      const bool gives_check = (check_squares[piece_type] & to_bb) != 0;
-
-      int score = victim_val * 100 - attacker_val / 100 + cap_hist;
-
-      if (victim_val >= attacker_val || SEE(position, move, -107)) {
-        score += GoodCaptureBaseScore;
-        if (gives_check) {
-          score += CaptureCheckBonus;
-        } else if (to_bb & king_zone) {
-          score += CaptureKingZoneBonus;
-        }
-      } else if (gives_check) {
-        score = SacrificeCheckScore + victim_val * 8 + cap_hist / 8;
-      } else if (to_bb & king_zone) {
-        score += BadCaptureBaseScore + KingZoneSacBonus;
-      } else {
-        score += BadCaptureBaseScore;
-      }
-
-      scored_moves.scores[idx] = score;
-      continue;
-    }
-
-    if (move == killer) {
-      // Killer move score
-      scored_moves.scores[idx] = KillerMoveScore;
-      continue;
-    }
-
-    // Normal moves are scored using history
-    int score = thread_info.HistoryScores[from_piece][to];
-
-    if (use_their) {
-      score += their_cont[from_piece][to];
-    }
-    if (use_our) {
-      score += our_cont[from_piece][to];
-    }
-
-    if (check_squares[piece_type] & to_bb) {
-      score += QuietCheckBonus;
-    }
-    if (to_bb & king_zone) {
-      score += QuietKingZoneBonus;
-    }
-
-    scored_moves.scores[idx] = score;
-  }
 }
 
 inline Move get_next_move(Move *moves, int *scores, int start_idx, int len) {
