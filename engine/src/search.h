@@ -136,7 +136,7 @@ int eval(Position &position, ThreadInfo &thread_info) {
   int cur_m = our_side ? material_eval(position) : -material_eval(position);
   int deficit = s_m - cur_m;
   int tm = total_mat(position);
-   // Bonus 1
+  // Bonus 1
   if (tm > 3000 && deficit > 80) {
     if (our_side && eval > 100) {
       bonus1 = std::min(130, 25 + deficit / 9 + (eval - 100) / 25);
@@ -144,7 +144,7 @@ int eval(Position &position, ThreadInfo &thread_info) {
       bonus1 = -std::min(130, 25 + deficit / 9 + (-eval - 100) / 25);
     }
   }
-// Bonus 2
+  // Bonus 2
   if (s && tm > 3200) {
     int div = s < -400 ? 4 : s < -250 ? 7 : s < -90 ? 11 : 18;
     if (our_side) {
@@ -159,8 +159,8 @@ int eval(Position &position, ThreadInfo &thread_info) {
   float multiplier = ((float)740 + tm / 22) / 1024;
 
   if (!position.material_count[root_color + 8] ||
-      tm < 4000 && ((eval > 0 && our_side) || (eval < 0 && !our_side))) {
-    multiplier -= 0.1;
+      (tm < 4000 && ((eval > 0 && our_side) || (eval < 0 && !our_side)))) {
+    multiplier -= 0.1f;
   }
 
   eval = eval * multiplier;
@@ -281,8 +281,7 @@ int qsearch(int alpha, int beta, Position &position, ThreadInfo &thread_info,
     thread_info.seldepth = ply;
   }
   if (ply >= MaxSearchDepth - 1) {
-    return correct_eval(position, thread_info,
-                        eval(position, thread_info));
+    return correct_eval(position, thread_info, eval(position, thread_info));
   }
 
   uint64_t hash = position.zobrist_key;
@@ -652,24 +651,24 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
       update_nnue_state(thread_info, move, position, moved_position);
       ss_push(position, thread_info, move);
 
-      int score =
+      int p_score =
           -qsearch(-p_beta, -p_beta + 1, moved_position, thread_info, TT);
 
-      if (score >= p_beta) {
-        score = -search<is_pv>(-p_beta, -p_beta + 1, depth - 4, false,
-                               moved_position, thread_info, TT);
+      if (p_score >= p_beta) {
+        p_score = -search<is_pv>(-p_beta, -p_beta + 1, depth - 4, false,
+                                 moved_position, thread_info, TT);
       }
 
       ss_pop(thread_info);
       thread_info.phase = phase;
 
-      if (score >= p_beta) {
+      if (p_score >= p_beta) {
         if (!singular_search) {
-          insert_entry(entry, hash, depth - 4, best_move, raw_eval,
-                       score_to_tt(best_score, ply), EntryTypes::LBound,
+          insert_entry(entry, hash, depth - 4, move, raw_eval,
+                       score_to_tt(p_score, ply), EntryTypes::LBound,
                        thread_info.searches);
         }
-        return score;
+        return p_score;
       }
     }
   }
@@ -710,9 +709,27 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
 
     uint64_t curr_nodes = thread_info.nodes;
 
-    int hist_score =
-        thread_info.HistoryScores[position.board[extract_from(move)]]
-                                 [extract_to(move)];
+    int move_piece = position.board[extract_from(move)];
+    int move_to = extract_to(move);
+    int hist_score = thread_info.HistoryScores[move_piece][move_to];
+    int cont_hist = 0;
+
+    if ((ss - 1)->played_move != MoveNone) {
+      cont_hist += MovePickerTuning::ImmediateContinuationWeight *
+                   thread_info.ContHistScores[(ss - 1)->piece_moved]
+                                             [extract_to((ss - 1)->played_move)]
+                                             [move_piece][move_to];
+    }
+    if ((ss - 2)->played_move != MoveNone) {
+      cont_hist += thread_info.ContHistScores[(ss - 2)->piece_moved]
+                                             [extract_to((ss - 2)->played_move)]
+                                             [move_piece][move_to];
+    }
+    if ((ss - 4)->played_move != MoveNone) {
+      cont_hist += thread_info.ContHistScores[(ss - 4)->piece_moved]
+                                             [extract_to((ss - 4)->played_move)]
+                                             [move_piece][move_to];
+    }
 
     is_capture = is_cap(position, move);
     if (!is_capture && !is_pv && best_score > ScoreLost) {
@@ -729,9 +746,10 @@ int search(int alpha, int beta, int depth, bool cutnode, Position &position,
         skip = true;
       }
 
-      if (!is_pv && !is_capture && lmr_depth < HistPruningDepth &&
-          hist_score < -4096 * lmr_depth) {
-        skip = true;
+      if (lmr_depth < HistPruningDepth &&
+          hist_score < -4096 * lmr_depth &&
+          hist_score + cont_hist < -4096 * lmr_depth) {
+        continue;
       }
     }
 
