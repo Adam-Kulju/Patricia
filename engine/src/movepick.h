@@ -7,6 +7,7 @@ constexpr uint8_t Captures = 2;
 constexpr uint8_t GenQuiets = 3;
 constexpr uint8_t Quiets = 4;
 constexpr uint8_t BadCaptures = 5;
+constexpr uint8_t BadQuiets = 6;
 } // namespace Stages
 
 namespace MovePickerTuning {
@@ -14,13 +15,18 @@ constexpr int VictimScale = 100;
 constexpr int CaptureHistorySeeDivisor = 128;
 constexpr int MaxCaptureHistorySeeAdjustment = 128;
 constexpr int ImmediateContinuationWeight = 2;
+// Quiets scoring below this are deferred until after the bad captures.
+// This value should be tuned (SPRT) against the engine's history scale.
+constexpr int BadQuietThreshold = -12000;
 } // namespace MovePickerTuning
 
 struct MovePicker {
   int see_threshold;
   int stage;
   uint64_t checkers;
-  int idx = 0;
+  int idx = 0;             // index into captures
+  int quiet_idx = 0;       // index into quiets (shared by good and bad quiets)
+  int bad_capture_idx = 0; // index into bad captures
 
   MoveInfo captures;
   MoveInfo quiets;
@@ -34,10 +40,27 @@ void init_picker(MovePicker &picker, Position &, int threshold,
   picker.stage = Stages::TT;
   picker.checkers = checkers;
   picker.idx = 0;
+  picker.quiet_idx = 0;
+  picker.bad_capture_idx = 0;
   picker.captures.len = 0;
   picker.quiets.len = 0;
   picker.bad_captures.len = 0;
   picker.ss = ss;
+}
+
+static inline int capture_see_adjustment(const ThreadInfo &thread_info,
+                                         int from_piece, int to) {
+  int see_adjustment = thread_info.CapHistScores[from_piece][to] /
+                       MovePickerTuning::CaptureHistorySeeDivisor;
+
+  if (see_adjustment > MovePickerTuning::MaxCaptureHistorySeeAdjustment) {
+    see_adjustment = MovePickerTuning::MaxCaptureHistorySeeAdjustment;
+  } else if (see_adjustment <
+             -MovePickerTuning::MaxCaptureHistorySeeAdjustment) {
+    see_adjustment = -MovePickerTuning::MaxCaptureHistorySeeAdjustment;
+  }
+
+  return see_adjustment;
 }
 
 Move next_move(MovePicker &picker, Position &position, ThreadInfo &thread_info,
@@ -70,16 +93,12 @@ Move next_move(MovePicker &picker, Position &position, ThreadInfo &thread_info,
         victim_value = attacker_value;
       }
 
-      if (extract_promo(move) == Promos::Queen) {
-        picker.captures.scores[i] =
-            QueenPromoScore + victim_value * MovePickerTuning::VictimScale -
-            attacker_value + capture_history;
-      } else {
-        picker.captures.scores[i] =
-            GoodCaptureBaseScore +
-            victim_value * MovePickerTuning::VictimScale - attacker_value +
-            capture_history;
-      }
+      int base = extract_promo(move) == Promos::Queen ? QueenPromoScore
+                                                      : GoodCaptureBaseScore;
+
+      picker.captures.scores[i] = base +
+                                  victim_value * MovePickerTuning::VictimScale -
+                                  attacker_value + capture_history;
     }
 
     picker.stage++;
@@ -97,112 +116,132 @@ Move next_move(MovePicker &picker, Position &position, ThreadInfo &thread_info,
 
       int from_piece = position.board[extract_from(move)];
       int to = extract_to(move);
-      int see_adjustment = thread_info.CapHistScores[from_piece][to] /
-                           MovePickerTuning::CaptureHistorySeeDivisor;
-
-      if (see_adjustment > MovePickerTuning::MaxCaptureHistorySeeAdjustment) {
-        see_adjustment = MovePickerTuning::MaxCaptureHistorySeeAdjustment;
-      } else if (see_adjustment <
-                 -MovePickerTuning::MaxCaptureHistorySeeAdjustment) {
-        see_adjustment = -MovePickerTuning::MaxCaptureHistorySeeAdjustment;
-      }
+      int see_adjustment = capture_see_adjustment(thread_info, from_piece, to);
 
       if (SEE(position, move, picker.see_threshold - see_adjustment)) {
         return move;
       }
 
+      // Captures are picked in score order, so bad captures stay sorted.
       picker.bad_captures.moves[picker.bad_captures.len++] = move;
     }
 
-    picker.idx = 0;
     picker.stage++;
   }
 
   if (picker.stage == Stages::GenQuiets) {
-    picker.quiets.len = movegen_dispatch<Generate::GenQuiets>(
-        position, picker.quiets.moves.data(), picker.checkers);
+    if (skip_quiets) {
+      // Don't waste time generating and scoring quiets that will never be
+      // searched; go straight to the bad captures.
+      picker.quiets.len = 0;
+      picker.stage = Stages::BadCaptures;
+    } else {
+      picker.quiets.len = movegen_dispatch<Generate::GenQuiets>(
+          position, picker.quiets.moves.data(), picker.checkers);
 
-    Move opponent_previous_move = (picker.ss - 1)->played_move;
-    Move own_previous_move = (picker.ss - 2)->played_move;
-    Move own_earlier_move = (picker.ss - 4)->played_move;
+      Move opponent_previous_move = (picker.ss - 1)->played_move;
+      Move own_previous_move = (picker.ss - 2)->played_move;
+      Move own_earlier_move = (picker.ss - 4)->played_move;
 
-    bool has_opponent_previous_move = opponent_previous_move != MoveNone;
-    bool has_own_previous_move = own_previous_move != MoveNone;
-    bool has_own_earlier_move = own_earlier_move != MoveNone;
+      bool has_opponent_previous_move = opponent_previous_move != MoveNone;
+      bool has_own_previous_move = own_previous_move != MoveNone;
+      bool has_own_earlier_move = own_earlier_move != MoveNone;
 
-    int opponent_previous_to =
-        has_opponent_previous_move ? extract_to(opponent_previous_move) : 0;
-    int own_previous_to =
-        has_own_previous_move ? extract_to(own_previous_move) : 0;
-    int own_earlier_to =
-        has_own_earlier_move ? extract_to(own_earlier_move) : 0;
+      int opponent_previous_to =
+          has_opponent_previous_move ? extract_to(opponent_previous_move) : 0;
+      int own_previous_to =
+          has_own_previous_move ? extract_to(own_previous_move) : 0;
+      int own_earlier_to =
+          has_own_earlier_move ? extract_to(own_earlier_move) : 0;
 
-    int opponent_previous_piece = (picker.ss - 1)->piece_moved;
-    int own_previous_piece = (picker.ss - 2)->piece_moved;
-    int own_earlier_piece = (picker.ss - 4)->piece_moved;
+      int opponent_previous_piece = (picker.ss - 1)->piece_moved;
+      int own_previous_piece = (picker.ss - 2)->piece_moved;
+      int own_earlier_piece = (picker.ss - 4)->piece_moved;
 
-    Move killer = thread_info.KillerMoves[thread_info.search_ply];
+      Move killer = thread_info.KillerMoves[thread_info.search_ply];
 
-    for (int i = 0; i < picker.quiets.len; ++i) {
-      Move move = picker.quiets.moves[i];
+      for (int i = 0; i < picker.quiets.len; ++i) {
+        Move move = picker.quiets.moves[i];
 
-      if (move == killer) {
-        picker.quiets.scores[i] = KillerMoveScore;
-        continue;
+        if (move == killer) {
+          picker.quiets.scores[i] = KillerMoveScore;
+          continue;
+        }
+
+        int piece = position.board[extract_from(move)];
+        int to = extract_to(move);
+        int score = thread_info.HistoryScores[piece][to];
+
+        if (has_opponent_previous_move) {
+          score += MovePickerTuning::ImmediateContinuationWeight *
+                   thread_info.ContHistScores[opponent_previous_piece]
+                                             [opponent_previous_to][piece][to];
+        }
+
+        if (has_own_previous_move) {
+          score += thread_info.ContHistScores[own_previous_piece]
+                                             [own_previous_to][piece][to];
+        }
+
+        if (has_own_earlier_move) {
+          score += thread_info.ContHistScores[own_earlier_piece]
+                                             [own_earlier_to][piece][to];
+        }
+
+        picker.quiets.scores[i] = score;
       }
 
-      int piece = position.board[extract_from(move)];
-      int to = extract_to(move);
-      int score = thread_info.HistoryScores[piece][to];
-
-      if (has_opponent_previous_move) {
-        score += MovePickerTuning::ImmediateContinuationWeight *
-                 thread_info.ContHistScores[opponent_previous_piece]
-                                           [opponent_previous_to][piece][to];
-      }
-
-      if (has_own_previous_move) {
-        score +=
-            thread_info
-                .ContHistScores[own_previous_piece][own_previous_to][piece][to];
-      }
-
-      if (has_own_earlier_move) {
-        score +=
-            thread_info
-                .ContHistScores[own_earlier_piece][own_earlier_to][piece][to];
-      }
-
-      picker.quiets.scores[i] = score;
+      picker.stage++;
     }
-
-    picker.stage++;
   }
 
   if (picker.stage == Stages::Quiets) {
-  pick_quiet:
-    if (skip_quiets || picker.idx >= picker.quiets.len) {
-      picker.idx = 0;
-      picker.stage++;
-    } else {
+    // Good quiets: returned before bad captures.
+    while (!skip_quiets && picker.quiet_idx < picker.quiets.len) {
+      int i = picker.quiet_idx;
       Move move =
           get_next_move(picker.quiets.moves.data(), picker.quiets.scores.data(),
-                        picker.idx++, picker.quiets.len);
+                        picker.quiet_idx++, picker.quiets.len);
+
+      // Quiets come out in descending order. Once we hit one below the
+      // threshold, all remaining quiets are "bad" and are deferred.
+      if (picker.quiets.scores[i] < MovePickerTuning::BadQuietThreshold) {
+        picker.quiet_idx = i;
+        break;
+      }
 
       if (move == tt_move) {
-        goto pick_quiet;
+        continue;
       }
 
       return move;
     }
+
+    picker.stage = Stages::BadCaptures;
   }
 
   if (picker.stage == Stages::BadCaptures) {
-    if (picker.idx >= picker.bad_captures.len) {
-      return MoveNone;
+    if (picker.bad_capture_idx < picker.bad_captures.len) {
+      return picker.bad_captures.moves[picker.bad_capture_idx++];
     }
 
-    return picker.bad_captures.moves[picker.idx++];
+    picker.stage = Stages::BadQuiets;
+  }
+
+  if (picker.stage == Stages::BadQuiets) {
+    while (!skip_quiets && picker.quiet_idx < picker.quiets.len) {
+      Move move =
+          get_next_move(picker.quiets.moves.data(), picker.quiets.scores.data(),
+                        picker.quiet_idx++, picker.quiets.len);
+
+      if (move == tt_move) {
+        continue;
+      }
+
+      return move;
+    }
+
+    return MoveNone;
   }
 
   return MoveNone;
